@@ -9,7 +9,7 @@ $checks['PHP'] = [true, PHP_VERSION];
 $xdebug = extension_loaded('xdebug');
 $checks['Xdebug'] = [$xdebug, $xdebug ? phpversion('xdebug') . ' · modo: ' . implode(',', xdebug_info('mode')) : 'non cargado'];
 
-foreach (['pdo_mysql', 'mysqli', 'intl', 'zip', 'gd'] as $ext) {
+foreach (['bcmath', 'pdo_mysql', 'mysqli', 'intl', 'zip', 'gd'] as $ext) {
     $checks["ext/$ext"] = [extension_loaded($ext), extension_loaded($ext) ? 'ok' : 'falta'];
 }
 

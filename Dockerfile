@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Extensións de PHP habituais no módulo + Xdebug + Composer
 RUN install-php-extensions \
+        bcmath \
         pdo_mysql \
         mysqli \
         intl \

@@ -205,7 +205,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **Imaxe:** `php:8.5-apache` ou `dunglas/frankenphp:php8.5`, ambas en Debian 13. Escóllese co argumento de build `SERVER`.
   O `Dockerfile` ten unha fase por servidor e unha fase final común, así que ferramentas e extensións só se definen unha vez. As extensións instálanse con
   [`install-php-extensions`](https://github.com/mlocati/docker-php-extension-installer), que limpa as dependencias de compilación.
-  Hai `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e `xdebug`, ademais de Composer 2. Para engadir máis, pon o nome na lista do `Dockerfile`.
+  Hai `bcmath`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e `xdebug`, ademais de Composer 2. Para engadir máis, pon o nome na lista do `Dockerfile`.
 - **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
   e para o que se ve no módulo o comportamento é o mesmo: o DSN segue sendo `mysql:`, e `mysqli`, PDO e phpMyAdmin funcionan igual.
   A etiqueta `lts` colle a última versión de soporte longo. Cando saia unha LTS nova, `docker compose pull` actualiza a imaxe e MariaDB
