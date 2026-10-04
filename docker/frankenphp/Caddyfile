@@ -1,0 +1,31 @@
+{
+	# A autoridade de certificación local non se instala no anfitrión:
+	# o navegador avisará ata que confíes nela (ver README)
+	skip_install_trust
+	# Serve HTTP e HTTPS por igual, sen redirixir a HTTPS
+	auto_https disable_redirects
+	frankenphp
+}
+
+# http://          -> calquera nome, porto 80
+# https://localhost -> porto 443 cun certificado local xerado por Caddy
+http://, https://localhost {
+	root * /var/www/html
+	encode zstd br gzip
+
+	# Cartafol sen index.php nin index.html: listaxe de ficheiros (como Apache)
+	@cartafol {
+		file {path}/
+		not file {path}index.php {path}index.html
+		path */
+	}
+	handle @cartafol {
+		file_server browse
+	}
+
+	# O resto: executa o .php pedido, serve o ficheiro estático, ou, se non
+	# existe, pasa a petición a /index.php (controlador frontal, sen .htaccess)
+	handle {
+		php_server
+	}
+}

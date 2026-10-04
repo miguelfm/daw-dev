@@ -1,0 +1,3 @@
+[client]
+host = db
+default-character-set = utf8mb4

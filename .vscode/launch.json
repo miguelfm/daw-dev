@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // F5 e recarga a páxina no navegador. Válido tanto con VS Code
+            // no anfitrión como dentro do Dev Container.
+            "name": "Escoitar Xdebug",
+            "type": "php",
+            "request": "launch",
+            "port": 9003,
+            "pathMappings": {
+                "/var/www/html": "${workspaceFolder}/www"
+            }
+        }
+    ]
+}

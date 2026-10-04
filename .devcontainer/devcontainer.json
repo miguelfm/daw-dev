@@ -1,0 +1,19 @@
+{
+    // Opcional: abre VS Code DENTRO do contedor web (Dev Containers).
+    // Reutiliza compose.yaml e engade os axustes de compose.devcontainer.yaml.
+    "name": "DWCS PHP",
+    "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
+    "service": "web",
+    "runServices": ["web", "db", "phpmyadmin"],
+    "workspaceFolder": "/workspace",
+    "remoteUser": "dev",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "xdebug.php-debug",
+                "bmewburn.vscode-intelephense-client"
+            ]
+        }
+    }
+}

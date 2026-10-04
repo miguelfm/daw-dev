@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Cada luns: reconstrúe as imaxes coas actualizacións de seguridade de PHP, Debian e FrankenPHP
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probas:
+    name: Probas (${{ matrix.servidor }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        servidor: [apache, frankenphp]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: UID/GID do runner para a imaxe
+        run: |
+          echo "USER_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Comprobar a contorna
+        run: ./scripts/comprobar.sh --build ${{ matrix.servidor == 'frankenphp' && '--frankenphp' || '' }}
+
+      - name: Logs se algo falla
+        if: failure()
+        run: docker compose logs --tail 100
+
+  publicar:
+    name: Publicar imaxe (${{ matrix.servidor }})
+    needs: probas
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - servidor: apache
+            sufixo: ""
+          - servidor: frankenphp
+            sufixo: "-frankenphp"
+    env:
+      PHP_VERSION: "8.5"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/dwcs-php
+          tags: type=raw,value=${{ env.PHP_VERSION }}${{ matrix.sufixo }}
+          labels: |
+            org.opencontainers.image.title=dwcs-php${{ matrix.sufixo }}
+            org.opencontainers.image.description=Contorna PHP ${{ env.PHP_VERSION }} (${{ matrix.servidor }}) para desenvolvemento backend e o módulo DWCS
+
+      # Imaxe co UID/GID 1000, o habitual no primeiro usuario de Linux e de WSL
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            SERVER=${{ matrix.servidor }}
+            PHP_VERSION=${{ env.PHP_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.servidor }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.servidor }}

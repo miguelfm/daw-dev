@@ -1,0 +1,80 @@
+# Contorna de desenvolvemento DWCS: PHP + Apache + MariaDB + phpMyAdmin
+# Todas as variables ${...} teñen valor por defecto; pódense cambiar no ficheiro .env
+name: dwcs
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.5}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    # Imaxe publicada polo CI do repositorio: descárgase en vez de compilala.
+    # Se non existe (outra versión de PHP...), Compose constrúea co Dockerfile.
+    image: ${DWCS_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.5}
+    ports:
+      - "${WEB_PORT:-80}:80"
+    volumes:
+      - ${WWW_DIR:-./www}:/var/www/html
+    environment:
+      XDEBUG_MODE: ${XDEBUG_MODE:-debug,develop}
+      # Credenciais dispoñibles en PHP con getenv('DB_HOST')...
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-dwcs}
+      DB_USER: ${DB_USER:-dwcs}
+      DB_PASSWORD: ${DB_PASSWORD:-abc123.}
+    extra_hosts:
+      # Necesario en Linux para que Xdebug chegue ao IDE do anfitrión
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-lts}
+    ports:
+      # Para conectar desde o anfitrión (DBeaver, HeidiSQL, extensión de VS Code...)
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-abc123.}
+      MARIADB_DATABASE: ${DB_NAME:-dwcs}
+      MARIADB_USER: ${DB_USER:-dwcs}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-abc123.}
+      # Coa etiqueta lts a versión pode cambiar: actualiza os datos existentes ao arrancar
+      MARIADB_AUTO_UPGRADE: "1"
+      TZ: Europe/Madrid
+    volumes:
+      - db_data:/var/lib/mysql
+      # Os .sql desta carpeta execútanse SÓ a primeira vez (volume baleiro)
+      - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Script incluído na imaxe oficial: só dá "ok" cando rematou a inicialización
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Opcional: servidor SMTP falso para probar o envío de correo (PHPMailer...)
+  # Arrancar con: docker compose --profile mail up -d
+  # SMTP: mailpit:1025 · Bandexa web: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: [mail]
+    ports:
+      - "${MAIL_PORT:-8025}:8025"
+
+volumes:
+  db_data:

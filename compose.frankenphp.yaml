@@ -1,0 +1,21 @@
+# Variante opcional: FrankenPHP (Caddy) como servidor web en vez de Apache.
+# Engádese enriba de compose.yaml; actívase con COMPOSE_FILE no .env (ver .env.example).
+services:
+  web:
+    build:
+      args:
+        SERVER: frankenphp
+    image: ${DWCS_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.5}-frankenphp
+    # Non precisa root: FrankenPHP corre directamente co usuario `dev`
+    user: dev
+    ports:
+      - "${WEB_HTTPS_PORT:-443}:443"
+      - "${WEB_HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    volumes:
+      # Certificados locais de Caddy: consérvanse aínda que se recree o contedor
+      - caddy_data:/data/caddy
+      - caddy_config:/config/caddy
+
+volumes:
+  caddy_data:
+  caddy_config:

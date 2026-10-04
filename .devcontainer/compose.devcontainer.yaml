@@ -1,0 +1,9 @@
+# Só se usa co Dev Container. As rutas relativas son respecto á raíz do proxecto.
+services:
+  web:
+    volumes:
+      # O proxecto completo en /workspace (www/ segue montado en /var/www/html)
+      - .:/workspace:cached
+    environment:
+      # VS Code execútase dentro do contedor: Xdebug conecta a localhost
+      XDEBUG_CONFIG: client_host=localhost

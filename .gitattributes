@@ -1,0 +1,4 @@
+# Finais de liña LF en todo o proxecto, aínda que se clone desde Windows
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary

@@ -1,0 +1,10 @@
+www/
+.git/
+.vscode/
+.devcontainer/
+*.md
+docs/
+wsl/
+scripts/
+.github/
+LICENSE
