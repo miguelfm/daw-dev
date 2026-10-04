@@ -21,7 +21,7 @@ jobs:
       matrix:
         servidor: [apache, frankenphp]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: UID/GID do runner para a imaxe
         run: |
@@ -53,16 +53,16 @@ jobs:
     env:
       PHP_VERSION: "8.5"
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/dwcs-php
           tags: type=raw,value=${{ env.PHP_VERSION }}${{ matrix.sufixo }}
@@ -71,7 +71,7 @@ jobs:
             org.opencontainers.image.description=Contorna PHP ${{ env.PHP_VERSION }} (${{ matrix.servidor }}) para desenvolvemento backend e o módulo DWCS
 
       # Imaxe co UID/GID 1000, o habitual no primeiro usuario de Linux e de WSL
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
