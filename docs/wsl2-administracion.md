@@ -37,6 +37,31 @@ O script do paso 2 tamén o comproba e avisa se non está activada.
 
 ## Paso 2: activar WSL2
 
+### Instalación local nun equipo persoal
+
+Se preparas o teu propio equipo e vas usar a mesma conta de Windows, abre **PowerShell como administrador**:
+
+```powershell
+wsl --install -d Debian --no-launch
+```
+
+Reinicia Windows se o instalador o solicita. Despois, en PowerShell normal coa túa conta habitual:
+
+```powershell
+wsl --install -d Debian
+wsl -d Debian
+```
+
+O primeiro comando completa a instalación de Debian se quedou pendente; o segundo abre a distribución.
+Crea o usuario e contrasinal de Linux e continúa coa [guía do alumnado](wsl2-alumnado.md#12-descargar-o-proxecto).
+Comproba `wsl --list --verbose`: Debian debe mostrar `VERSION 2`.
+
+Durante a instalación, WSL pode indicar que a virtualización non está dispoñible ata completar o reinicio.
+Se o aviso persiste despois de reiniciar, revisa a BIOS/UEFI e a característica Plataforma de máquina virtual.
+Este procedemento segue a [documentación de Microsoft](https://learn.microsoft.com/en-us/windows/wsl/install).
+
+### Preparación dos equipos da aula
+
 O script [`wsl/instalar-wsl-admin.ps1`](../wsl/instalar-wsl-admin.ps1) fai o seguinte:
 
 1. Comproba a virtualización.
@@ -169,6 +194,11 @@ O procedemento probouse en Windows 11 Pro 25H2 (compilación 26200) con WSL 3.0.
 - Acceso desde o navegador de Windows a `http://localhost` e a phpMyAdmin.
 - HTTPS validado co certificado importado en Windows.
 - Xdebug con VS Code conectado a WSL.
+
+Ademais, a instalación local con `wsl --install -d Debian --no-launch` e reinicio verificouse en Windows 11
+Pro Education (compilación 26200), Debian 13, Docker Engine 29.8.2 e Compose 5.6.0. A contorna Apache superou
+`scripts/comprobar.sh`, incluída a conexión de Xdebug. Portainer CE 2.45.1 conectouse ao socket Docker e
+permitiu consultar os contedores; PHP e Portainer responderon desde Windows.
 
 Non se probaron:
 - Docker Desktop.

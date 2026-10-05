@@ -20,25 +20,42 @@ Ao rematar ábrese Debian e pide un **nome de usuario** e un **contrasinal** de 
 espazos nin maiúsculas (por exemplo `uxia`) e **apunta o contrasinal**: pedirácheo `sudo` cando instales algo.
 Mentres o escribes non se ve nada na pantalla; é normal.
 
-Desde agora tes **Debian** no menú Inicio e en Windows Terminal. Todos os comandos que seguen, salvo os que
-digan PowerShell, escríbense **na xanela de Debian**.
+Desde agora podes abrir **Debian** desde o menú Inicio ou desde PowerShell / Windows Terminal:
+
+```powershell
+wsl -d Debian
+```
+
+Para entrar cun usuario concreto, por exemplo `ad`, usa `wsl -d Debian -u ad`. O usuario de Linux é
+independente do de Windows; usa o nome que creaches e o contrasinal indicado polo profesorado.
+Todos os comandos que seguen, salvo os que digan PowerShell, escríbense **dentro de Debian**.
+
+Comproba en PowerShell que Debian usa WSL2:
+
+```powershell
+wsl --list --verbose
+```
+
+Debe aparecer `Debian` con `VERSION 2`. Se aparece `1`, executa `wsl --set-version Debian 2`.
 
 ### 1.2. Descargar o proxecto
 
 ```bash
 sudo apt update && sudo apt install -y git
-git clone https://github.com/miguelfm/dwcs-php.git ~/dwcs
+mkdir -p ~/proxectos
+git clone https://github.com/miguelfm/dwcs-php.git ~/proxectos/dwcs-php
 ```
 
 Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che dan un `.zip`, descomprímeo en Windows, executa
 `cd ~ && explorer.exe .` en Debian e arrastra o cartafol `dwcs` á xanela que se abre.
 
-> **Garda sempre o proxecto dentro de Debian (`~/dwcs`), nunca en `C:`**. En `C:` todo vai moito máis lento.
+> **Garda sempre o proxecto dentro de Debian (`~/proxectos/dwcs-php`), nunca en `C:`**. En `C:` todo vai moito máis lento.
+> Se xa o descargaches en `~/dwcs`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
 
 ### 1.3. Instalar Docker
 
 ```bash
-sudo bash ~/dwcs/wsl/instalar-docker.sh
+sudo bash ~/proxectos/dwcs-php/wsl/instalar-docker.sh
 ```
 
 Cando remate:
@@ -48,6 +65,7 @@ Cando remate:
 3. Volve abrir Debian e comproba que Docker funciona:
 
 ```bash
+sudo systemctl enable --now docker
 docker run --rm hello-world
 ```
 
@@ -56,7 +74,8 @@ Ten que aparecer `Hello from Docker!`.
 ### 1.4. Primeiro arranque da contorna
 
 ```bash
-cd ~/dwcs
+cd ~/proxectos/dwcs-php
+cp .env.example .env
 docker compose up -d
 ```
 
@@ -73,6 +92,17 @@ Para comprobar todo (servidor, base de datos, Composer, permisos e Xdebug):
 
 Ao final ten que poñer `OK todo correcto`.
 
+Para limitar os servizos ao equipo local, antes do primeiro arranque pon estes valores no `.env`:
+
+```dotenv
+WEB_PORT=127.0.0.1:80
+PMA_PORT=127.0.0.1:8081
+DB_PORT=127.0.0.1:3306
+MAIL_PORT=127.0.0.1:8025
+```
+
+Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os datos da BD consérvanse.
+
 ### 1.5. VS Code
 
 1. Instala [VS Code](https://code.visualstudio.com) en Windows. O instalador de usuario non pide permisos de
@@ -81,7 +111,7 @@ Ao final ten que poñer `OK todo correcto`.
 3. En Debian, desde o proxecto:
 
    ```bash
-   cd ~/dwcs
+   cd ~/proxectos/dwcs-php
    code .
    ```
 
@@ -92,19 +122,21 @@ Ao final ten que poñer `OK todo correcto`.
 
 ## 2. Uso diario
 
-1. Abre **Debian**.
+1. Abre **Debian** desde Inicio ou executa `wsl -d Debian` en PowerShell.
 2. Arranca a contorna:
 
    ```bash
-   cd ~/dwcs && docker compose up -d
+   cd ~/proxectos/dwcs-php && docker compose up -d
    ```
 
 3. Abre VS Code con `code .` e o navegador en <http://localhost>.
 
-O teu código vai en `~/dwcs/www/`. Os cambios vense ao recargar o navegador.
+O teu código vai en `~/proxectos/dwcs-php/www/`. Os cambios vense ao recargar o navegador.
+Para saír do terminal de Debian escribe `exit`.
 
-> **Importante:** cando pechas todas as xanelas de Debian (e VS Code), Windows apaga Debian ao pouco e a
-> contorna párase. Se <http://localhost> non carga, abre Debian e volve executar `docker compose up -d`.
+> Despois de reiniciar Windows ou executar `wsl --shutdown`, abre Debian e volve executar
+> `docker compose up -d` no proxecto. Docker inicia con Debian; os contedores DWCS necesitan ese arranque.
+> Non se configura o inicio automático da contorna ao iniciar sesión en Windows.
 
 Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [README](../README.md#comandos-do-día-a-día).
 
@@ -120,7 +152,62 @@ interrupción **non paran**: Xdebug só chega a VS Code cando este está conecta
 ### Ver os ficheiros desde Windows
 
 En Debian, `explorer.exe .` abre o cartafol actual no Explorador de Windows. Tamén podes ir a
-`\\wsl$\Debian\home\<o-teu-usuario>\dwcs` no Explorador.
+`\\wsl.localhost\Debian\home\<o-teu-usuario>\proxectos\dwcs-php` no Explorador.
+
+### Portainer CE: xestión gráfica opcional
+
+[Portainer CE](https://docs.portainer.io/start/install-ce/server/docker/linux) execútase como un contedor
+adicional sobre Docker Engine. Permite consultar logs, abrir consolas e xestionar contedores, imaxes,
+volumes e redes desde o navegador. Non require Docker Desktop.
+
+Dentro de Debian, crea `~/portainer/compose.yaml`:
+
+```bash
+mkdir -p ~/portainer
+nano ~/portainer/compose.yaml
+```
+
+Copia este contido e gárdao (en nano: Ctrl+O, Intro e Ctrl+X):
+
+```yaml
+name: portainer
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+volumes:
+  portainer_data:
+    name: portainer_data
+```
+
+Arráncao e consulta o token de configuración:
+
+```bash
+docker compose -f ~/portainer/compose.yaml up -d
+docker logs portainer
+```
+
+Abre <https://localhost:9443> no navegador de Windows. O certificado inicial é autofirmado e o navegador
+mostra un aviso. Na configuración inicial, copia o valor `setup_token=` dos logs e crea unha conta
+administradora cun contrasinal que cumpra os requisitos da pantalla. É unha conta propia de Portainer,
+independente de Linux e da BD; non gardes o contrasinal nin o token no repositorio.
+
+Completa a configuración nos primeiros cinco minutos. Se caduca, executa `docker restart portainer`,
+consulta de novo os logs e recarga. Véxase a [guía oficial do token](https://docs.portainer.io/faqs/installing/setup-token).
+
+Selecciona o contorno local (ou engádeo como Docker Standalone mediante Socket, usando
+`/var/run/docker.sock`). En **Containers** deben aparecer `dwcs-web`, `dwcs-db` e `dwcs-phpmyadmin`.
+Portainer ten acceso administrativo ao motor Docker a través dese socket.
+
+O proxecto DWCS segue xestionándose co seu `compose.yaml` e `docker compose up -d` desde o terminal.
+Non despregues unha segunda copia desde Portainer: os nomes dos contedores son fixos e entrarían en conflito.
+Os datos de Portainer persisten no volume `portainer_data`; inicia con Docker salvo que o pares expresamente.
 
 ## 3. HTTPS con FrankenPHP (só se o pide o profesorado)
 
@@ -130,7 +217,7 @@ navegador non avise de que o certificado non é fiable:
 1. En Debian, copia o certificado ao proxecto e abre o cartafol en Windows:
 
    ```bash
-   cd ~/dwcs
+   cd ~/proxectos/dwcs-php
    docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
    explorer.exe .
    ```
@@ -145,17 +232,18 @@ certificados → Autoridades → Importar* e marca «Confiar nesta CA para ident
 
 ## 4. Problemas habituais
 
-Executa primeiro `cd ~/dwcs && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
+Executa primeiro `cd ~/proxectos/dwcs-php && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
 pásalle a saída ao profesorado.
 
 | Síntoma | Solución |
 |---|---|
-| <http://localhost> non carga | A contorna está parada: abre Debian e executa `cd ~/dwcs && docker compose up -d`. |
+| <http://localhost> non carga | Abre Debian e executa `cd ~/proxectos/dwcs-php && docker compose up -d`. |
 | `permission denied ... docker.sock` | Non fixeches o `wsl --shutdown` despois de instalar Docker (paso 1.3). |
-| `Cannot connect to the Docker daemon` | Executa `wsl --shutdown` en PowerShell e volve abrir Debian. Se persiste, volve executar `sudo bash ~/dwcs/wsl/instalar-docker.sh`. |
-| `port is already allocated` | Outro programa de Windows usa ese porto (XAMPP, Skype, IIS...). Párao ou cambia `WEB_PORT`, `DB_PORT` ou `PMA_PORT` en `~/dwcs/.env` (copia `.env.example`). |
+| `Cannot connect to the Docker daemon` | Dentro de Debian executa `sudo systemctl enable --now docker`. Se persiste, executa `wsl --shutdown` en PowerShell e volve abrir Debian. |
+| `port is already allocated` | Outro programa usa ese porto. Párao ou cambia o porto no `.env` do proxecto; por exemplo `WEB_PORT=127.0.0.1:8080`. |
 | Os puntos de interrupción non paran | Abre o proxecto desde Debian con `code .` e comproba que abaixo á esquerda pon **WSL: Debian**. |
-| `wsl --install` dá o erro `0x80370102` | O equipo non está preparado: avisa ao profesorado. |
+| `wsl --install` dá o erro `0x80370102` ou di que falta virtualización | Se acabas de activar WSL, reinicia Windows. Se persiste, avisa ao profesorado para revisar a BIOS/UEFI e Plataforma de máquina virtual. |
+| Debian non aparece / `WSL_E_DISTRO_NOT_FOUND` | Despois de reiniciar, executa `wsl --install -d Debian` co teu usuario de Windows. |
 | Esquecín o contrasinal de Linux | En PowerShell: `wsl -d Debian -u root passwd <o-teu-usuario>`. |
 
 ## 5. Empezar de cero ou desinstalar
@@ -168,3 +256,10 @@ wsl --unregister Debian
 ```
 
 Despois podes volver ao paso 1.1.
+
+## 6. Instalación verificada
+
+Probado en Windows 11 Pro Education (compilación 26200), Debian 13 en WSL2, Docker Engine 29.8.2,
+Compose 5.6.0 e Portainer CE 2.45.1. A contorna Apache superou `scripts/comprobar.sh`: PHP 8.5,
+MariaDB, Composer, permisos, actualización dos ficheiros e conexión de Xdebug. Comprobáronse o acceso
+desde Windows a PHP e Portainer e a consulta dos catro contedores mediante a API de Portainer.

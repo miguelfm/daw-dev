@@ -20,6 +20,8 @@ servidores nin bases de datos no equipo.
 - **Windows 11:** WSL2 con Debian e Docker Engine, sen Docker Desktop. Guías:
   [preparación dos equipos (administración)](docs/wsl2-administracion.md) e
   [instalación e uso (alumnado)](docs/wsl2-alumnado.md).
+- **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
+  para xestionar Docker desde o navegador en <https://localhost:9443>.
 - VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas.
 
 ## Posta en marcha
