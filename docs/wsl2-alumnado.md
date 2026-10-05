@@ -40,11 +40,17 @@ Debe aparecer `Debian` con `VERSION 2`. Se aparece `1`, executa `wsl --set-versi
 
 ### 1.2. Descargar o proxecto
 
+Primeiro actualiza os paquetes de Debian e instala as ferramentas de descarga:
+
 ```bash
-sudo apt update && sudo apt install -y git
+sudo apt update && sudo apt upgrade
+sudo apt install -y git wget
 mkdir -p ~/proxectos
 git clone https://github.com/miguelfm/dwcs-php.git ~/proxectos/dwcs-php
 ```
+
+`apt upgrade` pide confirmación para actualizar os paquetes instalados; `wget` instálase explicitamente
+co segundo comando. O instalador de Docker tamén inclúe `wget` entre as dependencias.
 
 Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che dan un `.zip`, descomprímeo en Windows, executa
 `cd ~ && explorer.exe .` en Debian e arrastra o cartafol `dwcs` á xanela que se abre.
