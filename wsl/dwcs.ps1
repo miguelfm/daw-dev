@@ -1,7 +1,7 @@
 param(
     [string]$Action = 'help',
-    [ValidateSet('all', 'web')]
-    [string]$Target = 'all',
+    [ValidateSet('all', 'web', 'db')]
+    [string]$Target = 'web',
     [string]$Distribution = 'Debian'
 )
 
@@ -10,9 +10,10 @@ $projectPath = Split-Path -Parent $PSScriptRoot
 
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
-        Write-Output 'Usage: dwcs start [all|web] | stop | status | logs'
-        Write-Output '  start / start all: start PHP, MariaDB and phpMyAdmin.'
-        Write-Output '  start web: start only the web service without starting dependencies.'
+        Write-Output 'Usage: dwcs start [web|db|all] | stop | status | logs'
+        Write-Output '  start / start web: start only the web service without starting dependencies.'
+        Write-Output '  start db: start MariaDB and the web service together.'
+        Write-Output '  start all: start PHP, MariaDB, phpMyAdmin and Mailpit.'
         Write-Output '             Other running containers are left running.'
         Write-Output '  stop: stop DWCS containers without deleting data.'
         Write-Output '  status: show container status, including stopped containers.'
@@ -22,6 +23,8 @@ switch ($Action.ToLowerInvariant()) {
     'start' {
         $composeArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
         if ($Target -eq 'web') { $composeArgs += @('--no-deps', 'web') }
+        elseif ($Target -eq 'db') { $composeArgs += @('db', 'web') }
+        elseif ($Target -eq 'all') { $composeArgs = @('--profile', 'mail') + $composeArgs }
     }
     'stop' { $composeArgs = @('--profile', 'mail', 'stop') }
     'status' { $composeArgs = @('--profile', 'mail', 'ps', '-a') }

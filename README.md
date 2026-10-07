@@ -51,7 +51,8 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 ## Comandos do día a día
 
 En **Windows 11**, podes instalar o comando `dwcs` no PATH do usuario para executar
-`dwcs start` (contorna completa), `dwcs start web` (só servidor web), `dwcs stop`,
+`dwcs start` ou `dwcs start web` (só servidor web), `dwcs start db` (BD e web),
+`dwcs start all` (todos os servizos, incluído Mailpit), `dwcs stop`,
 `dwcs status` e `dwcs logs` desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
