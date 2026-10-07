@@ -50,6 +50,10 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 
 ## Comandos do día a día
 
+En **Windows 11**, podes instalar o comando `dwcs` no PATH do usuario para executar
+`dwcs start`, `dwcs stop`, `dwcs status` e `dwcs logs` desde PowerShell ou CMD.
+Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
+
 | Para…                                   | Comando                                         |
 |-----------------------------------------|-------------------------------------------------|
 | Arrancar / parar                        | `docker compose up -d` / `docker compose stop`  |
