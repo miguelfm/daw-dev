@@ -45,11 +45,23 @@ a partir da súa propia localización. Se moves o repositorio, executa de novo o
 
 | Comando | Resultado |
 |---|---|
-| `dwcs start` | Arranca PHP + Apache, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
+| `dwcs start` ou `dwcs start all` | Arranca PHP + Apache, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
+| `dwcs start web` | Arranca só `dwcs-web`, sen arrancar MariaDB nin phpMyAdmin. |
 | `dwcs stop` | Para os contedores DWCS, incluído Mailpit se estaba arrancado. Conserva contedores e datos. |
 | `dwcs status` | Mostra o estado, tamén dos contedores parados, e os portos publicados. |
 | `dwcs logs` | Mostra as últimas 100 liñas por servizo e segue os novos logs. `Ctrl+C` sae da consulta. |
 | `dwcs help` | Mostra a axuda. |
+
+`dwcs start web` permite traballar con PHP sen base de datos. Se os outros contedores
+xa estaban en marcha, seguen en marcha. Para pasar da contorna completa a só web:
+
+```powershell
+dwcs stop
+dwcs start web
+```
+
+Sen MariaDB, o código que precise a BD fallará e a páxina de comprobación mostrará
+un erro na conexión á BD. Para volver á contorna completa, executa `dwcs start all`.
 
 WSL arranca Debian automaticamente ao executar estes comandos. Docker debe estar
 configurado para iniciar con Debian. Se non responde, executa:
