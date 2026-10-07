@@ -12,6 +12,7 @@ services:
       - "${WEB_HTTPS_PORT:-443}:443"
       - "${WEB_HTTPS_PORT:-443}:443/udp"   # HTTP/3
     volumes:
+      - ./docker/frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
       # Certificados locais de Caddy: consérvanse aínda que se recree o contedor
       - caddy_data:/data/caddy
       - caddy_config:/config/caddy

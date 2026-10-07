@@ -30,7 +30,7 @@ fallo()  { printf '\033[31mFALLO\033[0m  %s\n' "$*"; FALLOS=$((FALLOS + 1)); }
 aviso()  { printf '\033[33mAVISO\033[0m  %s\n' "$*"; }
 seccion() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 # Páxina de estado como táboa de texto: "✔ nome detalle"
-estado() { curl -sk "$1" | sed -n '/<table>/,/<\/table>/p' | sed 's/<[^>]*>/ /g' | tr -s ' \n' | grep -v '^ *$' | paste - - -; }
+estado() { curl -sk "${1%/}/index.php" | sed -n '/<table>/,/<\/table>/p' | sed 's/<[^>]*>/ /g' | tr -s ' \n' | grep -v '^ *$' | paste - - -; }
 
 seccion "Sistema"
 . /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-?} · kernel $(uname -r)"
@@ -61,6 +61,11 @@ trap 'rm -f "$WWW/$PROBA.php" "$WWW/$PROBA.txt"' EXIT
 
 seccion "Páxina de estado ($WEB)"
 for _ in $(seq 1 15); do curl -s -o /dev/null "$WEB/" && break; sleep 1; done
+if curl -fsS "$WEB/" | grep -Eq 'href="(\./)?index\.php"'; then
+    ok "listaxe de directorios mesmo con index.php"
+else
+    fallo "a raíz non mostra a listaxe de ficheiros"
+fi
 E=$(estado "$WEB/")
 echo "$E"
 if [ "$(grep -c '✔' <<< "$E")" -ge 10 ] && ! grep -q '✘' <<< "$E"; then ok "todo en verde"; else fallo "hai comprobacións en vermello"; fi

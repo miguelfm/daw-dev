@@ -35,7 +35,8 @@ cp .env.example .env      # opcional, só se queres cambiar algo
 docker compose up -d      # a primeira vez descarga as imaxes (uns minutos)
 ```
 
-Abre <http://localhost>: a páxina de comprobación debe saír toda en verde.
+Abre <http://localhost> para ver a listaxe de ficheiros. En
+<http://localhost/index.php>, a páxina de comprobación debe saír toda en verde.
 O teu código vai na carpeta **`www/`**. Os cambios vense ao recargar o navegador.
 
 Para comprobar a contorna completa (servidor, base de datos, Composer, permisos, Xdebug...):
@@ -49,6 +50,19 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 > Así os ficheiros que crea PHP son teus e non doutro usuario.
 
 ## Comandos do día a día
+
+O servidor web mostra por defecto a listaxe de ficheiros e subdirectorios en cada
+cartafol, mesmo se contén `index.php`, `index.html` ou `index.txt`, tanto en Apache
+como en FrankenPHP. Para executar un ficheiro, ábreo explicitamente: por exemplo,
+<http://localhost/index.php> ou `http://localhost/exercicio/index.php`.
+En Apache, un `.htaccess` pode sobrescribir este comportamento.
+
+As configuracións do servidor móntanse desde `docker/apache/dwcs.conf` e, na
+variante FrankenPHP, `docker/frankenphp/Caddyfile`. Para aplicar esta actualización
+a un contedor existente, executa `dwcs start` en Windows ou
+`docker compose up -d --no-deps web` en Debian. Non precisa reconstruír a imaxe.
+Tras editar só estes ficheiros de configuración, reinicia o web con
+`docker compose restart web`.
 
 En **Windows 11**, podes instalar o comando `dwcs` no PATH do usuario para executar
 `dwcs start` ou `dwcs start web` (só servidor web), `dwcs start db` (BD e web),
@@ -147,7 +161,7 @@ Para volver a Apache, coméntaas de novo e executa `docker compose up -d`.
 
 - **HTTPS:** ademais de <http://localhost>, tes <https://localhost> con HTTP/2 e HTTP/3. O porto cámbiase con `WEB_HTTPS_PORT`.
 - **Rutas sen `.htaccess`:** se o ficheiro pedido non existe, a petición pasa ao `index.php` do cartafol raíz
-  (controlador frontal, por exemplo `/produtos/7`). Os cartafoles sen `index.php` seguen mostrando a listaxe de ficheiros.
+  (controlador frontal, por exemplo `/produtos/7`). Os cartafoles existentes sempre mostran a listaxe de ficheiros.
 - **Os `.htaccess` ignóranse.** A configuración do servidor está en `docker/frankenphp/Caddyfile`.
 - **O contedor xa corre co usuario `dev`:** abonda con `docker compose exec web bash`, sen `-u dev`.
 - **Avisos `HTTP/2 skipped` e `no automatic HTTPS` nos logs:** son normais. Refírense ao porto 80, que serve HTTP simple.

@@ -87,7 +87,8 @@ docker compose up -d
 
 A primeira vez descarga as imaxes e tarda uns minutos. Despois abre no navegador de Windows:
 
-- <http://localhost>: páxina de comprobación. Debe saír todo en verde.
+- <http://localhost>: listaxe de ficheiros e subdirectorios.
+- <http://localhost/index.php>: páxina de comprobación. Debe saír todo en verde.
 - <http://localhost:8081>: phpMyAdmin (usuario `dwcs`, contrasinal `abc123.`).
 
 Para comprobar todo (servidor, base de datos, Composer, permisos e Xdebug):

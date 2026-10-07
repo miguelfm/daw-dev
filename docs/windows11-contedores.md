@@ -88,6 +88,10 @@ Cos portos por defecto:
 | Portainer CE, se está instalado | <https://localhost:9443> |
 
 O código PHP está en `www/`; os cambios vense ao recargar o navegador.
+Ao abrir <http://localhost> ou un subdirectorio, móstrase a listaxe de ficheiros,
+mesmo se existe `index.php` ou `index.html`. Para executar a páxina de comprobación,
+abre <http://localhost/index.php>. Para outros exercicios, abre o ficheiro PHP concreto.
+Este comportamento vén configurado por defecto en Apache e FrankenPHP.
 As credenciais de exemplo da BD son usuario `dwcs`, contrasinal `abc123.` e base
 de datos `dwcs`. Dentro dos contedores, o servidor da BD é `db`.
 
