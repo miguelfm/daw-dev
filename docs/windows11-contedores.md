@@ -73,8 +73,7 @@ wsl -d Debian -- sudo systemctl enable --now docker
 ```
 
 O comando usa sempre a configuración `compose.yaml` e o `.env` deste repositorio,
-independentemente do cartafol actual do terminal. Respecta os portos e a variante de
-servidor que configures no `.env`. Non borra volumes nin a base de datos.
+independentemente do cartafol actual do terminal. Respecta os portos que configures no `.env`. Non borra volumes nin a base de datos.
 
 ## Acceso aos servizos
 
@@ -91,7 +90,7 @@ O código PHP está en `www/`; os cambios vense ao recargar o navegador.
 Ao abrir <http://localhost> ou un subdirectorio, móstrase a listaxe de ficheiros,
 mesmo se existe `index.php` ou `index.html`. Para executar a páxina de comprobación,
 abre <http://localhost/index.php>. Para outros exercicios, abre o ficheiro PHP concreto.
-Este comportamento vén configurado por defecto en Apache e FrankenPHP.
+Este comportamento vén configurado por defecto en Apache.
 As credenciais de exemplo da BD son usuario `dwcs`, contrasinal `abc123.` e base
 de datos `dwcs`. Dentro dos contedores, o servidor da BD é `db`.
 

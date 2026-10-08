@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Comproba que a contorna DWCS funciona e mostra un informe.
 #
-# Uso:  ./scripts/comprobar.sh [--build] [--frankenphp]
+# Uso:  ./scripts/comprobar.sh [--build]
 #   --build        reconstrúe a imaxe antes de comprobar
-#   --frankenphp   comproba a variante FrankenPHP (sen tocar o .env)
 #
 # Arranca a contorna se non está en marcha. Non borra datos nin cambia a configuración:
 # os ficheiros de proba que crea en www/ elimínanse ao rematar.
@@ -11,15 +10,10 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 BUILD=()
-FRANKENPHP=0
 for opcion in "$@"; do
     case $opcion in
         --build) BUILD=(--build) ;;
-        --frankenphp)
-            FRANKENPHP=1
-            export COMPOSE_PATH_SEPARATOR=:
-            export COMPOSE_FILE=compose.yaml:compose.frankenphp.yaml ;;
-        -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Opción descoñecida: $opcion (usa --help)" >&2; exit 2 ;;
     esac
 done
@@ -124,20 +118,7 @@ seccion "phpMyAdmin ($PMA)"
 codigo=$(curl -s -o /dev/null -w '%{http_code}' "$PMA/")
 if [ "$codigo" = 200 ]; then ok "phpMyAdmin responde"; else fallo "phpMyAdmin responde $codigo"; fi
 
-if [[ $SERVIDOR == FrankenPHP* ]]; then
-    seccion "FrankenPHP"
-    HTTPS="https://localhost:$(porto web 443)"
-    v=$(curl -sk -o /dev/null -w '%{http_code} HTTP/%{http_version}' "$HTTPS/")
-    if [[ $v == 200* ]]; then ok "HTTPS en $HTTPS ($v)"; else fallo "HTTPS en $HTTPS ($v)"; fi
-    if curl -s "$WEB/ruta/que/non/existe" | grep -q 'Contorna DWCS'; then
-        ok "controlador frontal: rutas inexistentes van a index.php"
-    else
-        fallo "controlador frontal"
-    fi
-fi
-
 seccion "Resultado"
 echo "Servidor: ${SERVIDOR:-?} · imaxe: $IMAXE"
 if [ "$FALLOS" -eq 0 ]; then ok "todo correcto"; else fallo "$FALLOS comprobacións fallaron"; fi
-[ "$FRANKENPHP" = 1 ] && echo "Quedou arrancado FrankenPHP. Para volver a Apache: docker compose up -d"
 exit $(( FALLOS > 0 ))

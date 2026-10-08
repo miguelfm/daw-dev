@@ -216,28 +216,7 @@ O proxecto DWCS segue xestionándose co seu `compose.yaml` e `docker compose up 
 Non despregues unha segunda copia desde Portainer: os nomes dos contedores son fixos e entrarían en conflito.
 Os datos de Portainer persisten no volume `portainer_data`; inicia con Docker salvo que o pares expresamente.
 
-## 3. HTTPS con FrankenPHP (só se o pide o profesorado)
-
-Para activar FrankenPHP, sigue os pasos do [README](../README.md#servidor-alternativo-frankenphp). Para que o
-navegador non avise de que o certificado non é fiable:
-
-1. En Debian, copia o certificado ao proxecto e abre o cartafol en Windows:
-
-   ```bash
-   cd ~/proxectos/dwcs-php
-   docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
-   explorer.exe .
-   ```
-
-2. No Explorador, dobre clic en `caddy-root.crt` → **Instalar certificado** → **Usuario actual**.
-3. Escolle **Colocar todos os certificados no seguinte almacén** → **Examinar** →
-   **Entidades de certificación raíz de confianza** → Aceptar → Seguinte → Finalizar.
-4. Acepta o aviso de seguridade e reinicia o navegador.
-
-Edge e Chrome usan este almacén. Firefox ten o seu propio: *Axustes → Privacidade e seguranza → Ver
-certificados → Autoridades → Importar* e marca «Confiar nesta CA para identificar sitios web».
-
-## 4. Problemas habituais
+## 3. Problemas habituais
 
 Executa primeiro `cd ~/proxectos/dwcs-php && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
 pásalle a saída ao profesorado.
@@ -253,7 +232,7 @@ pásalle a saída ao profesorado.
 | Debian non aparece / `WSL_E_DISTRO_NOT_FOUND` | Despois de reiniciar, executa `wsl --install -d Debian` co teu usuario de Windows. |
 | Esquecín o contrasinal de Linux | En PowerShell: `wsl -d Debian -u root passwd <o-teu-usuario>`. |
 
-## 5. Empezar de cero ou desinstalar
+## 4. Empezar de cero ou desinstalar
 
 Isto **borra Debian e todo o que haxa dentro**, incluído o teu código. Garda antes o teu traballo (en git, por
 exemplo). En PowerShell:
@@ -264,7 +243,7 @@ wsl --unregister Debian
 
 Despois podes volver ao paso 1.1.
 
-## 6. Instalación verificada
+## 5. Instalación verificada
 
 Probado en Windows 11 Pro Education (compilación 26200), Debian 13 en WSL2, Docker Engine 29.8.2,
 Compose 5.6.0 e Portainer CE 2.45.1. A contorna Apache superou `scripts/comprobar.sh`: PHP 8.5,

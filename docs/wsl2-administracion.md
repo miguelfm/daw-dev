@@ -152,8 +152,6 @@ Debe mostrar a versión de WSL e `Default Version: 2`. A partir de aquí, o alum
 - **Instalar Debian para o alumnado.** As distribucións de WSL son de cada usuario de Windows: se a instala o
   administrador, só a ve o administrador.
 - **Instalar Docker Desktop.** Non se usa.
-- **Importar certificados de FrankenPHP no almacén do equipo.** Cada alumno ten os seus e impórtaos no seu
-  usuario, sen permisos.
 
 ## Mantemento
 
@@ -190,9 +188,8 @@ O procedemento probouse en Windows 11 Pro 25H2 (compilación 26200) con WSL 3.0.
 29.8:
 
 - Instalación de WSL co método do script (DISM + MSI) desde unha sesión remota.
-- Contorna DWCS completa dentro de WSL, con Apache e con FrankenPHP.
+- Contorna DWCS completa dentro de WSL, con Apache.
 - Acceso desde o navegador de Windows a `http://localhost` e a phpMyAdmin.
-- HTTPS validado co certificado importado en Windows.
 - Xdebug con VS Code conectado a WSL.
 
 Ademais, a instalación local con `wsl --install -d Debian --no-launch` e reinicio verificouse en Windows 11

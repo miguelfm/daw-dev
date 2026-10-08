@@ -1,13 +1,13 @@
 # Imaxe de desenvolvemento PHP para DWCS
-# Inclúe: Xdebug, Composer, cliente MariaDB/MySQL, git e ferramentas básicas de shell.
-# Servidor web: Apache + mod_php (por defecto) ou FrankenPHP (build arg SERVER=frankenphp).
+# Inclúe: Apache + mod_php, Xdebug, Composer, cliente MariaDB/MySQL, git e ferramentas básicas de shell.
 ARG PHP_VERSION=8.5
-ARG SERVER=apache
-ARG USERNAME=dev
+FROM php:${PHP_VERSION}-apache
 
-# --- Servidor: Apache + mod_php -----------------------------------------------
-FROM php:${PHP_VERSION}-apache AS server-apache
-ARG USERNAME
+ARG USERNAME=dev
+# UID/GID do usuario do anfitrión (Linux). Así os ficheiros que crea PHP
+# (subidas, cachés, vendor/...) pertencen ao teu usuario e non a root.
+ARG USER_UID=1000
+ARG USER_GID=1000
 
 # Apache executa PHP co noso usuario en vez de www-data
 ENV APACHE_RUN_USER=${USERNAME} \
@@ -16,22 +16,6 @@ ENV APACHE_RUN_USER=${USERNAME} \
 # Configuración de Apache: ServerName, AllowOverride (.htaccess) e mod_rewrite
 COPY docker/apache/dwcs.conf /etc/apache2/conf-available/dwcs.conf
 RUN a2enconf dwcs && a2enmod rewrite headers
-
-# --- Servidor: FrankenPHP (Caddy) ---------------------------------------------
-FROM dunglas/frankenphp:php${PHP_VERSION} AS server-frankenphp
-
-COPY docker/frankenphp/Caddyfile /etc/frankenphp/Caddyfile
-# Permite escoitar nos portos 80/443 sen ser root (o contedor corre como `dev`)
-RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/frankenphp
-
-# --- Imaxe final: común aos dous servidores -----------------------------------
-FROM server-${SERVER}
-ARG USERNAME
-
-# UID/GID do usuario do anfitrión (Linux). Así os ficheiros que crea PHP
-# (subidas, cachés, vendor/...) pertencen ao teu usuario e non a root.
-ARG USER_UID=1000
-ARG USER_GID=1000
 
 # Instalador de extensións: compila, activa e limpa as dependencias de
 # compilación nun só paso (imaxe máis pequena e build máis rápido que pecl).
@@ -68,12 +52,10 @@ RUN install-php-extensions \
 RUN cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
 # Usuario sen privilexios co mesmo UID/GID que o anfitrión, con sudo sen contrasinal.
-# Con FrankenPHP tamén é dono dos datos de Caddy (certificados HTTPS locais).
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
     && useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /bin/bash "$USERNAME" \
     && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
-    && chmod 0440 "/etc/sudoers.d/$USERNAME" \
-    && if [ -d /data/caddy ]; then chown -R "$USERNAME:$USERNAME" /data/caddy /config/caddy; fi
+    && chmod 0440 "/etc/sudoers.d/$USERNAME"
 
 # UTF-8 na shell (acentos no cliente mysql, nano...)
 ENV LANG=C.UTF-8

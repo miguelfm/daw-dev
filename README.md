@@ -9,7 +9,7 @@ servidores nin bases de datos no equipo.
 
 | Servizo      | Que é                                                  | URL / acceso                     |
 |--------------|--------------------------------------------------------|----------------------------------|
-| `web`        | PHP 8.5 + Apache (ou [FrankenPHP](#servidor-alternativo-frankenphp)), Xdebug 3, Composer, cliente MariaDB, git | <http://localhost> |
+| `web`        | PHP 8.5 + Apache, Xdebug 3, Composer, cliente MariaDB, git | <http://localhost> |
 | `db`         | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
 | `phpmyadmin` | Xestión web da base de datos                           | <http://localhost:8081>          |
 | `mailpit`    | *(opcional)* servidor de correo falso para probas      | <http://localhost:8025>          |
@@ -52,16 +52,14 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 ## Comandos do día a día
 
 O servidor web mostra por defecto a listaxe de ficheiros e subdirectorios en cada
-cartafol, mesmo se contén `index.php`, `index.html` ou `index.txt`, tanto en Apache
-como en FrankenPHP. Para executar un ficheiro, ábreo explicitamente: por exemplo,
+cartafol, mesmo se contén `index.php`, `index.html` ou `index.txt`. Para executar un ficheiro, ábreo explicitamente: por exemplo,
 <http://localhost/index.php> ou `http://localhost/exercicio/index.php`.
 En Apache, un `.htaccess` pode sobrescribir este comportamento.
 
-As configuracións do servidor móntanse desde `docker/apache/dwcs.conf` e, na
-variante FrankenPHP, `docker/frankenphp/Caddyfile`. Para aplicar esta actualización
+A configuración do servidor móntase desde `docker/apache/dwcs.conf`. Para aplicar esta actualización
 a un contedor existente, executa `dwcs start` en Windows ou
 `docker compose up -d --no-deps web` en Debian. Non precisa reconstruír a imaxe.
-Tras editar só estes ficheiros de configuración, reinicia o web con
+Tras editar só este ficheiro de configuración, reinicia o web con
 `docker compose restart web`.
 
 En **Windows 11**, podes instalar o comando `dwcs` no PATH do usuario para executar
@@ -143,44 +141,6 @@ Coa extensión **Dev Containers**: *F1 → Dev Containers: Reopen in Container*.
 VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer e `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
 
-## Servidor alternativo: FrankenPHP
-
-Por defecto o servidor é Apache con mod_php. Opcionalmente pódese usar [FrankenPHP](https://frankenphp.dev),
-un servidor PHP moderno baseado en Caddy. O resto da contorna (MariaDB, phpMyAdmin, Xdebug, `www/`) segue igual.
-
-**Activalo:** descomenta estas dúas liñas no `.env` e executa `docker compose up -d --build`:
-
-```bash
-COMPOSE_PATH_SEPARATOR=:
-COMPOSE_FILE=compose.yaml:compose.frankenphp.yaml
-```
-
-Para volver a Apache, coméntaas de novo e executa `docker compose up -d`.
-
-**Que cambia:**
-
-- **HTTPS:** ademais de <http://localhost>, tes <https://localhost> con HTTP/2 e HTTP/3. O porto cámbiase con `WEB_HTTPS_PORT`.
-- **Rutas sen `.htaccess`:** se o ficheiro pedido non existe, a petición pasa ao `index.php` do cartafol raíz
-  (controlador frontal, por exemplo `/produtos/7`). Os cartafoles existentes sempre mostran a listaxe de ficheiros.
-- **Os `.htaccess` ignóranse.** A configuración do servidor está en `docker/frankenphp/Caddyfile`.
-- **O contedor xa corre co usuario `dev`:** abonda con `docker compose exec web bash`, sen `-u dev`.
-- **Avisos `HTTP/2 skipped` e `no automatic HTTPS` nos logs:** son normais. Refírense ao porto 80, que serve HTTP simple.
-- **Dev Container:** engade `"../compose.frankenphp.yaml"` despois de `"../compose.yaml"` en `dockerComposeFile` de `.devcontainer/devcontainer.json`.
-
-**Evitar o aviso de certificado do navegador:** Caddy crea a súa propia autoridade de certificación (válida 10 anos,
-consérvase no volume `dwcs_caddy_data`). Para que o navegador confíe nela, extráea:
-
-```bash
-docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
-```
-
-e impórtaa como autoridade de certificación:
-
-- **Firefox:** *Axustes → Privacidade e seguranza → Ver certificados → Autoridades → Importar*. Marca «Confiar nesta CA para identificar sitios web».
-- **Chrome/Edge en Linux:** *Configuración → Privacidade e seguranza → Seguranza → Xestionar certificados → Autoridades → Importar*.
-- **Windows (Chrome/Edge):** dobre clic no ficheiro → *Instalar certificado* → *Entidades de certificación raíz de confianza*.
-- **macOS:** ábreo con *Acceso a Chaves*, no chaveiro *Sistema*, e marca *Confiar sempre*.
-
 ## Problemas habituais
 
 Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos casos, como arranxala.
@@ -199,12 +159,10 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 ```
 .
 ├── compose.yaml              # servizos: web, db, phpmyadmin, mailpit (opcional)
-├── compose.frankenphp.yaml   # variante opcional con FrankenPHP
-├── Dockerfile                # imaxe dwcs-php (Apache ou FrankenPHP)
+├── Dockerfile                # imaxe dwcs-php (Apache)
 ├── .env.example              # variables configurables (portos, versións, credenciais, Xdebug)
 ├── docker/
 │   ├── apache/dwcs.conf      # ServerName, AllowOverride All (.htaccess)
-│   ├── frankenphp/Caddyfile  # configuración de Caddy (só coa variante FrankenPHP)
 │   ├── php/conf.d/
 │   │   ├── 90-dwcs.ini       # zona horaria, erros visibles, límites de subida, OPcache
 │   │   └── 99-xdebug.ini     # configuración de Xdebug
@@ -224,8 +182,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 ## Notas para o profesorado
 
-- **Imaxe:** `php:8.5-apache` ou `dunglas/frankenphp:php8.5`, ambas en Debian 13. Escóllese co argumento de build `SERVER`.
-  O `Dockerfile` ten unha fase por servidor e unha fase final común, así que ferramentas e extensións só se definen unha vez. As extensións instálanse con
+- **Imaxe:** `php:8.5-apache` en Debian 13. As extensións instálanse con
   [`install-php-extensions`](https://github.com/mlocati/docker-php-extension-installer), que limpa as dependencias de compilación.
   Hai `bcmath`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e `xdebug`, ademais de Composer 2. Para engadir máis, pon o nome na lista do `Dockerfile`.
 - **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
@@ -234,19 +191,16 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
   actualiza os datos existentes ao arrancar. Para fixar unha versión concreta: `MARIADB_VERSION=12.3` no `.env`.
 - **Outra versión de PHP:** `PHP_VERSION=8.4` no `.env` e `docker compose up -d`. Como esa versión non está publicada,
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
-- **PHP execútase co usuario `dev`**, co UID do anfitrión. En Apache vía `APACHE_RUN_USER`, e en FrankenPHP o contedor enteiro corre como `dev`
-  (con `setcap` para poder usar os portos 80/443). Así se evitan os problemas de permisos con subidas de ficheiros, `vendor/`, logs…
-- **FrankenPHP:** a imaxe ten a etiqueta `8.5-frankenphp` e pode convivir coa de Apache. Usa uns 120 MB de RAM en repouso, fronte aos ~20 MB de Apache.
-  O modo worker non está activado: cada petición empeza de cero, como con Apache.
+- **PHP execútase co usuario `dev`**, co UID do anfitrión vía `APACHE_RUN_USER`. Así se evitan os problemas de permisos con subidas de ficheiros, `vendor/`, logs…
 - **OPcache** está activo en PHP 8.5, pero con `revalidate_freq=0` e os cambios vense ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
-  coas dúas variantes en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/dwcs-php:8.5` e `:8.5-frankenphp`. Tamén as reconstrúe cada luns para incorporar as actualizacións
-  de seguridade de PHP, Debian e FrankenPHP.
+  en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
+  `ghcr.io/miguelfm/dwcs-php:8.5`. Tamén a reconstrúe cada luns para incorporar as actualizacións
+  de seguridade de PHP e Debian.
   O alumnado descarga as imaxes en vez de compilalas: aforra minutos e evita fallos de rede no build.
   As imaxes publicadas usan o UID 1000.
 - **Usar o teu propio repositorio:** fai un fork. O CI publica as imaxes en `ghcr.io/<o-teu-usuario>/dwcs-php`.
-  Cambia o valor por defecto de `DWCS_IMAGE` en `compose.yaml` e `compose.frankenphp.yaml`, e a URL en
+  Cambia o valor por defecto de `DWCS_IMAGE` en `compose.yaml`, e a URL en
   [docs/wsl2-alumnado.md](docs/wsl2-alumnado.md).
 - **Credenciais:** son de exemplo e só para desenvolvemento local. Non hai que expoñer estes portos fóra do equipo.
 - **Correo:** `docker compose --profile mail up -d` arranca Mailpit. Con PHPMailer: `Host=mailpit`, `Port=1025`, sen autenticación nin TLS.
