@@ -369,7 +369,9 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **OPcache** está activo en PHP 8.5, pero con `revalidate_freq=0` e os cambios vense ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/daw-dev:8.5`. Tamén a reconstrúe cada luns para incorporar as actualizacións
+  `ghcr.io/miguelfm/daw-dev:8.5` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.5`.
+  Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
+  ata que o propietario cambia a súa visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
   de seguridade de PHP e Debian.
   O alumnado descarga as imaxes en vez de compilalas: aforra minutos e evita fallos de rede no build.
   As imaxes publicadas usan o UID 1000.
