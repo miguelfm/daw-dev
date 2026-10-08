@@ -73,15 +73,5 @@ services:
       db:
         condition: service_healthy
 
-  # Opcional: servidor SMTP falso para probar o envío de correo (PHPMailer...)
-  # Arrancar con: docker compose --profile mail up -d
-  # SMTP: mailpit:1025 · Bandexa web: http://localhost:8025
-  mailpit:
-    container_name: dwcs-mailpit
-    image: axllent/mailpit:latest
-    profiles: [mail]
-    ports:
-      - "${MAIL_PORT:-8025}:8025"
-
 volumes:
   db_data:

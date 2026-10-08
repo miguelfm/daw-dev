@@ -105,7 +105,6 @@ Para limitar os servizos ao equipo local, antes do primeiro arranque pon estes v
 WEB_PORT=127.0.0.1:80
 PMA_PORT=127.0.0.1:8081
 DB_PORT=127.0.0.1:3306
-MAIL_PORT=127.0.0.1:8025
 ```
 
 Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os datos da BD consérvanse.
@@ -162,7 +161,7 @@ PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola
 
 ### Atallos opcionais para a terminal
 
-Podes definir `dwcs-up`, `dwcs-up-all`, `dwcs-down` e `dwcs-status` seguindo a
+Podes definir `dwcs-start`, `dwcs-start-all`, `dwcs-stop` e `dwcs-status` seguindo a
 [sección de atallos do README](../README.md#atallos-dwcs-para-a-terminal). Tes exemplos para Bash dentro
 de Debian e para PowerShell desde Windows, que chama a Docker a través de WSL2.
 
@@ -170,9 +169,9 @@ Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/dwcs-php/compose.yam
 En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/dwcs-php/compose.yaml`.
 Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 
-- `dwcs-up`: arranca só PHP + Apache, para exercicios sen base de datos.
-- `dwcs-up-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
-- `dwcs-down`: para os contedores, conservando os datos.
+- `dwcs-start`: arranca só PHP + Apache, para exercicios sen base de datos.
+- `dwcs-start-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
+- `dwcs-stop`: para os contedores, conservando os datos.
 - `dwcs-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
 
 ### Depurar con Xdebug

@@ -1,35 +1,32 @@
 param(
     [string]$Action = 'help',
-    [ValidateSet('all', 'web', 'db')]
-    [string]$Target = 'web',
     [string]$Distribution = 'Debian'
 )
 
 $ErrorActionPreference = 'Stop'
 $projectPath = Split-Path -Parent $PSScriptRoot
+$startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
-        Write-Output 'Usage: dwcs start [web|db|all] | stop | status | logs'
-        Write-Output '  start / start web: start only the web service without starting dependencies.'
-        Write-Output '  start db: start MariaDB and the web service together.'
-        Write-Output '  start all: start PHP, MariaDB, phpMyAdmin and Mailpit.'
-        Write-Output '             Other running containers are left running.'
-        Write-Output '  stop: stop DWCS containers without deleting data.'
-        Write-Output '  status: show container status, including stopped containers.'
-        Write-Output '  logs: follow container logs; press Ctrl+C to exit.'
+        Write-Output 'Usage: dwcs-start | dwcs-start-all | dwcs-start-db'
+        Write-Output '       dwcs-stop | dwcs-status | dwcs-logs | dwcs-help'
+        Write-Output '  dwcs-start: start only the web service without starting dependencies.'
+        Write-Output '  dwcs-start-all: start web, MariaDB and phpMyAdmin.'
+        Write-Output '  dwcs-start-db: start MariaDB and the web service together.'
+        Write-Output '  Other running containers are left running.'
+        Write-Output '  dwcs-stop: stop DWCS containers without deleting data.'
+        Write-Output '  dwcs-status: show names, status and ports, including stopped containers.'
+        Write-Output '  dwcs-logs: follow container logs; press Ctrl+C to exit.'
         exit 0
     }
-    'start' {
-        $composeArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
-        if ($Target -eq 'web') { $composeArgs += @('--no-deps', 'web') }
-        elseif ($Target -eq 'db') { $composeArgs += @('db', 'web') }
-        elseif ($Target -eq 'all') { $composeArgs = @('--profile', 'mail') + $composeArgs }
-    }
-    'stop' { $composeArgs = @('--profile', 'mail', 'stop') }
-    'status' { $composeArgs = @('--profile', 'mail', 'ps', '-a') }
-    'logs' { $composeArgs = @('--profile', 'mail', 'logs', '--tail', '100', '-f') }
-    default { Write-Error "Unknown command: $Action. Use: dwcs help"; exit 2 }
+    'start' { $composeArgs = $startArgs + @('--no-deps', 'web') }
+    'start-all' { $composeArgs = $startArgs }
+    'start-db' { $composeArgs = $startArgs + @('db', 'web') }
+    'stop' { $composeArgs = @('stop') }
+    'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
+    'logs' { $composeArgs = @('logs', '--tail', '100', '-f') }
+    default { Write-Error "Unknown command: $Action. Use: dwcs-help"; exit 2 }
 }
 
 if (!(Test-Path -LiteralPath (Join-Path $projectPath 'compose.yaml'))) {
