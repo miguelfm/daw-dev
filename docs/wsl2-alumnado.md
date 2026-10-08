@@ -147,6 +147,21 @@ Para saír do terminal de Debian escribe `exit`.
 
 Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [README](../README.md#comandos-do-día-a-día).
 
+### Atallos opcionais para a terminal
+
+Podes definir `dwcs-up`, `dwcs-up-all`, `dwcs-down` e `dwcs-status` seguindo a
+[sección de atallos do README](../README.md#atallos-dwcs-para-a-terminal). Tes exemplos para Bash dentro
+de Debian e para PowerShell desde Windows, que chama a Docker a través de WSL2.
+
+Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/dwcs-php/compose.yaml` e garda os alias en `~/.bashrc`.
+En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/dwcs-php/compose.yaml`.
+Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
+
+- `dwcs-up`: arranca só PHP + Apache, para exercicios sen base de datos.
+- `dwcs-up-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
+- `dwcs-down`: para os contedores, conservando os datos.
+- `dwcs-status`: mostra os contedores existentes da contorna, incluídos os parados.
+
 ### Depurar con Xdebug
 
 1. Abre o proxecto **desde Debian con `code .`** (ten que poñer **WSL: Debian** abaixo á esquerda).

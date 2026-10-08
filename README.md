@@ -70,8 +70,9 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 
 | Para…                                   | Comando                                         |
 |-----------------------------------------|-------------------------------------------------|
-| Arrancar / parar                        | `docker compose up -d` / `docker compose stop`  |
-| Ver estado                              | `docker compose ps`                             |
+| Arrancar só PHP + Apache                | `docker compose up -d --no-deps web`             |
+| Arrancar a contorna completa / parar    | `docker compose up -d` / `docker compose stop`  |
+| Ver estado, incluídos os parados        | `docker compose ps --all`                        |
 | Ver erros de PHP e do servidor web      | `docker compose logs -f web`                    |
 | Abrir unha shell no contedor            | `docker compose exec -u dev web bash`           |
 | Consola de MariaDB                      | `docker compose exec -u dev web mysql -u dwcs -p dwcs` |
@@ -85,6 +86,105 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 
 Dentro da shell estás en `/var/www/html` (= a túa carpeta `www/`) co usuario `dev`, que ten `sudo` sen contrasinal.
 Para editar ficheiros desde a shell tes `nano`, `vi` e `vis` (estilo vim, con resaltado de sintaxe).
+
+### Atallos dwcs para a terminal
+
+Estes atallos permiten controlar a contorna desde calquera cartafol. Escolle o bloque correspondente
+á túa shell e axusta a ruta ao lugar onde descargaches o proxecto.
+
+| Atallo | Que fai |
+|--------|---------|
+| `dwcs-up` | Arranca só `dwcs-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
+| `dwcs-up-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
+| `dwcs-down` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
+| `dwcs-status` | Mostra o estado e os portos dos contedores existentes da contorna, incluídos os parados. |
+
+`dwcs-up` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
+unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
+ou para que a comprobación completa saia en verde, usa `dwcs-up-all`. Se xa hai outros contedores
+en marcha, `dwcs-up` déixaos funcionando.
+
+Mailpit segue sendo opcional: `dwcs-up-all` non activa o perfil `mail` por si só. Para arrancalo,
+executa `docker compose --profile mail up -d` desde o proxecto. `dwcs-status` usa
+[`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/): non mostra servizos cuxos contedores
+aínda non se crearon ou xa se eliminaron.
+
+#### Fish (Linux ou macOS)
+
+Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e o ficheiro se non existen):
+
+```fish
+alias dwcs-up 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
+alias dwcs-up-all 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
+alias dwcs-down 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
+alias dwcs-status 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all'
+```
+
+Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
+
+#### Bash ou Zsh (Linux, macOS ou Debian en WSL2)
+
+Engade este bloque a `~/.bashrc` se usas Bash ou a `~/.zshrc` se usas Zsh. En macOS, se a túa
+terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_profile`.
+**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/dwcs-php` por `$HOME/proxectos/dwcs-php`.**
+
+```bash
+alias dwcs-up='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
+alias dwcs-up-all='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
+alias dwcs-down='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
+alias dwcs-status='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all'
+```
+
+Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
+segundo o ficheiro que editaches.
+
+#### PowerShell (Windows con Debian en WSL2)
+
+En PowerShell definimos funcións para incluír os argumentos do comando. Estes atallos executan Docker
+dentro de Debian, como na [guía do alumnado](docs/wsl2-alumnado.md), e non requiren Docker Desktop.
+Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou ruta, axústaas tamén.
+
+```powershell
+$script:DwcsCompose = '/home/uxia/proxectos/dwcs-php/compose.yaml'
+function dwcs-up { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d --no-deps web @args }
+function dwcs-up-all { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d @args }
+function dwcs-down { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose stop @args }
+function dwcs-status { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose ps --all @args }
+```
+
+Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
+[perfil de PowerShell](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles):
+
+```powershell
+if (!(Test-Path -LiteralPath $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+}
+notepad $PROFILE
+```
+
+Garda o bloque nese ficheiro e abre outra terminal ou executa `. $PROFILE`.
+
+#### PowerShell con Docker dispoñible directamente en Windows
+
+Se xa usas Docker desde PowerShell (por exemplo, con Docker Desktop en modo de contedores Linux)
+e tes o proxecto en Windows, garda **este bloque en lugar do anterior** no mesmo `$PROFILE`.
+Axusta a ruta se o proxecto está noutro cartafol:
+
+```powershell
+$script:DwcsCompose = Join-Path $HOME 'Projects/dwcs-php/compose.yaml'
+function dwcs-up { docker compose -f $script:DwcsCompose up -d --no-deps web @args }
+function dwcs-up-all { docker compose -f $script:DwcsCompose up -d @args }
+function dwcs-down { docker compose -f $script:DwcsCompose stop @args }
+function dwcs-status { docker compose -f $script:DwcsCompose ps --all @args }
+```
+
+Unha vez cargado o bloque da túa shell, podes executar `dwcs-up`, `dwcs-up-all`, `dwcs-status`
+ou `dwcs-down` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
+contorna onde se executan os comandos.
+
+Se usas o comando `dwcs` da guía de Windows, `dwcs start`, `dwcs stop` e `dwcs status` permiten
+estas operacións tamén desde CMD. Ten en conta que `dwcs start all` inclúe Mailpit, mentres que
+o alias `dwcs-up-all` conserva o arranque habitual sen activar o perfil de correo.
 
 ## Base de datos
 
