@@ -75,6 +75,29 @@ wsl -d Debian -- sudo systemctl enable --now docker
 O comando usa sempre a configuración `compose.yaml` e o `.env` deste repositorio,
 independentemente do cartafol actual do terminal. Respecta os portos que configures no `.env`. Non borra volumes nin a base de datos.
 
+## Consola do contedor web
+
+Co contedor en marcha, podes abrir unha consola desde calquera cartafol de PowerShell ou CMD.
+Como Docker está dentro de Debian, chama ao comando a través de WSL2:
+
+```powershell
+wsl -d Debian -- docker exec -it -u dev dwcs-web bash
+```
+
+Entrarás como `dev` en `/var/www/html`. Se precisas unha consola como root:
+
+```powershell
+wsl -d Debian -- docker exec -it -u root dwcs-web bash
+```
+
+Escribe `exit` para pechar a consola; o contedor segue funcionando. Se está parado,
+arráncao antes con `dwcs start`. Substitúe `Debian` se usas outra distribución de WSL.
+
+Se tes Docker dispoñible directamente en Windows, podes executar
+`docker exec -it -u dev dwcs-web bash` sen o prefixo `wsl -d Debian --`.
+O [README](../README.md#consola-do-contedor-web) explica tamén a alternativa con Docker Compose
+e o acceso desde outro equipo por SSH ao anfitrión.
+
 ## Acceso aos servizos
 
 Cos portos por defecto:

@@ -147,6 +147,19 @@ Para saír do terminal de Debian escribe `exit`.
 
 Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [README](../README.md#comandos-do-día-a-día).
 
+### Consola do contedor web
+
+Co contedor en marcha, executa **dentro de Debian**, desde calquera cartafol:
+
+```bash
+docker exec -it -u dev dwcs-web bash
+```
+
+Entrarás como `dev` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
+Consulta o [README](../README.md#consola-do-contedor-web) para o acceso como root, a alternativa con
+Docker Compose e o acceso remoto por SSH ao equipo anfitrión. Para entrar directamente desde
+PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola-do-contedor-web).
+
 ### Atallos opcionais para a terminal
 
 Podes definir `dwcs-up`, `dwcs-up-all`, `dwcs-down` e `dwcs-status` seguindo a

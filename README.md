@@ -84,8 +84,57 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Comprobar que todo funciona             | `./scripts/comprobar.sh`                        |
 | Borrar todo, **incluída a BD**          | `docker compose down -v`                        |
 
-Dentro da shell estás en `/var/www/html` (= a túa carpeta `www/`) co usuario `dev`, que ten `sudo` sen contrasinal.
-Para editar ficheiros desde a shell tes `nano`, `vi` e `vis` (estilo vim, con resaltado de sintaxe).
+### Consola do contedor web
+
+O contedor `dwcs-web` debe estar en marcha e o teu usuario debe poder executar Docker.
+Se está parado, arráncao con `dwcs-up` se tes os atallos configurados, ou con
+`docker compose up -d --no-deps web` desde o cartafol do proxecto.
+
+Desde ese cartafol, abre unha consola co usuario `dev`:
+
+```bash
+docker compose exec -u dev web bash
+```
+
+Tamén podes entrar **desde calquera cartafol**, usando o nome fixo do contedor:
+
+```bash
+docker exec -it -u dev dwcs-web bash
+```
+
+[`docker exec`](https://docs.docker.com/reference/cli/docker/container/exec/) usa `-it` para abrir
+unha consola interactiva. [`docker compose exec`](https://docs.docker.com/reference/cli/docker/compose/exec/)
+xa activa ese modo por defecto e usa o nome do servizo (`web`).
+
+Dentro da shell estás en `/var/www/html`, o cartafol local definido por `WWW_DIR` (`www/` por defecto),
+co usuario `dev`, que ten `sudo` sen contrasinal. Tes `php`, `composer` e `mysql` dispoñibles,
+ademais de `nano`, `vi` e `vis` para editar ficheiros.
+
+Para abrir a consola **como root**:
+
+```bash
+docker exec -it -u root dwcs-web bash
+```
+
+Desde o proxecto tamén podes usar `docker compose exec -u root web bash`.
+Escribe `exit` para pechar a consola; o contedor segue funcionando.
+
+#### Acceso desde outro equipo por SSH
+
+A imaxe DWCS non inclúe un servidor SSH. Se o **equipo anfitrión** ten SSH habilitado e a túa
+conta pode executar Docker, conéctate a ese equipo e abre a consola do contedor:
+
+```bash
+ssh usuario@equipo
+docker exec -it -u dev dwcs-web bash
+```
+
+Substitúe `usuario@equipo` polo usuario e o nome ou IP do anfitrión. O segundo comando execútase
+na sesión remota, sobre o Docker dese equipo. Un `exit` volve á consola do anfitrión;
+outro `exit` pecha a sesión SSH.
+
+En Windows con Docker dentro de WSL2, executa os comandos Docker na terminal de Debian ou usa
+o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-contedor-web).
 
 ### Atallos dwcs para a terminal
 
