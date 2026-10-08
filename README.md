@@ -59,15 +59,15 @@ cartafol, mesmo se contén `index.php`, `index.html` ou `index.txt`. Para execut
 En Apache, un `.htaccess` pode sobrescribir este comportamento.
 
 A configuración do servidor móntase desde `docker/apache/daw-dev.conf`. Para aplicar esta actualización
-a un contedor existente, executa `daw-dev-start` en Windows ou
+a un contedor existente, executa `daw-start` en Windows ou
 `docker compose up -d --no-deps web` en Debian. Non precisa reconstruír a imaxe.
 Tras editar só este ficheiro de configuración, reinicia o web con
 `docker compose restart web`.
 
-En **Windows 11**, podes instalar os comandos `daw-dev-*` no PATH do usuario para executar
-`daw-dev-start` (só servidor web), `daw-dev-start-db` (BD e web),
-`daw-dev-start-all` (web, BD e phpMyAdmin), `daw-dev-stop`,
-`daw-dev-status` e `daw-dev-logs` desde PowerShell ou CMD.
+En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para executar
+`daw-start` (só servidor web), `daw-start-db` (BD e web),
+`daw-start-all` (web, BD e phpMyAdmin), `daw-stop`,
+`daw-status` e `daw-logs` desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
 | Para…                                   | Comando                                         |
@@ -89,7 +89,7 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 ### Consola do contedor web
 
 O contedor `daw-dev-web` debe estar en marcha e o teu usuario debe poder executar Docker.
-Se está parado, arráncao con `daw-dev-start` se tes os atallos configurados, ou con
+Se está parado, arráncao con `daw-start` se tes os atallos configurados, ou con
 `docker compose up -d --no-deps web` desde o cartafol do proxecto.
 
 Desde ese cartafol, abre unha consola co usuario `dev`:
@@ -138,31 +138,31 @@ outro `exit` pecha a sesión SSH.
 En Windows con Docker dentro de WSL2, executa os comandos Docker na terminal de Debian ou usa
 o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-contedor-web).
 
-### Atallos daw-dev para a terminal
+### Atallos daw para a terminal
 
 Estes atallos permiten controlar a contorna desde calquera cartafol. Escolle o bloque correspondente
 á túa shell e axusta a ruta ao lugar onde descargaches o proxecto. Os nomes usan guións en
-todos os sistemas, tamén en PowerShell e CMD. O prefixo anterior `dwcs-` pasa a ser `daw-dev-`;
-por exemplo, `dwcs-start` pasa a chamarse `daw-dev-start`.
+todos os sistemas, tamén en PowerShell e CMD. O prefixo anterior `dwcs-` pasa a ser `daw-`;
+por exemplo, `dwcs-start` pasa a chamarse `daw-start`.
 Se xa tiñas os atallos configurados, substitúe as definicións antigas polas novas e abre outra
 terminal para cargar os nomes actualizados.
 
 | Atallo | Que fai |
 |--------|---------|
-| `daw-dev-start` | Arranca só `daw-dev-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
-| `daw-dev-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
-| `daw-dev-start-db` | Arranca a base de datos e o web. |
-| `daw-dev-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
-| `daw-dev-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
-| `daw-dev-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
-| `daw-dev-help` | Mostra os comandos dispoñibles. |
+| `daw-start` | Arranca só `daw-dev-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
+| `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
+| `daw-start-db` | Arranca a base de datos e o web. |
+| `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
+| `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
+| `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
+| `daw-help` | Mostra os comandos dispoñibles. |
 
-`daw-dev-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
+`daw-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
 unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
-ou para que a comprobación completa saia en verde, usa `daw-dev-start-all`. Se xa hai outros contedores
-en marcha, `daw-dev-start` déixaos funcionando.
+ou para que a comprobación completa saia en verde, usa `daw-start-all`. Se xa hai outros contedores
+en marcha, `daw-start` déixaos funcionando.
 
-`daw-dev-status` usa [`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/):
+`daw-status` usa [`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/):
 non mostra servizos cuxos contedores
 aínda non se crearon ou xa se eliminaron.
 
@@ -171,13 +171,13 @@ aínda non se crearon ou xa se eliminaron.
 Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e o ficheiro se non existen):
 
 ```fish
-alias daw-dev-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
-alias daw-dev-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
-alias daw-dev-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-dev-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
-alias daw-dev-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-dev-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-dev-help 'printf "%s\n" daw-dev-start daw-dev-start-all daw-dev-start-db daw-dev-stop daw-dev-status daw-dev-logs daw-dev-help'
+alias daw-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
+alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
+alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
+alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
+alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -189,13 +189,13 @@ terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_pr
 **Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/proxectos/daw-dev`.**
 
 ```bash
-alias daw-dev-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
-alias daw-dev-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
-alias daw-dev-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-dev-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
-alias daw-dev-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-dev-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-dev-help='printf "%s\n" daw-dev-start daw-dev-start-all daw-dev-start-db daw-dev-stop daw-dev-status daw-dev-logs daw-dev-help'
+alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
+alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
+alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
+alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
+alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -208,14 +208,14 @@ dentro de Debian, como na [guía do alumnado](docs/wsl2-alumnado.md), e non requ
 Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou ruta, axústaas tamén.
 
 ```powershell
-$script:DawDevCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
-function daw-dev-start { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d --no-deps web @args }
-function daw-dev-start-db { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d db web @args }
-function daw-dev-start-all { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d @args }
-function daw-dev-stop { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose stop @args }
-function daw-dev-status { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-dev-logs { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose logs --tail 100 -f @args }
-function daw-dev-help { Write-Output 'daw-dev-start', 'daw-dev-start-all', 'daw-dev-start-db', 'daw-dev-stop', 'daw-dev-status', 'daw-dev-logs', 'daw-dev-help' }
+$script:DawCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
+function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
+function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
+function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
+function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose stop @args }
+function daw-status { wsl.exe -d Debian -- docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
+function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -237,23 +237,23 @@ e tes o proxecto en Windows, garda **este bloque en lugar do anterior** no mesmo
 Axusta a ruta se o proxecto está noutro cartafol:
 
 ```powershell
-$script:DawDevCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
-function daw-dev-start { docker compose -f $script:DawDevCompose up -d --no-deps web @args }
-function daw-dev-start-db { docker compose -f $script:DawDevCompose up -d db web @args }
-function daw-dev-start-all { docker compose -f $script:DawDevCompose up -d @args }
-function daw-dev-stop { docker compose -f $script:DawDevCompose stop @args }
-function daw-dev-status { docker compose -f $script:DawDevCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-dev-logs { docker compose -f $script:DawDevCompose logs --tail 100 -f @args }
-function daw-dev-help { Write-Output 'daw-dev-start', 'daw-dev-start-all', 'daw-dev-start-db', 'daw-dev-stop', 'daw-dev-status', 'daw-dev-logs', 'daw-dev-help' }
+$script:DawCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
+function daw-start { docker compose -f $script:DawCompose up -d --no-deps web @args }
+function daw-start-db { docker compose -f $script:DawCompose up -d db web @args }
+function daw-start-all { docker compose -f $script:DawCompose up -d @args }
+function daw-stop { docker compose -f $script:DawCompose stop @args }
+function daw-status { docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
+function daw-logs { docker compose -f $script:DawCompose logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
-Unha vez cargado o bloque da túa shell, podes executar `daw-dev-start`, `daw-dev-start-all`, `daw-dev-status`
-ou `daw-dev-stop` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
+Unha vez cargado o bloque da túa shell, podes executar `daw-start`, `daw-start-all`, `daw-status`
+ou `daw-stop` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
 contorna onde se executan os comandos.
 
 O instalador da [guía de Windows](docs/windows11-contedores.md) crea lanzadores cos mesmos
-nomes `daw-dev-*` para PowerShell e CMD. Escolle os lanzadores ou as funcións de PowerShell segundo
-onde teñas o proxecto. `daw-dev-start-all` arranca os mesmos tres servizos en todos os sistemas.
+nomes `daw-*` para PowerShell e CMD. Escolle os lanzadores ou as funcións de PowerShell segundo
+onde teñas o proxecto. `daw-start-all` arranca os mesmos tres servizos en todos os sistemas.
 
 ## Base de datos
 

@@ -1,6 +1,7 @@
 # Migrar de dwcs-php a daw-dev
 
-O proxecto, o repositorio, os contedores e os comandos pasan a usar o nome `daw-dev`.
+O proxecto, o repositorio e os contedores pasan a usar o nome `daw-dev`. Os comandos usan
+o prefixo `daw-`, por exemplo `daw-start` e `daw-stop`.
 O código de `www/` e os datos de MariaDB consérvanse. A base de datos e o usuario de exemplo
 seguen chamándose `dwcs`; non é necesario renomealos para migrar a contorna.
 
@@ -50,14 +51,14 @@ permitir descargas sen login. O CI publica tamén `ghcr.io/miguelfm/daw-dev:8.5`
 debe facerse público antes de usalo para instalacións sen autenticación. Se `WWW_DIR` era unha ruta absoluta dentro do cartafol
 antigo, actualízaa tamén. As rutas relativas como `./www` seguen funcionando.
 
-Actualiza as definicións dos atallos da túa shell segundo o [README](../README.md#atallos-daw-dev-para-a-terminal).
-Agora chámanse `daw-dev-start`, `daw-dev-start-all`, `daw-dev-start-db`, `daw-dev-stop`,
-`daw-dev-status`, `daw-dev-logs` e `daw-dev-help`.
+Actualiza as definicións dos atallos da túa shell segundo o [README](../README.md#atallos-daw-para-a-terminal).
+Agora chámanse `daw-start`, `daw-start-all`, `daw-start-db`, `daw-stop`,
+`daw-status`, `daw-logs` e `daw-help`.
 
-Para iniciar só o web, executa `daw-dev-start`. Para comprobar a contorna completa:
+Para iniciar só o web, executa `daw-start`. Para comprobar a contorna completa:
 
 ```bash
-daw-dev-start-all
+daw-start-all
 ./scripts/comprobar.sh
 ```
 
@@ -77,11 +78,11 @@ Actualiza o repositorio, renomea o cartafol a `daw-dev` e axusta o `.env` como n
 Desde a nova raíz do repositorio, executa:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-dev-commands.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-commands.ps1
 ```
 
-O instalador crea os lanzadores `daw-dev-*.cmd` e retira os antigos `dwcs*.cmd` cando apuntan
-a esta copia ou á súa antiga localización. Abre outra terminal e executa `daw-dev-help`.
+O instalador crea os lanzadores `daw-*.cmd` e retira os antigos `dwcs*.cmd` ou `daw-dev-*.cmd` cando apuntan
+a esta copia ou á súa antiga localización. Abre outra terminal e executa `daw-help`.
 Consulta a [guía de Windows](windows11-contedores.md) para o uso habitual.
 
 ## Repositorio de GitHub

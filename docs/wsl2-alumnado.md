@@ -161,18 +161,18 @@ PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola
 
 ### Atallos opcionais para a terminal
 
-Podes definir `daw-dev-start`, `daw-dev-start-all`, `daw-dev-stop` e `daw-dev-status` seguindo a
-[sección de atallos do README](../README.md#atallos-daw-dev-para-a-terminal). Tes exemplos para Bash dentro
+Podes definir `daw-start`, `daw-start-all`, `daw-stop` e `daw-status` seguindo a
+[sección de atallos do README](../README.md#atallos-daw-para-a-terminal). Tes exemplos para Bash dentro
 de Debian e para PowerShell desde Windows, que chama a Docker a través de WSL2.
 
 Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/daw-dev/compose.yaml` e garda os alias en `~/.bashrc`.
 En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/daw-dev/compose.yaml`.
 Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 
-- `daw-dev-start`: arranca só PHP + Apache, para exercicios sen base de datos.
-- `daw-dev-start-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
-- `daw-dev-stop`: para os contedores, conservando os datos.
-- `daw-dev-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
+- `daw-start`: arranca só PHP + Apache, para exercicios sen base de datos.
+- `daw-start-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
+- `daw-stop`: para os contedores, conservando os datos.
+- `daw-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
 
 ### Depurar con Xdebug
 
