@@ -97,7 +97,7 @@ Estes atallos permiten controlar a contorna desde calquera cartafol. Escolle o b
 | `dwcs-up` | Arranca só `dwcs-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
 | `dwcs-up-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
 | `dwcs-down` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
-| `dwcs-status` | Mostra o estado e os portos dos contedores existentes da contorna, incluídos os parados. |
+| `dwcs-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 
 `dwcs-up` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
 unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
@@ -117,7 +117,7 @@ Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e 
 alias dwcs-up 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
 alias dwcs-up-all 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
 alias dwcs-down 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
-alias dwcs-status 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all'
+alias dwcs-status 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -132,7 +132,7 @@ terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_pr
 alias dwcs-up='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
 alias dwcs-up-all='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
 alias dwcs-down='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
-alias dwcs-status='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all'
+alias dwcs-status='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -149,7 +149,7 @@ $script:DwcsCompose = '/home/uxia/proxectos/dwcs-php/compose.yaml'
 function dwcs-up { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d --no-deps web @args }
 function dwcs-up-all { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d @args }
 function dwcs-down { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose stop @args }
-function dwcs-status { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose ps --all @args }
+function dwcs-status { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -175,7 +175,7 @@ $script:DwcsCompose = Join-Path $HOME 'Projects/dwcs-php/compose.yaml'
 function dwcs-up { docker compose -f $script:DwcsCompose up -d --no-deps web @args }
 function dwcs-up-all { docker compose -f $script:DwcsCompose up -d @args }
 function dwcs-down { docker compose -f $script:DwcsCompose stop @args }
-function dwcs-status { docker compose -f $script:DwcsCompose ps --all @args }
+function dwcs-status { docker compose -f $script:DwcsCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
 ```
 
 Unha vez cargado o bloque da túa shell, podes executar `dwcs-up`, `dwcs-up-all`, `dwcs-status`

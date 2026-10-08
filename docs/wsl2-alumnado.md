@@ -160,7 +160,7 @@ Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 - `dwcs-up`: arranca só PHP + Apache, para exercicios sen base de datos.
 - `dwcs-up-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
 - `dwcs-down`: para os contedores, conservando os datos.
-- `dwcs-status`: mostra os contedores existentes da contorna, incluídos os parados.
+- `dwcs-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
 
 ### Depurar con Xdebug
 
