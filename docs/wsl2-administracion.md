@@ -1,4 +1,4 @@
-# Preparar os equipos Windows 11 para DWCS (administración)
+# Preparar os equipos Windows 11 para DAW Dev (administración)
 
 Este documento é para quen administra os equipos da aula. Os pasos **requiren permisos de administrador de
 Windows** e fanse **unha soa vez por equipo**. O que vén despois (instalar Debian, Docker e a contorna) faino
@@ -8,7 +8,7 @@ cada alumno coa súa conta, sen permisos de administrador: [wsl2-alumnado.md](ws
 |---|---|---|---|
 | Administración | Virtualización na BIOS/UEFI | Acceso á BIOS | Unha por equipo |
 | Administración | Activar WSL2 (script `wsl/instalar-wsl-admin.ps1`) e reiniciar | Administrador de Windows | Unha por equipo |
-| Alumnado | Instalar Debian, Docker Engine e a contorna DWCS | Ningún (só o seu contrasinal de Linux) | Unha por usuario |
+| Alumnado | Instalar Debian, Docker Engine e a contorna DAW Dev | Ningún (só o seu contrasinal de Linux) | Unha por usuario |
 
 Non se usa **Docker Desktop**: Docker Engine instálase directamente dentro de Debian, que é máis lixeiro e non
 precisa licenza nin servizo en Windows.
@@ -188,7 +188,7 @@ O procedemento probouse en Windows 11 Pro 25H2 (compilación 26200) con WSL 3.0.
 29.8:
 
 - Instalación de WSL co método do script (DISM + MSI) desde unha sesión remota.
-- Contorna DWCS completa dentro de WSL, con Apache.
+- Contorna DAW Dev completa dentro de WSL, con Apache.
 - Acceso desde o navegador de Windows a `http://localhost` e a phpMyAdmin.
 - Xdebug con VS Code conectado a WSL.
 

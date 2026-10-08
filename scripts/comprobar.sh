@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Comproba que a contorna DWCS funciona e mostra un informe.
+# Comproba que a contorna DAW Dev funciona e mostra un informe.
 #
 # Uso:  ./scripts/comprobar.sh [--build]
 #   --build        reconstrúe a imaxe antes de comprobar
@@ -35,10 +35,10 @@ docker compose version
 
 seccion "Arranque"
 inicio=$SECONDS
-if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 > /tmp/dwcs-comprobar.log 2>&1; then
+if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 > /tmp/daw-dev-comprobar.log 2>&1; then
     ok "docker compose up${BUILD[*]:+ ${BUILD[*]}} en $((SECONDS - inicio)) s"
 else
-    fallo "docker compose up: últimas liñas do log:"; tail -20 /tmp/dwcs-comprobar.log
+    fallo "docker compose up: últimas liñas do log:"; tail -20 /tmp/daw-dev-comprobar.log
     exit 1
 fi
 docker compose ps --format '{{.Service}}: {{.Status}}'

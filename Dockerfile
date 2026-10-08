@@ -1,4 +1,4 @@
-# Imaxe de desenvolvemento PHP para DWCS
+# Imaxe de desenvolvemento PHP para DAW Dev
 # Inclúe: Apache + mod_php, Xdebug, Composer, cliente MariaDB/MySQL, git e ferramentas básicas de shell.
 ARG PHP_VERSION=8.5
 FROM php:${PHP_VERSION}-apache
@@ -14,8 +14,8 @@ ENV APACHE_RUN_USER=${USERNAME} \
     APACHE_RUN_GROUP=${USERNAME}
 
 # Configuración de Apache: ServerName, AllowOverride (.htaccess) e mod_rewrite
-COPY docker/apache/dwcs.conf /etc/apache2/conf-available/dwcs.conf
-RUN a2enconf dwcs && a2enmod rewrite headers
+COPY docker/apache/daw-dev.conf /etc/apache2/conf-available/daw-dev.conf
+RUN a2enconf daw-dev && a2enmod rewrite headers
 
 # Instalador de extensións: compila, activa e limpa as dependencias de
 # compilación nun só paso (imaxe máis pequena e build máis rápido que pecl).
@@ -64,6 +64,6 @@ ENV LANG=C.UTF-8
 COPY docker/php/conf.d/ "$PHP_INI_DIR/conf.d/"
 
 # Configuración do cliente mariadb/mysql (servidor por defecto: db)
-COPY docker/mariadb/client/dwcs.cnf /etc/mysql/conf.d/dwcs.cnf
+COPY docker/mariadb/client/daw-dev.cnf /etc/mysql/conf.d/daw-dev.cnf
 
 WORKDIR /var/www/html

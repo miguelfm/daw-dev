@@ -1,7 +1,7 @@
 ﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Prepara un equipo Windows 11 para a contorna DWCS: activa WSL2. Require administrador.
+    Prepara un equipo Windows 11 para a contorna DAW Dev: activa WSL2. Require administrador.
 
 .DESCRIPTION
     1. Comproba que a virtualización por hardware está dispoñible.

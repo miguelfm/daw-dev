@@ -34,7 +34,7 @@ $checks['Usuario PHP'] = [true, $usuario . ' (uid ' . posix_geteuid() . ')'];
 <html lang="gl">
 <head>
     <meta charset="utf-8">
-    <title>DWCS · contorna PHP</title>
+    <title>DAW Dev · contorna PHP</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
         td { padding: .35rem .75rem; border-bottom: 1px solid #ddd; }
@@ -42,7 +42,7 @@ $checks['Usuario PHP'] = [true, $usuario . ' (uid ' . posix_geteuid() . ')'];
     </style>
 </head>
 <body>
-    <h1>Contorna DWCS</h1>
+    <h1>Contorna DAW Dev</h1>
     <table>
         <?php foreach ($checks as $nome => [$ok, $detalle]): ?>
             <tr>

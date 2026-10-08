@@ -1,4 +1,4 @@
-# Contorna DWCS en Windows 11 con WSL2 (alumnado)
+# Contorna DAW Dev en Windows 11 con WSL2 (alumnado)
 
 Con esta guía instalas a contorna de PHP do módulo no teu usuario de Windows. **Non necesitas permisos de
 administrador**: o profesorado xa preparou o equipo ([wsl2-administracion.md](wsl2-administracion.md)).
@@ -46,22 +46,22 @@ Primeiro actualiza os paquetes de Debian e instala as ferramentas de descarga:
 sudo apt update && sudo apt upgrade
 sudo apt install -y git wget
 mkdir -p ~/proxectos
-git clone https://github.com/miguelfm/dwcs-php.git ~/proxectos/dwcs-php
+git clone https://github.com/miguelfm/daw-dev.git ~/proxectos/daw-dev
 ```
 
 `apt upgrade` pide confirmación para actualizar os paquetes instalados; `wget` instálase explicitamente
 co segundo comando. O instalador de Docker tamén inclúe `wget` entre as dependencias.
 
 Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che dan un `.zip`, descomprímeo en Windows, executa
-`cd ~ && explorer.exe .` en Debian e arrastra o cartafol `dwcs` á xanela que se abre.
+`cd ~ && explorer.exe .` en Debian e arrastra o cartafol `daw-dev` á xanela que se abre.
 
-> **Garda sempre o proxecto dentro de Debian (`~/proxectos/dwcs-php`), nunca en `C:`**. En `C:` todo vai moito máis lento.
+> **Garda sempre o proxecto dentro de Debian (`~/proxectos/daw-dev`), nunca en `C:`**. En `C:` todo vai moito máis lento.
 > Se xa o descargaches en `~/dwcs`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
 
 ### 1.3. Instalar Docker
 
 ```bash
-sudo bash ~/proxectos/dwcs-php/wsl/instalar-docker.sh
+sudo bash ~/proxectos/daw-dev/wsl/instalar-docker.sh
 ```
 
 Cando remate:
@@ -80,7 +80,7 @@ Ten que aparecer `Hello from Docker!`.
 ### 1.4. Primeiro arranque da contorna
 
 ```bash
-cd ~/proxectos/dwcs-php
+cd ~/proxectos/daw-dev
 cp .env.example .env
 docker compose up -d
 ```
@@ -117,7 +117,7 @@ Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os 
 3. En Debian, desde o proxecto:
 
    ```bash
-   cd ~/proxectos/dwcs-php
+   cd ~/proxectos/daw-dev
    code .
    ```
 
@@ -132,16 +132,16 @@ Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os 
 2. Arranca a contorna:
 
    ```bash
-   cd ~/proxectos/dwcs-php && docker compose up -d
+   cd ~/proxectos/daw-dev && docker compose up -d
    ```
 
 3. Abre VS Code con `code .` e o navegador en <http://localhost>.
 
-O teu código vai en `~/proxectos/dwcs-php/www/`. Os cambios vense ao recargar o navegador.
+O teu código vai en `~/proxectos/daw-dev/www/`. Os cambios vense ao recargar o navegador.
 Para saír do terminal de Debian escribe `exit`.
 
 > Despois de reiniciar Windows ou executar `wsl --shutdown`, abre Debian e volve executar
-> `docker compose up -d` no proxecto. Docker inicia con Debian; os contedores DWCS necesitan ese arranque.
+> `docker compose up -d` no proxecto. Docker inicia con Debian; os contedores DAW Dev necesitan ese arranque.
 > Non se configura o inicio automático da contorna ao iniciar sesión en Windows.
 
 Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [README](../README.md#comandos-do-día-a-día).
@@ -151,7 +151,7 @@ Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [RE
 Co contedor en marcha, executa **dentro de Debian**, desde calquera cartafol:
 
 ```bash
-docker exec -it -u dev dwcs-web bash
+docker exec -it -u dev daw-dev-web bash
 ```
 
 Entrarás como `dev` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
@@ -161,18 +161,18 @@ PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola
 
 ### Atallos opcionais para a terminal
 
-Podes definir `dwcs-start`, `dwcs-start-all`, `dwcs-stop` e `dwcs-status` seguindo a
-[sección de atallos do README](../README.md#atallos-dwcs-para-a-terminal). Tes exemplos para Bash dentro
+Podes definir `daw-dev-start`, `daw-dev-start-all`, `daw-dev-stop` e `daw-dev-status` seguindo a
+[sección de atallos do README](../README.md#atallos-daw-dev-para-a-terminal). Tes exemplos para Bash dentro
 de Debian e para PowerShell desde Windows, que chama a Docker a través de WSL2.
 
-Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/dwcs-php/compose.yaml` e garda os alias en `~/.bashrc`.
-En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/dwcs-php/compose.yaml`.
+Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/daw-dev/compose.yaml` e garda os alias en `~/.bashrc`.
+En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/daw-dev/compose.yaml`.
 Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 
-- `dwcs-start`: arranca só PHP + Apache, para exercicios sen base de datos.
-- `dwcs-start-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
-- `dwcs-stop`: para os contedores, conservando os datos.
-- `dwcs-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
+- `daw-dev-start`: arranca só PHP + Apache, para exercicios sen base de datos.
+- `daw-dev-start-all`: arranca tamén MariaDB e phpMyAdmin; úsao para a contorna completa desta guía.
+- `daw-dev-stop`: para os contedores, conservando os datos.
+- `daw-dev-status`: mostra unha táboa compacta co nome, estado e portos dos contedores existentes, incluídos os parados.
 
 ### Depurar con Xdebug
 
@@ -186,7 +186,7 @@ interrupción **non paran**: Xdebug só chega a VS Code cando este está conecta
 ### Ver os ficheiros desde Windows
 
 En Debian, `explorer.exe .` abre o cartafol actual no Explorador de Windows. Tamén podes ir a
-`\\wsl.localhost\Debian\home\<o-teu-usuario>\proxectos\dwcs-php` no Explorador.
+`\\wsl.localhost\Debian\home\<o-teu-usuario>\proxectos\daw-dev` no Explorador.
 
 ### Portainer CE: xestión gráfica opcional
 
@@ -236,21 +236,21 @@ Completa a configuración nos primeiros cinco minutos. Se caduca, executa `docke
 consulta de novo os logs e recarga. Véxase a [guía oficial do token](https://docs.portainer.io/faqs/installing/setup-token).
 
 Selecciona o contorno local (ou engádeo como Docker Standalone mediante Socket, usando
-`/var/run/docker.sock`). En **Containers** deben aparecer `dwcs-web`, `dwcs-db` e `dwcs-phpmyadmin`.
+`/var/run/docker.sock`). En **Containers** deben aparecer `daw-dev-web`, `daw-dev-db` e `daw-dev-phpmyadmin`.
 Portainer ten acceso administrativo ao motor Docker a través dese socket.
 
-O proxecto DWCS segue xestionándose co seu `compose.yaml` e `docker compose up -d` desde o terminal.
+O proxecto DAW Dev segue xestionándose co seu `compose.yaml` e `docker compose up -d` desde o terminal.
 Non despregues unha segunda copia desde Portainer: os nomes dos contedores son fixos e entrarían en conflito.
 Os datos de Portainer persisten no volume `portainer_data`; inicia con Docker salvo que o pares expresamente.
 
 ## 3. Problemas habituais
 
-Executa primeiro `cd ~/proxectos/dwcs-php && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
+Executa primeiro `cd ~/proxectos/daw-dev && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
 pásalle a saída ao profesorado.
 
 | Síntoma | Solución |
 |---|---|
-| <http://localhost> non carga | Abre Debian e executa `cd ~/proxectos/dwcs-php && docker compose up -d`. |
+| <http://localhost> non carga | Abre Debian e executa `cd ~/proxectos/daw-dev && docker compose up -d`. |
 | `permission denied ... docker.sock` | Non fixeches o `wsl --shutdown` despois de instalar Docker (paso 1.3). |
 | `Cannot connect to the Docker daemon` | Dentro de Debian executa `sudo systemctl enable --now docker`. Se persiste, executa `wsl --shutdown` en PowerShell e volve abrir Debian. |
 | `port is already allocated` | Outro programa usa ese porto. Párao ou cambia o porto no `.env` do proxecto; por exemplo `WEB_PORT=127.0.0.1:8080`. |

@@ -1,7 +1,7 @@
 {
     // Opcional: abre VS Code DENTRO do contedor web (Dev Containers).
     // Reutiliza compose.yaml e engade os axustes de compose.devcontainer.yaml.
-    "name": "DWCS PHP",
+    "name": "DAW Dev PHP",
     "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
     "service": "web",
     "runServices": ["web", "db", "phpmyadmin"],

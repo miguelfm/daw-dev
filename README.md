@@ -1,9 +1,9 @@
-# dwcs-php
+# daw-dev
 
-[![CI](https://github.com/miguelfm/dwcs-php/actions/workflows/ci.yml/badge.svg)](https://github.com/miguelfm/dwcs-php/actions/workflows/ci.yml)
+[![CI](https://github.com/miguelfm/daw-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/miguelfm/daw-dev/actions/workflows/ci.yml)
 
-Contorna Docker para **desenvolver backend con PHP**, pensada como contorna didáctica para o módulo
-**Desenvolvemento Web en Contorna Servidor (DWCS)**. Un só comando arranca PHP 8.5, servidor web, base de datos,
+Contorna Docker de desenvolvemento para **Desenvolvemento de Aplicacións Web (DAW)**.
+Actualmente inclúe PHP e as ferramentas usadas no módulo **Desenvolvemento Web en Contorna Servidor (DWCS)**. Un só comando arranca PHP 8.5, servidor web, base de datos,
 depurador e ferramentas, igual en Linux e en Windows 11 (WSL2). Fóra de Docker non hai que instalar PHP,
 servidores nin bases de datos no equipo.
 
@@ -25,11 +25,14 @@ servidores nin bases de datos no equipo.
 
 ## Posta en marcha
 
+Se xa tiñas unha instalación de `dwcs-php`, segue a [guía de migración a daw-dev](docs/renomeado-daw-dev.md)
+para actualizar os nomes e conservar os datos existentes.
+
 En **Windows 11**, segue a [guía do alumnado](docs/wsl2-alumnado.md). En **Linux**:
 
 ```bash
-git clone https://github.com/miguelfm/dwcs-php.git
-cd dwcs-php
+git clone https://github.com/miguelfm/daw-dev.git
+cd daw-dev
 cp .env.example .env      # opcional, só se queres cambiar algo
 docker compose up -d      # a primeira vez descarga as imaxes (uns minutos)
 ```
@@ -55,16 +58,16 @@ cartafol, mesmo se contén `index.php`, `index.html` ou `index.txt`. Para execut
 <http://localhost/index.php> ou `http://localhost/exercicio/index.php`.
 En Apache, un `.htaccess` pode sobrescribir este comportamento.
 
-A configuración do servidor móntase desde `docker/apache/dwcs.conf`. Para aplicar esta actualización
-a un contedor existente, executa `dwcs-start` en Windows ou
+A configuración do servidor móntase desde `docker/apache/daw-dev.conf`. Para aplicar esta actualización
+a un contedor existente, executa `daw-dev-start` en Windows ou
 `docker compose up -d --no-deps web` en Debian. Non precisa reconstruír a imaxe.
 Tras editar só este ficheiro de configuración, reinicia o web con
 `docker compose restart web`.
 
-En **Windows 11**, podes instalar os comandos `dwcs-*` no PATH do usuario para executar
-`dwcs-start` (só servidor web), `dwcs-start-db` (BD e web),
-`dwcs-start-all` (web, BD e phpMyAdmin), `dwcs-stop`,
-`dwcs-status` e `dwcs-logs` desde PowerShell ou CMD.
+En **Windows 11**, podes instalar os comandos `daw-dev-*` no PATH do usuario para executar
+`daw-dev-start` (só servidor web), `daw-dev-start-db` (BD e web),
+`daw-dev-start-all` (web, BD e phpMyAdmin), `daw-dev-stop`,
+`daw-dev-status` e `daw-dev-logs` desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
 | Para…                                   | Comando                                         |
@@ -81,12 +84,12 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Reconstruír tras cambiar Dockerfile/ini | `docker compose up -d --build`                  |
 | Actualizar as imaxes publicadas         | `docker compose pull && docker compose up -d`   |
 | Comprobar que todo funciona             | `./scripts/comprobar.sh`                        |
-| Borrar todo, **incluída a BD**          | `docker compose down -v`                        |
+| Borrar contedores e volumes xestionados, **incluída a BD** | `docker compose down -v`             |
 
 ### Consola do contedor web
 
-O contedor `dwcs-web` debe estar en marcha e o teu usuario debe poder executar Docker.
-Se está parado, arráncao con `dwcs-start` se tes os atallos configurados, ou con
+O contedor `daw-dev-web` debe estar en marcha e o teu usuario debe poder executar Docker.
+Se está parado, arráncao con `daw-dev-start` se tes os atallos configurados, ou con
 `docker compose up -d --no-deps web` desde o cartafol do proxecto.
 
 Desde ese cartafol, abre unha consola co usuario `dev`:
@@ -98,7 +101,7 @@ docker compose exec -u dev web bash
 Tamén podes entrar **desde calquera cartafol**, usando o nome fixo do contedor:
 
 ```bash
-docker exec -it -u dev dwcs-web bash
+docker exec -it -u dev daw-dev-web bash
 ```
 
 [`docker exec`](https://docs.docker.com/reference/cli/docker/container/exec/) usa `-it` para abrir
@@ -112,7 +115,7 @@ ademais de `nano`, `vi` e `vis` para editar ficheiros.
 Para abrir a consola **como root**:
 
 ```bash
-docker exec -it -u root dwcs-web bash
+docker exec -it -u root daw-dev-web bash
 ```
 
 Desde o proxecto tamén podes usar `docker compose exec -u root web bash`.
@@ -120,12 +123,12 @@ Escribe `exit` para pechar a consola; o contedor segue funcionando.
 
 #### Acceso desde outro equipo por SSH
 
-A imaxe DWCS non inclúe un servidor SSH. Se o **equipo anfitrión** ten SSH habilitado e a túa
+A imaxe DAW Dev non inclúe un servidor SSH. Se o **equipo anfitrión** ten SSH habilitado e a túa
 conta pode executar Docker, conéctate a ese equipo e abre a consola do contedor:
 
 ```bash
 ssh usuario@equipo
-docker exec -it -u dev dwcs-web bash
+docker exec -it -u dev daw-dev-web bash
 ```
 
 Substitúe `usuario@equipo` polo usuario e o nome ou IP do anfitrión. O segundo comando execútase
@@ -135,31 +138,31 @@ outro `exit` pecha a sesión SSH.
 En Windows con Docker dentro de WSL2, executa os comandos Docker na terminal de Debian ou usa
 o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-contedor-web).
 
-### Atallos dwcs para a terminal
+### Atallos daw-dev para a terminal
 
 Estes atallos permiten controlar a contorna desde calquera cartafol. Escolle o bloque correspondente
 á túa shell e axusta a ruta ao lugar onde descargaches o proxecto. Os nomes usan guións en
-todos os sistemas, tamén en PowerShell e CMD. Os antigos `dwcs-up`, `dwcs-up-all` e `dwcs-down`
-pasan a chamarse `dwcs-start`, `dwcs-start-all` e `dwcs-stop`.
+todos os sistemas, tamén en PowerShell e CMD. O prefixo anterior `dwcs-` pasa a ser `daw-dev-`;
+por exemplo, `dwcs-start` pasa a chamarse `daw-dev-start`.
 Se xa tiñas os atallos configurados, substitúe as definicións antigas polas novas e abre outra
 terminal para cargar os nomes actualizados.
 
 | Atallo | Que fai |
 |--------|---------|
-| `dwcs-start` | Arranca só `dwcs-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
-| `dwcs-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
-| `dwcs-start-db` | Arranca a base de datos e o web. |
-| `dwcs-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
-| `dwcs-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
-| `dwcs-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
-| `dwcs-help` | Mostra os comandos dispoñibles. |
+| `daw-dev-start` | Arranca só `daw-dev-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
+| `daw-dev-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
+| `daw-dev-start-db` | Arranca a base de datos e o web. |
+| `daw-dev-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
+| `daw-dev-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
+| `daw-dev-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
+| `daw-dev-help` | Mostra os comandos dispoñibles. |
 
-`dwcs-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
+`daw-dev-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
 unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
-ou para que a comprobación completa saia en verde, usa `dwcs-start-all`. Se xa hai outros contedores
-en marcha, `dwcs-start` déixaos funcionando.
+ou para que a comprobación completa saia en verde, usa `daw-dev-start-all`. Se xa hai outros contedores
+en marcha, `daw-dev-start` déixaos funcionando.
 
-`dwcs-status` usa [`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/):
+`daw-dev-status` usa [`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/):
 non mostra servizos cuxos contedores
 aínda non se crearon ou xa se eliminaron.
 
@@ -168,13 +171,13 @@ aínda non se crearon ou xa se eliminaron.
 Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e o ficheiro se non existen):
 
 ```fish
-alias dwcs-start 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
-alias dwcs-start-all 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
-alias dwcs-start-db 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d db web'
-alias dwcs-stop 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
-alias dwcs-status 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias dwcs-logs 'docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" logs --tail 100 -f'
-alias dwcs-help 'printf "%s\n" dwcs-start dwcs-start-all dwcs-start-db dwcs-stop dwcs-status dwcs-logs dwcs-help'
+alias daw-dev-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-dev-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
+alias daw-dev-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
+alias daw-dev-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-dev-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
+alias daw-dev-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
+alias daw-dev-help 'printf "%s\n" daw-dev-start daw-dev-start-all daw-dev-start-db daw-dev-stop daw-dev-status daw-dev-logs daw-dev-help'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -183,16 +186,16 @@ Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` pa
 
 Engade este bloque a `~/.bashrc` se usas Bash ou a `~/.zshrc` se usas Zsh. En macOS, se a túa
 terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_profile`.
-**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/dwcs-php` por `$HOME/proxectos/dwcs-php`.**
+**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/proxectos/daw-dev`.**
 
 ```bash
-alias dwcs-start='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d --no-deps web'
-alias dwcs-start-all='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d'
-alias dwcs-start-db='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" up -d db web'
-alias dwcs-stop='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" stop'
-alias dwcs-status='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias dwcs-logs='docker compose -f "$HOME/Projects/dwcs-php/compose.yaml" logs --tail 100 -f'
-alias dwcs-help='printf "%s\n" dwcs-start dwcs-start-all dwcs-start-db dwcs-stop dwcs-status dwcs-logs dwcs-help'
+alias daw-dev-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-dev-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
+alias daw-dev-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
+alias daw-dev-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-dev-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
+alias daw-dev-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
+alias daw-dev-help='printf "%s\n" daw-dev-start daw-dev-start-all daw-dev-start-db daw-dev-stop daw-dev-status daw-dev-logs daw-dev-help'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -205,14 +208,14 @@ dentro de Debian, como na [guía do alumnado](docs/wsl2-alumnado.md), e non requ
 Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou ruta, axústaas tamén.
 
 ```powershell
-$script:DwcsCompose = '/home/uxia/proxectos/dwcs-php/compose.yaml'
-function dwcs-start { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d --no-deps web @args }
-function dwcs-start-db { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d db web @args }
-function dwcs-start-all { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose up -d @args }
-function dwcs-stop { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose stop @args }
-function dwcs-status { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function dwcs-logs { wsl.exe -d Debian -- docker compose -f $script:DwcsCompose logs --tail 100 -f @args }
-function dwcs-help { Write-Output 'dwcs-start', 'dwcs-start-all', 'dwcs-start-db', 'dwcs-stop', 'dwcs-status', 'dwcs-logs', 'dwcs-help' }
+$script:DawDevCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
+function daw-dev-start { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d --no-deps web @args }
+function daw-dev-start-db { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d db web @args }
+function daw-dev-start-all { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose up -d @args }
+function daw-dev-stop { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose stop @args }
+function daw-dev-status { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
+function daw-dev-logs { wsl.exe -d Debian -- docker compose -f $script:DawDevCompose logs --tail 100 -f @args }
+function daw-dev-help { Write-Output 'daw-dev-start', 'daw-dev-start-all', 'daw-dev-start-db', 'daw-dev-stop', 'daw-dev-status', 'daw-dev-logs', 'daw-dev-help' }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -234,27 +237,28 @@ e tes o proxecto en Windows, garda **este bloque en lugar do anterior** no mesmo
 Axusta a ruta se o proxecto está noutro cartafol:
 
 ```powershell
-$script:DwcsCompose = Join-Path $HOME 'Projects/dwcs-php/compose.yaml'
-function dwcs-start { docker compose -f $script:DwcsCompose up -d --no-deps web @args }
-function dwcs-start-db { docker compose -f $script:DwcsCompose up -d db web @args }
-function dwcs-start-all { docker compose -f $script:DwcsCompose up -d @args }
-function dwcs-stop { docker compose -f $script:DwcsCompose stop @args }
-function dwcs-status { docker compose -f $script:DwcsCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function dwcs-logs { docker compose -f $script:DwcsCompose logs --tail 100 -f @args }
-function dwcs-help { Write-Output 'dwcs-start', 'dwcs-start-all', 'dwcs-start-db', 'dwcs-stop', 'dwcs-status', 'dwcs-logs', 'dwcs-help' }
+$script:DawDevCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
+function daw-dev-start { docker compose -f $script:DawDevCompose up -d --no-deps web @args }
+function daw-dev-start-db { docker compose -f $script:DawDevCompose up -d db web @args }
+function daw-dev-start-all { docker compose -f $script:DawDevCompose up -d @args }
+function daw-dev-stop { docker compose -f $script:DawDevCompose stop @args }
+function daw-dev-status { docker compose -f $script:DawDevCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
+function daw-dev-logs { docker compose -f $script:DawDevCompose logs --tail 100 -f @args }
+function daw-dev-help { Write-Output 'daw-dev-start', 'daw-dev-start-all', 'daw-dev-start-db', 'daw-dev-stop', 'daw-dev-status', 'daw-dev-logs', 'daw-dev-help' }
 ```
 
-Unha vez cargado o bloque da túa shell, podes executar `dwcs-start`, `dwcs-start-all`, `dwcs-status`
-ou `dwcs-stop` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
+Unha vez cargado o bloque da túa shell, podes executar `daw-dev-start`, `daw-dev-start-all`, `daw-dev-status`
+ou `daw-dev-stop` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
 contorna onde se executan os comandos.
 
 O instalador da [guía de Windows](docs/windows11-contedores.md) crea lanzadores cos mesmos
-nomes `dwcs-*` para PowerShell e CMD. Escolle os lanzadores ou as funcións de PowerShell segundo
-onde teñas o proxecto. `dwcs-start-all` arranca os mesmos tres servizos en todos os sistemas.
+nomes `daw-dev-*` para PowerShell e CMD. Escolle os lanzadores ou as funcións de PowerShell segundo
+onde teñas o proxecto. `daw-dev-start-all` arranca os mesmos tres servizos en todos os sistemas.
 
 ## Base de datos
 
-Credenciais por defecto (cámbianse no `.env`):
+Credenciais de exemplo por defecto (cámbianse no `.env`). Consérvanse os nomes `dwcs` da
+contorna orixinal para manter compatibles os exercicios e as bases de datos existentes:
 
 | Base de datos | Usuario | Contrasinal | Root       |
 |---------------|---------|-------------|------------|
@@ -274,9 +278,13 @@ Credenciais por defecto (cámbianse no `.env`):
 - **Dende o teu equipo** (DBeaver, HeidiSQL, extensión de VS Code…): `localhost`, porto `3306`.
   MySQL Workbench conecta, pero con MariaDB dá avisos e algunhas funcións fallan.
 - **Scripts iniciais:** os `.sql` de `docker/mariadb/init/` execútanse por orde alfabética **só a primeira vez** que se crea a BD.
-  Para volver executalos: `docker compose down -v && docker compose up -d`.
+  Para volver executalos cun volume xestionado por Compose: `docker compose down -v && docker compose up -d`.
   Empeza sempre os teus `.sql` con `SET NAMES utf8mb4;`, porque se non os acentos gárdanse mal.
-- Os datos persisten no volume `dwcs_db_data` aínda que pares ou borres os contedores (sen `-v`).
+- Os datos persisten no volume `daw-dev_db_data` aínda que pares ou borres os contedores (sen `-v`).
+  `DB_VOLUME_NAME` permite reutilizar un volume existente; `DB_VOLUME_EXTERNAL=true` evita que Compose
+  o cree ou elimine. Consulta a [guía de migración](docs/renomeado-daw-dev.md) para o antigo `dwcs_db_data`.
+- Se usas un volume externo, `down -v` non borra esa BD. Para probar unha BD baleira conservando a anterior,
+  escolle outro `DB_VOLUME_NAME`, pon `DB_VOLUME_EXTERNAL=false` e recrea os contedores.
 
 ## Depurar con Xdebug
 
@@ -325,15 +333,15 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 ```
 .
 ├── compose.yaml              # servizos: web, db, phpmyadmin
-├── Dockerfile                # imaxe dwcs-php (Apache)
+├── Dockerfile                # imaxe daw-dev (Apache)
 ├── .env.example              # variables configurables (portos, versións, credenciais, Xdebug)
 ├── docker/
-│   ├── apache/dwcs.conf      # ServerName, AllowOverride All (.htaccess)
+│   ├── apache/daw-dev.conf      # ServerName, AllowOverride All (.htaccess)
 │   ├── php/conf.d/
-│   │   ├── 90-dwcs.ini       # zona horaria, erros visibles, límites de subida, OPcache
+│   │   ├── 90-daw-dev.ini       # zona horaria, erros visibles, límites de subida, OPcache
 │   │   └── 99-xdebug.ini     # configuración de Xdebug
 │   └── mariadb/
-│       ├── client/dwcs.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
+│       ├── client/daw-dev.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
 │       └── init/             # scripts .sql iniciais
 ├── www/                      # ← O TEU CÓDIGO (DocumentRoot)
 ├── scripts/comprobar.sh      # comprobación automática da contorna
@@ -361,11 +369,11 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **OPcache** está activo en PHP 8.5, pero con `revalidate_freq=0` e os cambios vense ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/dwcs-php:8.5`. Tamén a reconstrúe cada luns para incorporar as actualizacións
+  `ghcr.io/miguelfm/daw-dev:8.5`. Tamén a reconstrúe cada luns para incorporar as actualizacións
   de seguridade de PHP e Debian.
   O alumnado descarga as imaxes en vez de compilalas: aforra minutos e evita fallos de rede no build.
   As imaxes publicadas usan o UID 1000.
-- **Usar o teu propio repositorio:** fai un fork. O CI publica as imaxes en `ghcr.io/<o-teu-usuario>/dwcs-php`.
-  Cambia o valor por defecto de `DWCS_IMAGE` en `compose.yaml`, e a URL en
+- **Usar o teu propio repositorio:** fai un fork. O CI publica as imaxes en `ghcr.io/<o-teu-usuario>/daw-dev`.
+  Cambia o valor por defecto de `DAW_DEV_IMAGE` en `compose.yaml`, e a URL en
   [docs/wsl2-alumnado.md](docs/wsl2-alumnado.md).
 - **Credenciais:** son de exemplo e só para desenvolvemento local. Non hai que expoñer estes portos fóra do equipo.

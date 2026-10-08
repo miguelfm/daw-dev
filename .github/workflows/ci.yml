@@ -53,11 +53,11 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/dwcs-php
+          images: ghcr.io/${{ github.repository }}
           tags: type=raw,value=${{ env.PHP_VERSION }}
           labels: |
-            org.opencontainers.image.title=dwcs-php
-            org.opencontainers.image.description=Contorna PHP ${{ env.PHP_VERSION }} (Apache) para desenvolvemento backend e o módulo DWCS
+            org.opencontainers.image.title=daw-dev
+            org.opencontainers.image.description=Contorna PHP ${{ env.PHP_VERSION }} (Apache) para desenvolvemento web en DAW
 
       # Imaxe co UID/GID 1000, o habitual no primeiro usuario de Linux e de WSL
       - uses: docker/build-push-action@v7
