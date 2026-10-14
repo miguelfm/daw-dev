@@ -1,0 +1,26 @@
+{
+    // Executa as ordes de Dev Containers dentro de Debian en WSL (sen Docker Desktop)
+    "dev.containers.executeInWSL": true,
+    "dev.containers.executeInWSLDistro": "Debian",
+
+    // Perfil para abrir o contedor cando se usa VS Code en Windows sen Dev Containers
+    "terminal.integrated.profiles.windows": {
+        "Contedor DAW Dev": {
+            "path": "wsl.exe",
+            "args": [
+                "-d",
+                "Debian",
+                "--",
+                "docker",
+                "exec",
+                "-it",
+                "-u",
+                "dev",
+                "daw-dev-web",
+                "bash"
+            ],
+            "icon": "server-process"
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "Contedor DAW Dev"
+}

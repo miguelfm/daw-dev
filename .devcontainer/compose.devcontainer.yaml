@@ -1,9 +1,13 @@
 # Só se usa co Dev Container. As rutas relativas son respecto á raíz do proxecto.
 services:
   web:
+    # Evita que Dev Containers tente reconstruír ou descargar php:8.5-apache de Docker Hub
+    # xa que a imaxe ghcr.io/miguelfm/dwcs-php:8.5 xa está dispoñible localmente.
+    build: !reset null
     volumes:
       # O proxecto completo en /workspace (www/ segue montado en /var/www/html)
       - .:/workspace:cached
     environment:
       # VS Code execútase dentro do contedor: Xdebug conecta a localhost
       XDEBUG_CONFIG: client_host=localhost
+
