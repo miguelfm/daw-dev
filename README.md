@@ -343,7 +343,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 │   └── mariadb/
 │       ├── client/daw-dev.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
 │       └── init/             # scripts .sql iniciais
-├── www/                      # ← O TEU CÓDIGO (DocumentRoot)
+├── www/                      # ← O TEU CÓDIGO (DocumentRoot; carpetas locais como dwcs/ ignoradas en git)
 ├── scripts/comprobar.sh      # comprobación automática da contorna
 ├── docs/                     # guías de Windows 11 + WSL2 (administración e alumnado)
 ├── wsl/                      # scripts de instalación para Windows 11 + WSL2
