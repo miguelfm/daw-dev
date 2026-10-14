@@ -15,13 +15,13 @@ servidores nin bases de datos no equipo.
 
 ## Requisitos
 
-- **Linux:** Docker Engine + plugin `compose`.
+- **Linux (Arch Linux, Debian, Ubuntu, Fedora...):** Docker Engine + plugin `compose`. O teu usuario debe pertencer ao grupo `docker` para executar sen `sudo` (ex. en Arch: `sudo pacman -S docker docker-compose`, `sudo systemctl enable --now docker.service`, `sudo usermod -aG docker $USER`).
 - **Windows 11:** WSL2 con Debian e Docker Engine, sen Docker Desktop. Guías:
   [preparación dos equipos (administración)](docs/wsl2-administracion.md) e
   [instalación e uso (alumnado)](docs/wsl2-alumnado.md).
 - **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
   para xestionar Docker desde o navegador en <https://localhost:9443>.
-- VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas.
+- VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas. Se desexas executar o editor dentro do contedor, require a extensión **Dev Containers** (`ms-vscode-remote.remote-containers`).
 
 ## Posta en marcha
 
@@ -311,11 +311,20 @@ Se prefires depurar só cando o pidas, cambia `xdebug.start_with_request` a `tri
 
 ## Dev Container e integración con VS Code
 
-Coa extensión **Dev Containers**: *F1 → Dev Containers: Reopen in Container*.
-VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer e `mysql` no terminal integrado sen `docker compose exec`.
+Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
+VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
+A directiva `build: !reset null` fai que se use de forma inmediata a imaxe precompilada `ghcr.io/miguelfm/dwcs-php:8.5` (descargándoa de GHCR se non está na caché local), evitando calquera intento de construción ou descarga desde Docker Hub.
 
-En **Windows 11 con WSL2 (sen Docker Desktop)**, o proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`), e `.devcontainer/compose.devcontainer.yaml` anula o paso de construción para arrancar de xeito inmediato coa imaxe precompilada local `ghcr.io/miguelfm/dwcs-php:8.5`. Ademais, se traballas con VS Code directamente en Windows, o proxecto define un perfil de terminal predeterminado que abre directamente a consola do contedor `daw-dev-web`. Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11).
+- **En Linux (Arch Linux, Debian, Ubuntu...):**
+  - Funciona de forma 100% nativa comunicándose co socket `/var/run/docker.sock`, con montaxes nativas de disco e sen sobrecarga de virtualización.
+  - O usuario `dev` (`UID:GID 1000:1000`) coincide co primeiro usuario habitual do sistema anfitrión, polo que non hai conflitos de permisos nos ficheiros creados.
+  - O ficheiro `.vscode/settings.json` está preparado para ambos os sistemas: a opción de WSL ignórase en Linux automaticamente, e disponse do perfil de terminal `"Contedor DAW Dev"` se se usa VS Code no anfitrión sen Dev Containers.
+- **En Windows 11 con WSL2 (sen Docker Desktop):**
+  - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`).
+  - Se se traballa con VS Code directamente en Windows, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-dev-web`.
+  - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11).
+
 
 
 ## Problemas habituais
