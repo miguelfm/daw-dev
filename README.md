@@ -309,11 +309,14 @@ O modo cámbiase no `.env` sen reconstruír (despois executa `docker compose up 
 Se prefires depurar só cando o pidas, cambia `xdebug.start_with_request` a `trigger` en
 `docker/php/conf.d/99-xdebug.ini`, reconstrúe a imaxe e usa a extensión do navegador «Xdebug helper».
 
-## Dev Container (opcional)
+## Dev Container e integración con VS Code
 
 Coa extensión **Dev Containers**: *F1 → Dev Containers: Reopen in Container*.
 VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer e `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
+
+En **Windows 11 con WSL2 (sen Docker Desktop)**, o proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`), e `.devcontainer/compose.devcontainer.yaml` anula o paso de construción para arrancar de xeito inmediato coa imaxe precompilada local `ghcr.io/miguelfm/dwcs-php:8.5`. Ademais, se traballas con VS Code directamente en Windows, o proxecto define un perfil de terminal predeterminado que abre directamente a consola do contedor `daw-dev-web`. Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11).
+
 
 ## Problemas habituais
 
