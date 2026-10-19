@@ -9,13 +9,14 @@ ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# Apache executa PHP co noso usuario en vez de www-data
+# Apache executa PHP co usuario dev e o grupo www-data de Apache
 ENV APACHE_RUN_USER=${USERNAME} \
-    APACHE_RUN_GROUP=${USERNAME}
+    APACHE_RUN_GROUP=www-data
 
 # Configuración de Apache: ServerName, AllowOverride (.htaccess) e mod_rewrite
 COPY docker/apache/daw-dev.conf /etc/apache2/conf-available/daw-dev.conf
-RUN a2enconf daw-dev && a2enmod rewrite headers
+RUN a2enconf daw-dev && a2enmod rewrite headers \
+    && echo "umask 002" >> /etc/apache2/envvars
 
 # Instalador de extensións: compila, activa e limpa as dependencias de
 # compilación nun só paso (imaxe máis pequena e build máis rápido que pecl).
@@ -51,11 +52,19 @@ RUN install-php-extensions \
 # php.ini de desenvolvemento (display_errors=On, E_ALL...) como base
 RUN cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
-# Usuario sen privilexios co mesmo UID/GID que o anfitrión, con sudo sen contrasinal.
-RUN groupadd --gid "$USER_GID" "$USERNAME" \
-    && useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /bin/bash "$USERNAME" \
+# Usuario sen privilexios co mesmo UID/GID que o anfitrión, no grupo www-data e con sudo sen contrasinal.
+# Crea a ligazón simbólica /home/dev/html -> /var/www/html e configura permisos e umask 002.
+RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" "$USERNAME") \
+    && useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /bin/bash -G www-data "$USERNAME" \
+    && usermod -aG "$USERNAME" www-data 2>/dev/null || true \
     && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
-    && chmod 0440 "/etc/sudoers.d/$USERNAME"
+    && chmod 0440 "/etc/sudoers.d/$USERNAME" \
+    && chmod 0755 "/home/$USERNAME" \
+    && ln -s /var/www/html "/home/$USERNAME/html" \
+    && chown -h "$USERNAME:$USERNAME" "/home/$USERNAME/html" \
+    && echo "umask 002" >> "/home/$USERNAME/.bashrc" \
+    && chown -R "$USERNAME:www-data" /var/www/html \
+    && chmod -R 2775 /var/www/html
 
 # UTF-8 na shell (acentos no cliente mysql, nano...)
 ENV LANG=C.UTF-8
@@ -65,5 +74,6 @@ COPY docker/php/conf.d/ "$PHP_INI_DIR/conf.d/"
 
 # Configuración do cliente mariadb/mysql (servidor por defecto: db)
 COPY docker/mariadb/client/daw-dev.cnf /etc/mysql/conf.d/daw-dev.cnf
+RUN chmod 0644 /etc/mysql/conf.d/daw-dev.cnf
 
 WORKDIR /var/www/html
