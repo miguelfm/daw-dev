@@ -78,6 +78,12 @@ wsl -d Debian -- sudo systemctl enable --now docker
 Os comandos usan sempre a configuración `compose.yaml` e o `.env` deste repositorio,
 independentemente do cartafol actual do terminal. Respecta os portos que configures no `.env`. Non borra volumes nin a base de datos.
 
+Os comandos de arranque manteñen unha sesión de WSL en segundo plano mentres
+haxa servizos do proxecto en marcha. Isto evita que WSL peche Debian ao rematar
+o lanzador e pare tamén os contedores. Non se abre ningunha xanela adicional.
+Tras `daw-stop`, a sesión remata nun máximo de 20 segundos. Un peche explícito
+con `wsl --shutdown` segue parando o contorno.
+
 ## Consola do contedor web
 
 Co contedor en marcha, podes abrir unha consola desde calquera cartafol de PowerShell ou CMD.
@@ -184,3 +190,54 @@ cambios, Xdebug e phpMyAdmin. O comprobador arranca a contorna se está parada.
 
 Se `daw-start` non se recoñece, abre un terminal novo ou executa de novo o instalador.
 Se un porto está ocupado, cambia o valor correspondente no `.env` e executa `daw-start`.
+
+### Localhost deixa de responder pouco despois do arranque
+
+En Windows con Docker Engine dentro dunha distribución WSL2, o comando de
+arranque pode rematar correctamente e o navegador deixar de conectar despois.
+WSL pode pechar a distribución cando xa non queda unha sesión activa; ter Docker
+habilitado en systemd non garante que a distribución permaneza aberta.
+Este diagnóstico corresponde a Docker dentro de WSL2. En Linux nativo ou con
+Docker Desktop hai que comprobar o estado do motor e dos contedores antes de
+atribuír o fallo á mesma causa.
+
+Para diagnosticalo desde PowerShell:
+
+```powershell
+curl.exe --noproxy '*' --max-time 8 -I http://localhost/
+wsl --list --verbose
+daw-status
+```
+
+Consulta primeiro a listaxe de WSL: `daw-status` volve abrir a distribución e
+pode ocultar que estaba parada. Se non tes os lanzadores, consulta os contedores
+con `wsl -d Debian -- docker ps -a`. Substitúe Debian pola túa distribución e
+axusta a URL se configuraches outro porto. Unha conexión rexeitada xunto coa
+distribución parada é compatíbel con este fallo; non proba un problema de Apache.
+
+Os lanzadores actuais resólveno mediante `wsl/keep-alive.sh`, iniciado en segundo
+plano por `wsl/daw.ps1` tras un arranque correcto. O script mantén unha sesión
+activa mentres haxa servizos deste proxecto en marcha; un bloqueo con `flock`
+evita duplicala nos arranques sucesivos. Actualiza a copia do proxecto conservando
+os cambios locais e usa `daw-start`, `daw-start-db` ou `daw-start-all`.
+Se os lanzadores xa apuntan a esa copia, non cómpre reinstalalos.
+
+Esta protección só se aplica aos arranques feitos con `wsl/daw.ps1`. Os alias
+que chaman directamente a `wsl ... docker compose up -d` non a inclúen. Se tes o
+proxecto dentro de Debian e segues a guía do alumnado, mantén aberta unha terminal
+de Debian mentres traballas. Non copies unha ruta de Windows a unha instalación
+co proxecto en Linux; adapta primeiro a distribución e a localización do proxecto.
+
+Para quen revise ou modifique estes scripts, a comprobación debe incluír pechar
+as sesións interactivas de Debian, agardar polo menos 90 segundos e repetir a
+petición HTTP desde Windows antes de executar outro comando WSL. Comproba tamén
+que `daw-stop` libera a sesión de mantemento e que un novo arranque funciona.
+Un HTTP 200 inmediatamente despois do arranque non acredita a permanencia.
+Non borres contedores nin volumes para resolver este síntoma.
+
+O 21-10-2026 reproduciuse e comprobouse a corrección neste equipo con Windows,
+Debian 13 en WSL2, Docker Engine 29.9.0 e Compose 5.6.0: acceso HTTP despois do
+intervalo de inactividade, parada, liberación da sesión e novo arranque.
+Non se comprobou esta corrección noutras distribucións, con Docker Desktop nin
+despois dun reinicio completo de Windows. Tras reiniciar, segue sendo necesario
+arrancar os servizos; non se configura un inicio automático con Windows.

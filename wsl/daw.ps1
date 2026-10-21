@@ -33,4 +33,12 @@ if (!(Test-Path -LiteralPath (Join-Path $projectPath 'compose.yaml'))) {
     throw "compose.yaml was not found in $projectPath"
 }
 & wsl.exe -d $Distribution --cd $projectPath -- docker compose @composeArgs
-exit $LASTEXITCODE
+$composeExitCode = $LASTEXITCODE
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all')) {
+    # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
+    Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList @(
+        '-d', $Distribution, '--cd', ('"' + $projectPath + '"'),
+        '--', 'bash', 'wsl/keep-alive.sh'
+    ) | Out-Null
+}
+exit $composeExitCode

@@ -140,6 +140,12 @@ Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os 
 O teu código vai en `~/proxectos/daw-dev/www/`. Os cambios vense ao recargar o navegador.
 Para saír do terminal de Debian escribe `exit`.
 
+Se ao pechar as sesións de Debian deixa de responder `localhost`, mantén aberta
+unha terminal de Debian mentres traballas. Docker en systemd non garante que WSL
+permaneza aberto. Consulta [o diagnóstico e as diferenzas entre os métodos de arranque](windows11-contedores.md#localhost-deixa-de-responder-pouco-despois-do-arranque):
+os alias que executan directamente `docker compose up -d` non inclúen a sesión
+de mantemento dos lanzadores de Windows.
+
 > Despois de reiniciar Windows ou executar `wsl --shutdown`, abre Debian e volve executar
 > `docker compose up -d` no proxecto. Docker inicia con Debian; os contedores DAW Dev necesitan ese arranque.
 > Non se configura o inicio automático da contorna ao iniciar sesión en Windows.

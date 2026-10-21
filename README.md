@@ -329,6 +329,10 @@ A directiva `build: !reset null` fai que se use de forma inmediata a imaxe preco
 
 ## Problemas habituais
 
+Se en Windows `localhost` funciona ao arrancar e deixa de responder ao pouco,
+consulta [o peche de WSL tras o arranque](docs/windows11-contedores.md#localhost-deixa-de-responder-pouco-despois-do-arranque).
+A guía inclúe o diagnóstico, a protección dos lanzadores e a proba de permanencia.
+
 Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos casos, como arranxala.
 
 | Síntoma | Solución |
