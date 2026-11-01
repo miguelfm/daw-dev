@@ -311,6 +311,9 @@ Se prefires depurar só cando o pidas, cambia `xdebug.start_with_request` a `tri
 
 ## Dev Container e integración con VS Code
 
+Para alternar entre Programación con Java e DWCS con PHP, consulta a
+[guía de perfís separados de VS Code](docs/vscode-perfis.md).
+
 Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
 VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
