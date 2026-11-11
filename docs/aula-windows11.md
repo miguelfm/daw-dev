@@ -180,6 +180,8 @@ detense: actualizar o modelo distribuído non é un mecanismo para actualizar os
 
 ## 5. Uso diario sen administrador
 
+Para o material de clase ou entrega ao alumnado, disponse da [guía rápida de inicio e uso en Markdown para PDF](guia-inicio-alumnado.md).
+
 Abre unha terminal nova despois da primeira instalación:
 
 | Comando | Resultado |

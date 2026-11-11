@@ -17,8 +17,9 @@ servidores nin bases de datos no equipo.
 
 - **Linux (Arch Linux, Debian, Ubuntu, Fedora...):** Docker Engine + plugin `compose`. O teu usuario debe pertencer ao grupo `docker` para executar sen `sudo` (ex. en Arch: `sudo pacman -S docker docker-compose`, `sudo systemctl enable --now docker.service`, `sudo usermod -aG docker $USER`).
 - **Windows 11:** WSL2 con Debian e Docker Engine, sen Docker Desktop. Guías:
-  [preparación dos equipos (administración)](docs/wsl2-administracion.md) e
-  [instalación e uso (alumnado)](docs/wsl2-alumnado.md).
+  [preparación dos equipos (administración)](docs/wsl2-administracion.md),
+  [instalación e uso (alumnado)](docs/wsl2-alumnado.md) e
+  [guía rápida de inicio para imprimir/PDF](docs/guia-inicio-alumnado.md).
 - **Aulas con contas persoais:** [despregamento remoto desde o profesor, modelo Debian, execución paralela e soporte para aulas compartidas](docs/aula-windows11.md).
 - **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
   para xestionar Docker desde o navegador en <https://localhost:9443>.
