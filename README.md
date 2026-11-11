@@ -320,6 +320,8 @@ VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Compose
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
 A directiva `build: !reset null` fai que se use de forma inmediata a imaxe precompilada `ghcr.io/miguelfm/dwcs-php:8.5` (descargándoa de GHCR se non está na caché local), evitando calquera intento de construción ou descarga desde Docker Hub.
 
+Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → Dev Containers: Rebuild Container** para aplicar tamén as montaxes de `.devcontainer/compose.devcontainer.yaml`. Reabrir a xanela pode reutilizar o contedor anterior sen `/workspace` nin os axustes de Xdebug. A reconstrución conserva os ficheiros montados e o volume da base de datos. Se aparece `unable to find user dev`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
+
 - **En Linux (Arch Linux, Debian, Ubuntu...):**
   - Funciona de forma 100% nativa comunicándose co socket `/var/run/docker.sock`, con montaxes nativas de disco e sen sobrecarga de virtualización.
   - O usuario `dev` (`UID:GID 1000:1000`) coincide co primeiro usuario habitual do sistema anfitrión, polo que non hai conflitos de permisos nos ficheiros creados.

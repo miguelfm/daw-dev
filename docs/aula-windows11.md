@@ -75,16 +75,22 @@ O segundo descarga unha vez o MSI oficial de WSL no profesor, comproba a sinatur
 destino. Activa as características Windows e informa de `RestartRequired`. Non reinicia automaticamente.
 Podes usar `-WslMsi C:\ruta\wsl.<version>.x64.msi` para un MSI xa descargado.
 
-Se o resultado require reinicio, faino nun momento sen alumnos traballando:
+Se o resultado require reinicio, faino nun momento sen alumnos traballando mediante WinRM (evitando `Restart-Computer`, que emprega RPC/135 bloqueado por defecto polo cortalumes):
 
 ```powershell
-Invoke-Command -ComputerName A31EQ01.iesrodolfoucha.es -Authentication Kerberos -ScriptBlock {
-    shutdown.exe /r /t 5 /d p:2:4
+$equipos = @(1..35) | ForEach-Object { "A34EQ{0:D2}.iesrodolfoucha.es" -f $_ }
+Invoke-Command -ComputerName $equipos -Authentication Kerberos -ScriptBlock {
+    shutdown.exe /r /t 5 /f /d p:2:4
 }
 ```
 
-Despois do reinicio comproba de novo WinRM. Para preparar a aula 34 completa, cambia `-Aula 31 -Numero 1`
-por `-Aula 34`; se omites `-Numero`, inclúense os equipos 1–35. O profesor 100 queda excluído.
+Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, pódese empregar `wsl/aula/gestionar-aula-paralelo.ps1`, que executa as fases de `PrepararWSL` e `CopiarModelo` en lotes concorrentes seguros de 5 equipos mediante *jobs* de PowerShell, reducendo o tempo total da aula a menos de 15 minutos:
+
+```powershell
+# Preparación concorrente en lotes de 5
+.\wsl\aula\gestionar-aula-paralelo.ps1 -Action PrepararWSL -Aula 34 -Numero @(1..5)
+.\wsl\aula\gestionar-aula-paralelo.ps1 -Action CopiarModelo -Aula 34 -Numero @(1..5)
+```
 
 ## 3. Construír o modelo unha vez
 
@@ -177,6 +183,17 @@ Abre unha terminal nova despois da primeira instalación:
 Accede a `http://localhost`, `http://localhost/index.php` e `http://localhost:8081`.
 phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de desenvolvemento son as do
 `.env.example`; os portos quedan limitados ao equipo local.
+
+### Acceso directo aos ficheiros web e contorna Linux
+
+O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
+- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
+- **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code:
+  ```powershell
+  wsl -d Debian-DAW --cd /home/ad/www
+  code .
+  ```
+- Mantense a compatibilidade total coa ruta interna histórica `/home/alumno/proxectos/daw-dev/www` mediante ligazóns simbólicas transparentes.
 
 Os lanzadores Windows arrancan WSL se está parado, agardan por Docker e manteñen unha sesión oculta
 mentres existan contedores do proxecto en marcha. `daw-stop` deixa rematar esa sesión en ata 20 segundos.

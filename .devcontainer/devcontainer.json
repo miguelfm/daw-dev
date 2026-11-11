@@ -10,6 +10,15 @@
     "shutdownAction": "stopCompose",
     "customizations": {
         "vscode": {
+            "settings": {
+                // Dentro do contedor a shell é local; non se usa docker exec.
+                "terminal.integrated.profiles.linux": {
+                    "bash": {
+                        "path": "/bin/bash"
+                    }
+                },
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
             "extensions": [
                 "xdebug.php-debug",
                 "bmewburn.vscode-intelephense-client"

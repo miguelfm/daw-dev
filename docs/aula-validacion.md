@@ -81,3 +81,69 @@ Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesr
    - A primeira vez que un alumno inicia sesión nun equipo novo, a descompresión e importación de Debian-DAW require entre 1 e 3 minutos (segundo o rendemento do disco NVMe/SSD). Os arranques posteriores son inmediatos.
 3. **Concorrencia de portos:**
    - Os servizos mapean os portos `80`, `8081` e `3306` na interface `127.0.0.1` de Windows. Débese lembrar ao alumnado que execute `daw-stop` ao rematar a sesión de clase para evitar colisións con futuros inicios no mesmo equipo.
+
+---
+
+## Validación do despregamento masivo na Aula 34 (11 de novembro de 2026)
+
+Rexistro da execución completa de instalación, paralelización e verificación post-reinicio na Aula 34.
+
+### 1. Alcance do despregamento
+- **Equipo de administración (profesor):** `A34EQ100` (`172.21.34.100`), Windows 11 x64.
+- **Equipos obxectivo despregados con éxito (28 postos):**  
+  `A34EQ01` ata `A34EQ13`, `A34EQ15` ata `A34EQ17`, `A34EQ19` ata `A34EQ27`, `A34EQ30`, `A34EQ32` e `A34EQ33`.
+- **Equipos non activos (apagados / fóra de rede):**  
+  `A34EQ14`, `A34EQ18`, `A34EQ28`, `A34EQ29`, `A34EQ31`, `A34EQ34` e `A34EQ35`.
+
+### 2. Rendemento e paralelización (`gestionar-aula-paralelo.ps1`)
+- **Fase WinRM:** Habilitación secuencial mediante PsExec asinado por Microsoft (~50 s por máquina).
+- **Fase WSL2:** Habilitación de características DISM e instalación do MSI oficial en lotes concorrentes de 5 equipos mediante *jobs* de PowerShell. Redución do tempo de DISM de 11 minutos por lote a só 2 minutos e 50 segundos.
+- **Fase de Copia SMB:** Distribución de `debian-daw.tar.gz` (1,41 GB) e scripts en lotes paralelos de 5 equipos (~1 min por lote, ~22 MB/s por equipo sen saturar a ligazón Gigabit do profesor).
+- **Reinicio remoto limpo:** Executado mediante `Invoke-Command` con `shutdown.exe /r /t 5 /f /d p:2:4` a través de WinRM, superando a limitación de `Restart-Computer` bloqueada polo cortalumes RPC (0x800706BA).
+
+### 3. Simplificación da ruta de traballo para o alumnado (`ad`)
+- Adaptouse `instalar-alumno.ps1` para que na importación de `Debian-DAW`:
+  - Renomee de forma transparente o usuario interno a `ad` e configure `default=ad` en `/etc/wsl.conf`.
+  - Enlace `/home/ad/www` cara a `/home/ad/proxectos/daw-dev/www`, permitindo o acceso directo desde Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www`.
+  - Cree automaticamente no Escritorio de Windows o acceso directo `DAW - Proxectos (www).lnk`.
+  - Manteña a ligazón de compatibilidade `/home/alumno -> /home/ad`.
+
+### 4. Resultados da verificación masiva en directo (Post-Reinicio)
+
+Execución simultánea con `Invoke-Command -ThrottleLimit 28` sobre os 28 equipos:
+
+```text
+Equipo   WSL_Plataforma  WSL_Version            Paquete_Arquivos  Paquete_Imaxe  AutoInicio_Run  Estado_Global
+-------  --------------  ---------------------  ----------------  -------------  --------------  -------------
+A34EQ01       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ02       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ03       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ04       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ05       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ06       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ07       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ08       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ09       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ10       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ11       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ12       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ13       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ15       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ16       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ17       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ19       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ20       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ21       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ22       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ23       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ24       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ25       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ26       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ27       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ30       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ32       True       Versión de WSL: 3.0.5.0       6               True           True           True
+A34EQ33       True       Versión de WSL: 3.0.5.0       6               True           True           True
+```
+
+Taxa de éxito de verificación: **100% (28/28 equipos)**.
+Todos os compoñentes de virtualización, arquivos base, integridade SHA256 e auto-inicio atopanse plenamente operativos.

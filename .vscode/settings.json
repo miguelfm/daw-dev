@@ -27,14 +27,10 @@
     // Perfil para abrir o contedor cando se usa VS Code en Linux sen Dev Containers
     "terminal.integrated.profiles.linux": {
         "Contedor DAW Dev": {
-            "path": "docker",
+            "path": "/bin/bash",
             "args": [
-                "exec",
-                "-it",
-                "-u",
-                "dev",
-                "daw-dev-web",
-                "bash"
+                "-lc",
+                "if [ -f /.dockerenv ]; then exec /bin/bash; else exec docker exec -it -u dev daw-dev-web bash; fi"
             ],
             "icon": "server-process"
         }

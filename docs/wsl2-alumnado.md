@@ -18,11 +18,11 @@ daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
 ```
 
-O código está en `\\wsl.localhost\Debian-DAW\home\alumno\proxectos\daw-dev\www`.
+O código está directamente en `\\wsl.localhost\Debian-DAW\home\ad\www` (tamén accesible a través do acceso directo do teu Escritorio de Windows: **«DAW - Proxectos (www)»**, ou pola ruta histórica `\\wsl.localhost\Debian-DAW\home\alumno\proxectos\daw-dev\www`).
 Para entrar no proxecto en Debian:
 
 ```powershell
-wsl -d Debian-DAW --cd /home/alumno/proxectos/daw-dev
+wsl -d Debian-DAW --cd /home/ad/www
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
