@@ -2,7 +2,8 @@
 
 Para preparar unha aula completa desde o equipo do profesor, con contas persoais, WinRM e Veyon,
 usa a [guía de despregamento automatizado](aula-windows11.md). Inclúe diagnóstico, activación remota,
-un modelo Debian con Docker precargado e importación sen administrador por cada alumno.
+un modelo Debian con Docker precargado, despregamento concorrente en lotes e opción de activación baixo
+demanda para aulas compartidas con outros módulos.
 
 Este documento é para quen administra os equipos da aula. Os pasos **requiren permisos de administrador de
 Windows** e fanse **unha soa vez por equipo**. O que vén despois (instalar Debian, Docker e a contorna) faino

@@ -11,9 +11,10 @@ Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 
 2. Instala WSL en cada Windows e reinicia os equipos que o precisen.
 3. Constrúe **un modelo limpo Debian**, con Docker Engine, Compose, o proxecto e as tres imaxes descargadas.
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Aula`, protexido contra escritura do alumnado.
-5. Ao iniciar sesión, cada alumno importa automaticamente a súa propia distribución **Debian-DAW**.
-   Se xa iniciou sesión, o profesor pode lanzar a importación cunha tarefa de Windows sen elevación.
-6. Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
+5. **Activación da contorna:**
+   - **En aulas compartidas (configuración aplicada na Aula 34):** A activación realízase baixo demanda polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`. Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin acceso directo.
+   - **En aulas de uso exclusivo:** Pódese manter a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
+6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), con acceso directo en Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
