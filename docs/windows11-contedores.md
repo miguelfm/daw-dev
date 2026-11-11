@@ -127,21 +127,20 @@ Hai dúas formas de integrar o editor cos contedores Docker que se executan en W
 Esta opción executa VS Code e todas as súas ferramentas directamente **dentro do contedor `daw-dev-web`**, sen precisar Docker Desktop nin instalar PHP en Windows:
 
 1. **Requisitos:**
-   - Instala a extensión **Dev Containers** (`ms-vscode-remote.remote-containers`) en VS Code.
-   - Instala a extensión **WSL** (`ms-vscode-remote.remote-wsl`).
+   - Extensión **Dev Containers** (`ms-vscode-remote.remote-containers`) en VS Code.
+   - Extensión **WSL** (`ms-vscode-remote.remote-wsl`).
+   *(Nas aulas con despregamento automatizado, ambas extensións instálanse de xeito automático no perfil do alumno).*
 2. **Configuración incluída no proxecto:**
    - O ficheiro [`.vscode/settings.json`](../.vscode/settings.json) xa inclúe os axustes necesarios para que Dev Containers se comunique co Docker de WSL:
      ```json
      "dev.containers.executeInWSL": true,
      "dev.containers.executeInWSLDistro": "Debian"
      ```
+     *(No modelo de aula `Debian-DAW`, o script do alumno axusta automaticamente o valor a `"Debian-DAW"`).*
    - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) anula calquera paso de construción (`build: !reset null`) para arrancar de xeito inmediato coa imaxe precompilada local (`ghcr.io/miguelfm/dwcs-php:8.5`), evitando tempos de espera e descargas desde Docker Hub.
 3. **Uso:**
-   - Abre a carpeta do proxecto en VS Code en Windows (`C:\Users\miguelfm\Projects\daw-dev`).
-   - Preme **`F1`** (ou `Ctrl+Shift+P`) e selecciona:
-     ```text
-     Dev Containers: Reopen in Container
-     ```
+   - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
+   - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
    - O espazo de traballo abrirase en `/workspace` dentro do contedor.
    - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `dev`, con PHP 8.5, Composer, Git e o cliente de MariaDB dispoñibles.
 

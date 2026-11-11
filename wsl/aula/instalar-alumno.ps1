@@ -103,6 +103,19 @@ try {
     }
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath '/home/ad/proxectos/daw-dev'
 
+    # Preinstalar extensións de VS Code para Dev Containers e WSL se VS Code está dispoñible
+    try {
+        $codePath = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
+        if (-not (Test-Path -LiteralPath $codePath)) {
+            $cmdCheck = Get-Command code -ErrorAction SilentlyContinue
+            if ($cmdCheck) { $codePath = $cmdCheck.Source }
+        }
+        if (Test-Path -LiteralPath $codePath) {
+            & $codePath --install-extension ms-vscode-remote.remote-containers --force | Out-Null
+            & $codePath --install-extension ms-vscode-remote.remote-wsl --force | Out-Null
+        }
+    } catch { }
+
     # Crear acceso directo no Escritorio de Windows apuntando a \\wsl.localhost\Debian-DAW\home\ad\www
     try {
         $desktopPath = [Environment]::GetFolderPath('Desktop')

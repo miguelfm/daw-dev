@@ -27,6 +27,7 @@ $commands = [ordered]@{
     'daw-stop' = 'stop'
     'daw-status' = 'status'
     'daw-logs' = 'logs'
+    'daw-code' = 'code'
     'daw-help' = 'help'
 }
 foreach ($entry in $commands.GetEnumerator()) {

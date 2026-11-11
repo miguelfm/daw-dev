@@ -16,10 +16,15 @@ daw-help
 daw-start       # Só PHP e Apache; tamén funciona daw-star
 daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
+daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
 ```
 
 O código está directamente en `\\wsl.localhost\Debian-DAW\home\ad\www` (tamén accesible a través do acceso directo do teu Escritorio de Windows: **«DAW - Proxectos (www)»**, ou pola ruta histórica `\\wsl.localhost\Debian-DAW\home\alumno\proxectos\daw-dev\www`).
-Para entrar no proxecto en Debian:
+
+Para traballar con **VS Code e Dev Containers** (recomendado):
+Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto e detectará a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
+
+Para entrar no proxecto directamente en Debian:
 
 ```powershell
 wsl -d Debian-DAW --cd /home/ad/www

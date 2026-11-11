@@ -12,7 +12,7 @@ $startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db'
-        Write-Output '       daw-stop | daw-status | daw-logs | daw-help'
+        Write-Output '       daw-stop | daw-status | daw-logs | daw-code | daw-help'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
@@ -21,6 +21,27 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-stop: stop DAW Dev containers without deleting data.'
         Write-Output '  daw-status: show names, status and ports, including stopped containers.'
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
+        Write-Output '  daw-code: open the project in VS Code (ready for Dev Containers).'
+        exit 0
+    }
+    'code' {
+        $targetPath = if ($ProjectPath.StartsWith('/')) {
+            "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+        } else {
+            $ProjectPath
+        }
+        $codeCmd = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
+        if (-not (Test-Path -LiteralPath $codeCmd)) {
+            $cmdCheck = Get-Command code -ErrorAction SilentlyContinue
+            if ($cmdCheck) { $codeCmd = $cmdCheck.Source }
+        }
+        if (Test-Path -LiteralPath $codeCmd) {
+            Start-Process -FilePath $codeCmd -ArgumentList ('"' + $targetPath + '"')
+            Write-Output "VS Code aberto no proxecto: $targetPath"
+            Write-Output "Para traballar no contedor, preme F1 e selecciona: Dev Containers: Reopen in Container"
+        } else {
+            Write-Error "Non se atopou VS Code no equipo."
+        }
         exit 0
     }
     'start' { $composeArgs = $startArgs + @('--no-deps', 'web') }

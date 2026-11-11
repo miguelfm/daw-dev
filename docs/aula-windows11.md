@@ -189,6 +189,7 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-start-all` | Web + MariaDB + phpMyAdmin |
 | `daw-stop` | Para os servizos e conserva a BD e o código |
 | `daw-status` | Lista tamén contedores parados |
+| `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |
 | `daw-help` | Axuda dos comandos Windows |
 
 Accede a `http://localhost`, `http://localhost/index.php` e `http://localhost:8081`.
@@ -199,7 +200,13 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 
 O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
 - **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
-- **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code:
+- **Con VS Code e Dev Containers:**
+  O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` se VS Code está instalado no equipo. O alumno só ten que executar:
+  ```powershell
+  daw-code
+  ```
+  Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). Grazas á imaxe precompilada local, a contorna ábrese de xeito instantáneo coas ferramentas (PHP 8.5, Composer, Xdebug, MariaDB client) listas para traballar.
+- **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code estándar:
   ```powershell
   wsl -d Debian-DAW --cd /home/ad/www
   code .
