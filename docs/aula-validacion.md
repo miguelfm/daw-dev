@@ -160,3 +160,18 @@ Todos os compoñentes de virtualización, arquivos base e integridade SHA256 ato
   - `.vscode/settings.json` adáptase para que `dev.containers.executeInWSLDistro` apunte a `Debian-DAW`.
   - `.devcontainer/compose.devcontainer.yaml` utiliza a imaxe precompilada local con `build: !reset null`, garantindo que premendo **«Reopen in Container»** o contedor inicie en poucos segundos sen requirir compilación nin descargas de Docker Hub.
   - Distribuíronse os scripts actualizados a tódolos equipos da aula en `C:\ProgramData\DAW-Aula\`.
+
+---
+
+### 6. Validación do procedemento de apagado remoto da aula
+
+Ao rematar as probas de despregamento e validación de Aula 34, probouse e validouse o procedemento de apagado masivo da aula desde o posto do profesor (`.100`):
+
+- **Fase 1 (WinRM en paralelo):** Apagáronse de forma simultánea os equipos activos que dispoñían de WinRM configurado polo porto 5985.
+- **Fase 2 (Rescate por SMB/RPC directo e PsExec):** Os equipos 14, 18, 28, 29 e 31 non responderan por WinRM polo seguinte:
+  - *Equipo 14:* Anomalía no rexistro DNS do dominio (resolvía a `172.20.14.3`), pero tiña conectividade directa en `172.21.34.14`. Apagouse mediante `PsExec` sobre o seu IP.
+  - *Equipos 18, 28, 29 e 31:* Ao estaren apagados durante o despregamento inicial pola tarde, non tiñan aínda a regra de cortalumes de WinRM activa. Apagáronse de xeito instantáneo mediante `shutdown.exe /m \\172.21.34.X /s /t 0 /f` e `PsExec` sobre o porto SMB 445.
+- **Verificación final:** Varrido completo de ping sobre a subrede (`172.21.34.1` a `172.21.34.35`):
+  - **100% dos equipos de alumnos apagados (0 equipos con ping).**
+  - **Posto docente (`.100`) preservado e en execución normal.**
+- **Automatización implementada:** Creouse o script `wsl/aula/apagar-aula.ps1` e engadiuse a acción `-Action Apagar` a `gestionar-aula.ps1` para automatizar este procedemento híbrido en futuros usos.

@@ -226,6 +226,33 @@ simultaneamente no mesmo Windows: os portos locais son compartidos e poderían e
 Non se configura autoinicio dos contedores ao iniciar Windows nin se usa `down -v`, `prune` ou `unregister`
 nos scripts de usuario.
 
+## 6. Apagado remoto da aula desde o posto do profesor
+
+Ao rematar a xornada, o profesorado pode apagar todos os equipos da aula de forma remota e segura desde o posto `.100`, sen desprazarse posto por posto e garantindo que o seu propio equipo nunca se apague:
+
+```powershell
+# Desde PowerShell no equipo 100:
+.\wsl\aula\gestionar-aula.ps1 -Action Apagar -Aula 34
+
+# Ou chamando directamente ao script de apagado:
+.\wsl\aula\apagar-aula.ps1 -Aula 34
+```
+
+### Arquitectura de apagado en dúas fases (tolerante a fallos)
+
+1. **Protección do posto docente:** O equipo `100` (`A34EQ100`) está estritamente excluído dos parámetros por deseño.
+2. **Fase 1: WinRM en paralelo (porto 5985):**
+   Envía a orde `shutdown.exe /s /t 0 /f /d p:2:4` a todos os postos de alumnos en paralelo mediante `Invoke-Command` con Kerberos. É a vía máis rápida (execútase en 2-3 segundos) para todos os equipos que teñan WinRM habilitado.
+3. **Fase 2: Rescate por SMB/RPC directo e PsExec:**
+   Para aqueles equipos que non teñan aínda WinRM activo (por exemplo, equipos que estivesen apagados durante o despregamento inicial, como 18, 28, 29 ou 31) ou que presenten anomalías na resolución DNS de nomes de dominio (como o equipo 14):
+   - O script detecta automaticamente os equipos pendentes que responden a ping.
+   - Aplica o apagado directo por rede sobre a súa dirección IP (`172.21.34.X`) mediante `shutdown.exe /m \\172.21.34.X` e, se é preciso, a través do servizo administrativo de `PsExec64.exe` (porto SMB 445).
+4. **Fase 3: Verificación final:**
+   Realízase un varrido de rede de comprobación que confirma en pantalla se todos os equipos de alumnos da aula quedaron completamente apagados.
+
+> [!NOTE]
+> Non se emprega a orde `Stop-Computer` de PowerShell porque depende do porto DCOM/RPC 135, que o cortalumes de Windows 11 bloquea por defecto con erro `0x800706BA`. O esquema híbrido WinRM (5985) + SMB/IP directa garante un 100% de efectividade en calquera escenario.
+
 ## Fontes e comprobacións
 
 - [WSL por usuario: preguntas frecuentes Microsoft](https://learn.microsoft.com/en-us/windows/wsl/faq).

@@ -15,7 +15,7 @@ elevación na sesión activa. Estado: consulta logs por perfil. Non almacena con
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Comprobar','HabilitarWinRM','PrepararWSL','CopiarModelo','InstalarUsuario','Estado')]
+    [ValidateSet('Comprobar','HabilitarWinRM','PrepararWSL','CopiarModelo','InstalarUsuario','Estado','Apagar')]
     [string]$Action,
     [ValidateRange(1,254)][int]$Aula = 34,
     [ValidateRange(1,35)][int[]]$Numero = (1..35),
@@ -28,6 +28,10 @@ $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
 if ($Action -eq 'Comprobar') {
     & (Join-Path $PSScriptRoot 'comprobar-remoto.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
+    return
+}
+if ($Action -eq 'Apagar') {
+    & (Join-Path $PSScriptRoot 'apagar-aula.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
     return
 }
 function Assert-MicrosoftSignature([string]$Path) {
