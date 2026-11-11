@@ -68,7 +68,7 @@ Tras editar só este ficheiro de configuración, reinicia o web con
 En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para executar
 `daw-start` (só servidor web), `daw-start-db` (BD e web),
 `daw-start-all` (web, BD e phpMyAdmin), `daw-stop`,
-`daw-status` e `daw-logs` desde PowerShell ou CMD.
+`daw-status`, `daw-logs` e `daw-code` (apertura directa en VS Code con soporte Dev Containers) desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
 | Para…                                   | Comando                                         |
@@ -156,6 +156,7 @@ terminal para cargar os nomes actualizados.
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
+| `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
 | `daw-help` | Mostra os comandos dispoñibles. |
 
 `daw-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
@@ -327,9 +328,10 @@ Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → D
   - O usuario `dev` (`UID:GID 1000:1000`) coincide co primeiro usuario habitual do sistema anfitrión, polo que non hai conflitos de permisos nos ficheiros creados.
   - O ficheiro `.vscode/settings.json` está preparado para ambos os sistemas: a opción de WSL ignórase en Linux automaticamente, e disponse do perfil de terminal `"Contedor DAW Dev"` se se usa VS Code no anfitrión sen Dev Containers.
 - **En Windows 11 con WSL2 (sen Docker Desktop):**
-  - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`).
-  - Se se traballa con VS Code directamente en Windows, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-dev-web`.
-  - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11).
+  - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`, adaptado automaticamente a `Debian-DAW` na aula).
+  - No despregamento de aula, as extensións de VS Code (`ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl`) instálanse automaticamente e disponse da orde `daw-code` para abrir o proxecto directamente e facer clic en *«Reopen in Container»*.
+  - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-dev-web`.
+  - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11) e a [guía de aula Windows 11](docs/aula-windows11.md).
 
 
 

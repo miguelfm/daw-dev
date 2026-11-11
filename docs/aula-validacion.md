@@ -147,4 +147,16 @@ A34EQ33       True       Versión de WSL: 3.0.5.0       6               True    
 ```
 
 Taxa de éxito de verificación: **100% (28/28 equipos)**.
-Todos os compoñentes de virtualización, arquivos base, integridade SHA256 e auto-inicio atopanse plenamente operativos.
+Todos os compoñentes de virtualización, arquivos base e integridade SHA256 atopanse plenamente operativos.
+
+---
+
+### 5. Integración con VS Code Dev Containers e Soporte para Aula Compartida
+
+- **Aula compartida (Opción A):** Eliminouse a entrada de inicio automático `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` nos 28 equipos para que os alumnos doutros ciclos ou módulos non experimenten ningún atraso nin consumo de espazo no seu inicio de sesión. A preparación de `Debian-DAW` para o grupo de DAW lánzase baixo demanda polo profesorado mediante `gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`.
+- **Integración con Dev Containers:**
+  - Engadiuse a orde `daw-code` para abrir o proxecto en VS Code con todas as rutas resoltas.
+  - O instalador (`instalar-alumno.ps1`) preinstala automaticamente as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` no perfil do alumno se VS Code está presente.
+  - `.vscode/settings.json` adáptase para que `dev.containers.executeInWSLDistro` apunte a `Debian-DAW`.
+  - `.devcontainer/compose.devcontainer.yaml` utiliza a imaxe precompilada local con `build: !reset null`, garantindo que premendo **«Reopen in Container»** o contedor inicie en poucos segundos sen requirir compilación nin descargas de Docker Hub.
+  - Distribuíronse os scripts actualizados a tódolos equipos da aula en `C:\ProgramData\DAW-Aula\`.
