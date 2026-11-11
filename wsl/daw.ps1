@@ -1,10 +1,12 @@
-param(
+﻿param(
     [string]$Action = 'help',
-    [string]$Distribution = 'Debian'
+    [string]$Distribution = 'Debian',
+    # Ruta absoluta dentro de Debian, ou ruta Windows da copia habitual.
+    [string]$ProjectPath
 )
 
 $ErrorActionPreference = 'Stop'
-$projectPath = Split-Path -Parent $PSScriptRoot
+if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
 $startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 
 switch ($Action.ToLowerInvariant()) {
@@ -12,6 +14,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db'
         Write-Output '       daw-stop | daw-status | daw-logs | daw-help'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
+        Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
         Write-Output '  daw-start-db: start MariaDB and the web service together.'
         Write-Output '  Other running containers are left running.'
@@ -29,16 +32,22 @@ switch ($Action.ToLowerInvariant()) {
     default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
 }
 
-if (!(Test-Path -LiteralPath (Join-Path $projectPath 'compose.yaml'))) {
-    throw "compose.yaml was not found in $projectPath"
+if ($ProjectPath.StartsWith('/')) {
+    & wsl.exe -d $Distribution --exec test -f ($ProjectPath.TrimEnd('/') + '/compose.yaml')
+    if ($LASTEXITCODE -ne 0) { throw "compose.yaml was not found in ${Distribution}:$ProjectPath" }
+} elseif (!(Test-Path -LiteralPath (Join-Path $ProjectPath 'compose.yaml'))) {
+    throw "compose.yaml was not found in $ProjectPath"
 }
-& wsl.exe -d $Distribution --cd $projectPath -- docker compose @composeArgs
+# systemd pode estar rematando o arranque de Docker cando WSL acaba de abrir.
+& wsl.exe -d $Distribution --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
+if ($LASTEXITCODE -ne 0) { throw 'Docker did not start in WSL. Ask the teacher to check the Docker service.' }
+& wsl.exe -d $Distribution --cd $ProjectPath --exec docker compose @composeArgs
 $composeExitCode = $LASTEXITCODE
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
     Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList @(
-        '-d', $Distribution, '--cd', ('"' + $projectPath + '"'),
-        '--', 'bash', 'wsl/keep-alive.sh'
+        '-d', $Distribution, '--cd', ('"' + $ProjectPath + '"'),
+        '--exec', 'bash', 'wsl/keep-alive.sh'
     ) | Out-Null
 }
 exit $composeExitCode

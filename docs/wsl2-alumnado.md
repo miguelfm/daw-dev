@@ -6,6 +6,28 @@ administrador**: o profesorado xa preparou o equipo ([wsl2-administracion.md](ws
 A contorna funciona dentro de **Debian**, un Linux que corre integrado en Windows grazas a WSL2. O navegador
 e VS Code seguen sendo os de Windows.
 
+## Se a aula usa a instalación automática
+
+Co [modelo de aula](aula-windows11.md), a primeira vez que inicias sesión prepárase **Debian-DAW** na túa
+conta. Agarda a que remate e abre unha terminal nova de PowerShell ou CMD:
+
+```powershell
+daw-help
+daw-start       # Só PHP e Apache; tamén funciona daw-star
+daw-start-all   # Inclúe MariaDB e phpMyAdmin
+daw-stop        # Conserva os teus ficheiros e a BD
+```
+
+O código está en `\\wsl.localhost\Debian-DAW\home\alumno\proxectos\daw-dev\www`.
+Para entrar no proxecto en Debian:
+
+```powershell
+wsl -d Debian-DAW --cd /home/alumno/proxectos/daw-dev
+```
+
+Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
+Co modelo xa tes Debian e Docker preparados: a instalación manual que segue é para outros equipos.
+
 ## 1. Instalación (só a primeira vez)
 
 ### 1.1. Instalar Debian

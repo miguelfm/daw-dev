@@ -1,5 +1,9 @@
 # Preparar os equipos Windows 11 para DAW Dev (administración)
 
+Para preparar unha aula completa desde o equipo do profesor, con contas persoais, WinRM e Veyon,
+usa a [guía de despregamento automatizado](aula-windows11.md). Inclúe diagnóstico, activación remota,
+un modelo Debian con Docker precargado e importación sen administrador por cada alumno.
+
 Este documento é para quen administra os equipos da aula. Os pasos **requiren permisos de administrador de
 Windows** e fanse **unha soa vez por equipo**. O que vén despois (instalar Debian, Docker e a contorna) faino
 cada alumno coa súa conta, sen permisos de administrador: [wsl2-alumnado.md](wsl2-alumnado.md).

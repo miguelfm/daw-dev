@@ -26,7 +26,7 @@ cd C:\Users\miguelfm\Projects\daw-dev
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-commands.ps1
 ```
 
-O instalador crea sete lanzadores `daw-*.cmd` en `%USERPROFILE%\.local\bin` e engade
+O instalador crea os lanzadores `daw-*.cmd` en `%USERPROFILE%\.local\bin` e engade
 ese cartafol ao PATH do usuario se falta. Non require permisos de administrador. Para actualizar
 unha instalación anterior, executa de novo o instalador: substitúe os lanzadores e retira
 os antigos lanzadores `dwcs*.cmd` ou `daw-dev-*.cmd` cando apuntan a esta copia do repositorio ou ao seu antigo
@@ -43,6 +43,17 @@ daw-status
 
 Os lanzadores chaman a `wsl/daw.ps1` do repositorio, que determina a raíz do proxecto
 a partir da súa propia localización. Se moves o repositorio, executa de novo o instalador.
+
+Se o proxecto está dentro de Debian, tamén podes instalar os lanzadores desde unha copia Windows
+destes scripts, indicando a ruta Linux:
+
+```powershell
+.\wsl\install-daw-commands.ps1 -Distribution Debian -LinuxProjectPath /home/alumno/proxectos/daw-dev
+```
+
+Nese modo gárdase unha copia do lanzador en `%LOCALAPPDATA%\daw-dev-launcher`, que non depende
+de ter Debian aberto para localizar o script. Para a instalación completa nunha aula, consulta
+[o despregamento automatizado](aula-windows11.md). `daw-star` tamén funciona como alias de `daw-start`.
 
 ## Comandos de uso diario
 

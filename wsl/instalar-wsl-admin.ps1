@@ -70,7 +70,11 @@ if ($wslInstalado) {
         Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $MsiPath
     }
     Info "Instalando $(Split-Path $MsiPath -Leaf)..."
-    $p = Start-Process msiexec.exe -ArgumentList "/i `"$MsiPath`" /qn /norestart" -Wait -PassThru
+    $signature = Get-AuthenticodeSignature -LiteralPath $MsiPath
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+        throw "[$equipo] O MSI de WSL non ten unha sinatura válida de Microsoft."
+    }
+    $p = Start-Process msiexec.exe -ArgumentList "/i `"$MsiPath`" /qn /norestart" -WindowStyle Hidden -Wait -PassThru
     if ($p.ExitCode -notin 0, 3010) { throw "[$equipo] msiexec rematou co código $($p.ExitCode)" }
     if ($p.ExitCode -eq 3010) { $reinicio = $true }
     Info "WSL instalado."
@@ -82,3 +86,4 @@ if ($reinicio) {
 } else {
     Info "FEITO. Non fai falta reiniciar."
 }
+[pscustomobject]@{ ComputerName = $equipo; RestartRequired = $reinicio; WslPrepared = $true }
