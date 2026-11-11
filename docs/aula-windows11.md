@@ -164,6 +164,16 @@ Para executalo manualmente, na conta do alumno:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\DAW-Aula\instalar-alumno.ps1
 ```
 
+### Xestión en aulas compartidas con outros módulos (Activación baixo demanda)
+
+Nas aulas que se comparten con outros ciclos ou materias onde o resto do alumnado non debe ver ningunha información nin sufrir atrasos no inicio de sesión nin consumo de disco no seu perfil:
+- **Sen auto-inicio en `HKLM`:** Retírase a entrada `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`. Deste xeito, os alumnos alleos traballan sen que Windows execute ningún proceso nin xere accesos directos.
+- **Activación puntual na clase de DAW:** Cando os alumnos do módulo están cos equipos iniciados, o profesor activa a contorna desde o seu equipo cun só comando:
+  ```powershell
+  .\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 34
+  ```
+- A importación execútase de xeito limpo, interactivo e unicamente no perfil do alumno de DAW que estea presente nese posto.
+
 Repetir o instalador non substitúe unha Debian-DAW existente nin borra datos. Se a conta xa usa outro modelo,
 detense: actualizar o modelo distribuído non é un mecanismo para actualizar os proxectos existentes.
 

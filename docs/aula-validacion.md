@@ -101,12 +101,13 @@ Rexistro da execución completa de instalación, paralelización e verificación
 - **Fase de Copia SMB:** Distribución de `debian-daw.tar.gz` (1,41 GB) e scripts en lotes paralelos de 5 equipos (~1 min por lote, ~22 MB/s por equipo sen saturar a ligazón Gigabit do profesor).
 - **Reinicio remoto limpo:** Executado mediante `Invoke-Command` con `shutdown.exe /r /t 5 /f /d p:2:4` a través de WinRM, superando a limitación de `Restart-Computer` bloqueada polo cortalumes RPC (0x800706BA).
 
-### 3. Simplificación da ruta de traballo para o alumnado (`ad`)
+### 3. Simplificación da ruta de traballo para o alumnado (`ad`) e xestión de aula compartida
 - Adaptouse `instalar-alumno.ps1` para que na importación de `Debian-DAW`:
   - Renomee de forma transparente o usuario interno a `ad` e configure `default=ad` en `/etc/wsl.conf`.
   - Enlace `/home/ad/www` cara a `/home/ad/proxectos/daw-dev/www`, permitindo o acceso directo desde Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www`.
   - Cree automaticamente no Escritorio de Windows o acceso directo `DAW - Proxectos (www).lnk`.
   - Manteña a ligazón de compatibilidade `/home/alumno -> /home/ad`.
+- **Aulas compartidas:** Retirouse a clave `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` nos 28 equipos para evitar a execución automática en inicios de sesión de alumnos doutras materias (cero impacto, cero consumo de disco para outros cursos). A activación do contedor queda configurada baixo demanda mediante `gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`.
 
 ### 4. Resultados da verificación masiva en directo (Post-Reinicio)
 
