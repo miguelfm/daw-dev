@@ -1,0 +1,26 @@
+name: Aula scripts
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Windows regression tests
+        shell: ${{ matrix.shell }}
+        run: ./tests/aula.ps1
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: PowerShell regression tests
+        shell: pwsh
+        run: ./tests/aula.ps1
+      - name: Actual migration in isolated fixture
+        run: python3 tests/migration.py

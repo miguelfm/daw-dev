@@ -118,7 +118,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Non se puido parar o modelo.' }
 $image = Join-Path $output 'debian-daw.tar.gz'
 & wsl.exe --export $Distribution $image --format tar.gz
 if ($LASTEXITCODE -ne 0) { throw 'Fallou a exportación do modelo.' }
-foreach ($file in 'instalar-alumno.ps1','iniciar-usuario.ps1') {
+foreach ($file in 'instalar-alumno.ps1','iniciar-usuario.ps1','daw-aula.psm1') {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination $output
 }
 foreach ($file in 'daw.ps1','install-daw-commands.ps1') {
@@ -133,5 +133,7 @@ $manifest = [ordered]@{
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'manifest.json') -Encoding UTF8
+Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+Update-DawPackage $output $PSScriptRoot
 Write-Host "Paquete preparado en $output. A distribución $Distribution consérvase para inspección."
 Write-Host 'O subdirectorio build non se distribúe. Non se arrancaron contedores nin se crearon datos de alumnos.'

@@ -1,7 +1,8 @@
 ﻿[CmdletBinding()]
 param(
     [string]$Distribution = 'Debian',
-    [string]$LinuxProjectPath
+    [string]$LinuxProjectPath,
+    [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser
 )
 $ErrorActionPreference = 'Stop'
 $binPath = Join-Path $env:USERPROFILE '.local\bin'
@@ -34,6 +35,7 @@ foreach ($entry in $commands.GetEnumerator()) {
     $wrapperPath = Join-Path $binPath ($entry.Key + '.cmd')
     $locationArgs = " -Distribution ""$Distribution"""
     if ($LinuxProjectPath) { $locationArgs += " -ProjectPath ""$LinuxProjectPath""" }
+    if ($LinuxUser) { $locationArgs += " -LinuxUser $LinuxUser" }
     $scriptReference = $scriptPath
     if ($LinuxProjectPath) { $scriptReference = '%LOCALAPPDATA%\daw-dev-launcher\daw.ps1' }
     $wrapper = "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$scriptReference"" -Action $($entry.Value)$locationArgs %*`r`nexit /b %ERRORLEVEL%`r`n"
