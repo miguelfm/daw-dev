@@ -207,8 +207,10 @@ try{
         Test 'actual Windows task principal constructor' {
             $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
             $p=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited
-            Assert ($p.UserId -eq $sid)
-            Assert ($p.LogonType -in @('Interactive',3) -and $p.RunLevel -in @('Limited',0))
+            # Windows may canonicalize a supplied SID to DOMAIN\user in the returned CIM object.
+            $actual=if($p.UserId -match '^S-1-'){ $p.UserId }else{ (New-Object Security.Principal.NTAccount($p.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value }
+            Assert ($actual -eq $sid) ('Unexpected principal: '+$p.UserId)
+            Assert ($p.LogonType -in @('Interactive',3) -and $p.RunLevel -in @('Limited',0)) ('Unexpected token: '+$p.LogonType+'/'+$p.RunLevel)
         }
     }
     Write-Host "ALL $script:Count POWERSHELL TESTS PASSED"
