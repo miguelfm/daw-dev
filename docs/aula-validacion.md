@@ -1,5 +1,7 @@
 # Validación do despregamento de DAW Dev na aula
 
+**Nota do 13/11/2026:** o rexistro seguinte é histórico. As [correccións de seguridade e fiabilidade](aula-correccions-20261113.md) engaden validación previa á migración, autoarranque opt-in, confirmación correlacionada e concorrencia limitada. As regresións novas non equivalen a repetir o despregamento na aula.
+
 Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesrodolfoucha.es`) o 11 de novembro de 2026.
 
 ## Contorna de proba

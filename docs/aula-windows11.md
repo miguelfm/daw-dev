@@ -5,6 +5,8 @@ O profesor administra desde `172.21.34.100`; os equipos de alumnado son `172.21.
 Os exemplos usan o dominio `iesrodolfoucha.es` e nomes `A34EQ01`…`A34EQ35`.
 Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 31.
 
+A revisión do 13/11/2026 cambia os scripts e o contrato dos paquetes. Antes de reutilizar un paquete antigo, consultar [actualización segura e cambios](aula-correccions-20261113.md).
+
 ## Como funciona
 
 1. O profesor activa WinRM desde a rede con PsExec, unha ferramenta asinada de Microsoft.
@@ -13,7 +15,7 @@ Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Aula`, protexido contra escritura do alumnado.
 5. **Activación da contorna:**
    - **En aulas compartidas (configuración aplicada na Aula 34):** A activación realízase baixo demanda polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`. Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin acceso directo.
-   - **En aulas de uso exclusivo:** Pódese manter a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
+   - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
 6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), con acceso directo en Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
@@ -85,7 +87,7 @@ Invoke-Command -ComputerName $equipos -Authentication Kerberos -ScriptBlock {
 }
 ```
 
-Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, pódese empregar `wsl/aula/gestionar-aula-paralelo.ps1`, que executa as fases de `PrepararWSL` e `CopiarModelo` en lotes concorrentes seguros de 5 equipos mediante *jobs* de PowerShell, reducendo o tempo total da aula a menos de 15 minutos:
+Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, pódese empregar `wsl/aula/gestionar-aula-paralelo.ps1`, que executa as fases de `PrepararWSL` e `CopiarModelo` cun límite interno de 5 equipos mediante *jobs* de PowerShell. Pódese axustar con `-ThrottleLimit`; o tempo depende da rede e dos discos:
 
 ```powershell
 # Preparación concorrente en lotes de 5
@@ -144,10 +146,7 @@ Verifica o SHA256 antes e despois da copia. A carpeta local só permite escritur
 os usuarios teñen lectura e execución. Non depende de compartir credenciais nin dun servidor accesible
 no momento de iniciar sesión.
 
-Configura a entrada `DAWAula` en `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` para lanzar o
-instalador **sen elevación na conta que inicia sesión**. A primeira importación tarda varios minutos e
-consome disco. O arranque posterior sáltaa se xa rematou ben. As políticas Windows que impidan programas
-de inicio ou WSL deberán permitilos. Non se modifica a política permanente de execución de PowerShell.
+Por defecto retira a entrada xestionada `DAWAula` en `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`, conservando a activación baixo demanda. Para unha aula exclusiva, `-AutoInicio` permite expresamente executar o instalador na conta que inicia sesión. Non se modifica a política permanente de execución de PowerShell. A copia comproba tamén os hashes dos scripts; actualizar paquetes antigos con `actualizar-paquete.ps1`.
 
 Se xa está conectado o alumno, non necesita pechar sesión:
 
@@ -157,7 +156,7 @@ Se xa está conectado o alumno, non necesita pechar sesión:
 ```
 
 A tarefa usa `LogonType Interactive` e `RunLevel Limited`: non pide contrasinais nin usa SYSTEM.
-O comando só confirma que se solicitou a execución; **Estado** confirma o resultado real de cada perfil.
+O comando espera o resultado do GUID e SID da solicitude actual, con timeout e comprobación de erros. **Estado** mostra o último informe por perfil, coa súa data e RequestId; non confundir un rexistro histórico cunha instalación nova.
 Os rexistros por usuario están en `%LOCALAPPDATA%\DAW-Aula\instalacion.log` e `estado.json`.
 Para executalo manualmente, na conta do alumno:
 
@@ -203,7 +202,7 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
 - **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
 - **Con VS Code e Dev Containers:**
-  O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` se VS Code está instalado no equipo. O alumno só ten que executar:
+  O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
   ```powershell
   daw-code
   ```

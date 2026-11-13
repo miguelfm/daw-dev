@@ -1,0 +1,30 @@
+name: Aula scripts
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows-powershell51:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Windows PowerShell 5.1
+        shell: powershell
+        run: ./tests/aula.ps1
+  windows-powershell7:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: PowerShell 7 Windows
+        shell: pwsh
+        run: ./tests/aula.ps1
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: PowerShell regression tests
+        shell: pwsh
+        run: ./tests/aula.ps1
+      - name: Actual migration in isolated fixture
+        run: python3 tests/migration.py

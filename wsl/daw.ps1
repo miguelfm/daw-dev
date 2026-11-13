@@ -2,11 +2,14 @@
     [string]$Action = 'help',
     [string]$Distribution = 'Debian',
     # Ruta absoluta dentro de Debian, ou ruta Windows da copia habitual.
-    [string]$ProjectPath
+    [string]$ProjectPath,
+    [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser
 )
 
 $ErrorActionPreference = 'Stop'
 if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
+$wslArgs = @('-d', $Distribution)
+if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
 $startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 
 switch ($Action.ToLowerInvariant()) {
@@ -54,21 +57,21 @@ switch ($Action.ToLowerInvariant()) {
 }
 
 if ($ProjectPath.StartsWith('/')) {
-    & wsl.exe -d $Distribution --exec test -f ($ProjectPath.TrimEnd('/') + '/compose.yaml')
+    & wsl.exe @wslArgs --exec test -f ($ProjectPath.TrimEnd('/') + '/compose.yaml')
     if ($LASTEXITCODE -ne 0) { throw "compose.yaml was not found in ${Distribution}:$ProjectPath" }
 } elseif (!(Test-Path -LiteralPath (Join-Path $ProjectPath 'compose.yaml'))) {
     throw "compose.yaml was not found in $ProjectPath"
 }
 # systemd pode estar rematando o arranque de Docker cando WSL acaba de abrir.
-& wsl.exe -d $Distribution --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
+& wsl.exe @wslArgs --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
 if ($LASTEXITCODE -ne 0) { throw 'Docker did not start in WSL. Ask the teacher to check the Docker service.' }
-& wsl.exe -d $Distribution --cd $ProjectPath --exec docker compose @composeArgs
+& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose @composeArgs
 $composeExitCode = $LASTEXITCODE
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
-    Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList @(
-        '-d', $Distribution, '--cd', ('"' + $ProjectPath + '"'),
+    Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList ($wslArgs + @(
+        '--cd', ('"' + $ProjectPath + '"'),
         '--exec', 'bash', 'wsl/keep-alive.sh'
-    ) | Out-Null
+    )) | Out-Null
 }
 exit $composeExitCode

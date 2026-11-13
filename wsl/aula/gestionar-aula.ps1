@@ -5,7 +5,7 @@ Desprega DAW Dev desde o equipo 100. Por defecto aula 34, equipos 1-35.
 .DESCRIPTION
 Comprobar: só diagnóstico. HabilitarWinRM: bootstrap con PsExec asinado de Microsoft.
 PrepararWSL: características + MSI oficial (non reinicia). CopiarModelo: copia local
-protexida e importación automática ao iniciar sesión. InstalarUsuario: tarefa sen
+protexida e baixo demanda (AutoInicio opt-in). InstalarUsuario: tarefa sen
 elevación na sesión activa. Estado: consulta logs por perfil. Non almacena contrasinais.
 .EXAMPLE
 .\gestionar-aula.ps1 -Action Comprobar -Aula 31 -Numero 1
@@ -22,10 +22,15 @@ param(
     [string]$Dominio = 'iesrodolfoucha.es',
     [string]$PackageDirectory,
     [string]$WslMsi,
+    [switch]$AutoInicio,
+    [switch]$AdoptarExistente,
+    [switch]$SenVSCode,
+    [ValidateRange(5,7200)][int]$TimeoutSeconds=1800,
     [string]$PsExecPath = (Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools\PsExec64.exe')
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
+Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
 if ($Action -eq 'Comprobar') {
     & (Join-Path $PSScriptRoot 'comprobar-remoto.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
     return
@@ -62,23 +67,20 @@ if ($Action -eq 'PrepararWSL') {
     }
     Assert-MicrosoftSignature $WslMsi
 }
-$files = @('manifest.json','daw.ps1','install-daw-commands.ps1','instalar-alumno.ps1','iniciar-usuario.ps1')
+$files = @('manifest.json') + @(Get-DawSetupFiles)
 if ($Action -eq 'CopiarModelo') {
     if (-not $PackageDirectory) { throw 'Indica -PackageDirectory.' }
     foreach ($file in $files) {
         if (-not (Test-Path -LiteralPath (Join-Path $PackageDirectory $file) -PathType Leaf)) { throw "Falta $file no paquete." }
     }
-    $manifest = Get-Content -LiteralPath (Join-Path $PackageDirectory 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($manifest.Image -notin @('debian-daw.tar','debian-daw.tar.gz') -or $manifest.Schema -ne 1 -or
-        (Get-FileHash -LiteralPath (Join-Path $PackageDirectory $manifest.Image) -Algorithm SHA256).Hash -ne $manifest.Sha256) {
-        throw 'O manifesto e o SHA256 do modelo non coinciden.'
-    }
+    $manifest = Assert-DawPackage $PackageDirectory
     $files += $manifest.Image
 }
 foreach ($n in $Numero) {
     $computer = 'A{0}EQ{1:D2}.{2}' -f $Aula,$n,$Dominio
     $address = "172.21.$Aula.$n"
     $session = $null
+    $details = $null
     try {
         switch ($Action) {
             'HabilitarWinRM' {
@@ -96,28 +98,34 @@ foreach ($n in $Numero) {
                 $session = New-PSSession -ComputerName $computer -Authentication Kerberos
                 switch ($Action) {
                     'InstalarUsuario' {
-                        Invoke-Command -Session $session -ScriptBlock {
-                            $user = (Get-CimInstance Win32_ComputerSystem).UserName
-                            if (-not $user) { throw 'Non hai usuario na consola. A importación farase no seguinte inicio de sesión.' }
-                            $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-                            $command = "& 'C:\ProgramData\DAW-Aula\instalar-alumno.ps1' -PackageDirectory 'C:\ProgramData\DAW-Aula'"
-                            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-                            $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded"
-                            $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
-                            Register-ScheduledTask -TaskName 'DAW-InstalarUsuario' -Principal $principal -Action $action -Settings $settings -Force | Out-Null
-                            Start-ScheduledTask -TaskName 'DAW-InstalarUsuario'
-                            Write-Output "Importación solicitada na sesión de $user sen elevación. Consulta Estado para verificar o resultado."
-                        }
+                        $details = Invoke-Command -Session $session -ScriptBlock {
+                            param($seconds,$adopt,$withoutCode)
+                            Import-Module 'C:\ProgramData\DAW-Aula\daw-aula.psm1' -Force
+                            Invoke-DawStudentInstall -TimeoutSeconds $seconds -AdoptExisting:$adopt -WithoutCode:$withoutCode
+                        } -ArgumentList $TimeoutSeconds,$AdoptarExistente.IsPresent,$SenVSCode.IsPresent
+                        if (-not $details -or -not $details.Success) { throw 'Non se confirmou a instalación da solicitude actual.' }
                     }
                     'PrepararWSL' {
                         $remoteMsi = 'C:\Windows\Temp\daw-wsl.x64.msi'
                         Copy-Item -LiteralPath $WslMsi -Destination $remoteMsi -ToSession $session -Force
                         $script = Join-Path (Split-Path -Parent $PSScriptRoot) 'instalar-wsl-admin.ps1'
-                        Invoke-Command -Session $session -FilePath $script -ArgumentList $remoteMsi
+                        $details = Invoke-Command -Session $session -FilePath $script -ArgumentList $remoteMsi
                         Write-Host "[$computer] Non se reiniciou automaticamente. Revisa RestartRequired."
                     }
                     'CopiarModelo' {
+                        $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
                         Invoke-Command -Session $session -ScriptBlock {
+                            param($source)
+                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            # Prevent a new logon from starting the old installer during package replacement.
+                            Set-DawAutoStart
+                            foreach ($profile in Get-CimInstance Win32_UserProfile | Where-Object { -not $_.Special }) {
+                                $lockPath = Join-Path $profile.LocalPath 'AppData\Local\DAW-Aula\instalacion.lock'
+                                if (Test-Path -LiteralPath $lockPath) {
+                                    try { $handle=[IO.File]::Open($lockPath,'Open','ReadWrite','None'); $handle.Dispose() }
+                                    catch { throw ("Bloqueo de instalación non dispoñible ({0}): {1}. Revisar antes de copiar." -f $lockPath,$_.Exception.Message) }
+                                }
+                            }
                             $target = 'C:\ProgramData\DAW-Aula'
                             if (Test-Path -LiteralPath $target) {
                                 $items = @((Get-Item -LiteralPath $target -Force)) + @(Get-ChildItem -LiteralPath $target -Recurse -Force)
@@ -141,12 +149,13 @@ foreach ($n in $Numero) {
                                 $fileAcl.SetOwner($admins)
                                 Set-Acl -LiteralPath $_.FullName -AclObject $fileAcl
                             }
-                        }
+                        } -ArgumentList $moduleSource
                         foreach ($file in $files) {
                             # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
                             Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination "\\$computer\c$\ProgramData\DAW-Aula\$file" -Force
                         }
                         Invoke-Command -Session $session -ScriptBlock {
+                            param($enableAuto)
                             $target = 'C:\ProgramData\DAW-Aula'
                             # Elimina ACL explícitas herdadas dunha copia anterior en cada ficheiro.
                             Get-ChildItem -LiteralPath $target -File | ForEach-Object {
@@ -155,23 +164,18 @@ foreach ($n in $Numero) {
                                 $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
                                 Set-Acl -LiteralPath $_.FullName -AclObject $acl
                             }
-                            $manifest = Get-Content -LiteralPath "$target\manifest.json" -Raw -Encoding UTF8 | ConvertFrom-Json
-                            if ($manifest.Image -notin @('debian-daw.tar','debian-daw.tar.gz') -or
-                                (Get-FileHash -LiteralPath (Join-Path $target $manifest.Image) -Algorithm SHA256).Hash -ne $manifest.Sha256) { throw 'Fallou a verificación despois da copia.' }
-                            # Run execútase coa conta que inicia sesión, sen elevación nin contrasinais.
-                            $command = "& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'"
-                            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-                            $run = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
-                            New-ItemProperty -Path $run -Name 'DAWAula' -Value "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded" -PropertyType String -Force | Out-Null
-                        }
+                            Import-Module (Join-Path $target 'daw-aula.psm1') -Force
+                            Assert-DawPackage $target | Out-Null
+                            Set-DawAutoStart -Enabled:$enableAuto
+                        } -ArgumentList $AutoInicio.IsPresent
                     }
                     'Estado' {
-                        Invoke-Command -Session $session -ScriptBlock {
+                        $details = Invoke-Command -Session $session -ScriptBlock {
                             Get-CimInstance Win32_UserProfile | Where-Object { -not $_.Special } | ForEach-Object {
                                 $path = Join-Path $_.LocalPath 'AppData\Local\DAW-Aula\estado.json'
                                 if (Test-Path -LiteralPath $path) {
                                     $state = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-                                    [pscustomobject]@{ Profile = $_.LocalPath; User = $state.User; Success = $state.Success; Error = $state.Error; CheckedUtc = $state.CheckedUtc }
+                                    [pscustomobject]@{ Profile = $_.LocalPath; User = $state.User; Success = $state.Success; Error = $state.Error; CheckedUtc = $state.CheckedUtc; RequestId = $state.RequestId; Phase = $state.Phase }
                                 }
                             }
                         }
@@ -179,9 +183,9 @@ foreach ($n in $Numero) {
                 }
             }
         }
-        [pscustomobject]@{ Equipo = $computer; Action = $Action; Success = $true; Error = $null }
+        [pscustomobject]@{ Equipo = $computer; Action = $Action; Success = $true; Error = $null; Data = $details }
     } catch {
-        [pscustomobject]@{ Equipo = $computer; Action = $Action; Success = $false; Error = $_.Exception.Message }
+        [pscustomobject]@{ Equipo = $computer; Action = $Action; Success = $false; Error = $_.Exception.Message; Data = $null }
     } finally {
         if ($session) { Remove-PSSession $session }
     }
