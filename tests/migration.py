@@ -19,6 +19,9 @@ if name=='id':
  sys.exit(0)
 if name=='pgrep':sys.exit(0 if s.get('active',False) else 1)
 if name=='getent':
+ if a[0]=='passwd':
+  user=a[-1];home=root/'home'/('elsewhere' if s.get('home_other') else user)
+  print(user+':x:1000:1000::'+str(home)+':/bin/bash');sys.exit(0)
  group=a[-1]
  if not s.get('group_'+group,False):sys.exit(2)
  print(group+':x:1000:');sys.exit(0)
@@ -63,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
     before=sorted(p.name for p in (root/'etc').iterdir());r=run(root,script);assert r.returncode==0,r.stderr
     assert before==sorted(p.name for p in (root/'etc').iterdir()),'retry rewrote unchanged config'
     print('PASS actual migration preserves project/config sections and is idempotent')
-    for name,opts in [('active',{'active':True}),('collision',{'ad':True}),('uid',{'uid':1001}),('usermod-error',{'fail_usermod':True})]:
+    for name,opts in [('active',{'active':True}),('collision',{'ad':True}),('uid',{'uid':1001}),('home',{'home_other':True}),('usermod-error',{'fail_usermod':True})]:
         root,script,project=fixture(name,**opts);before=(root/'etc/wsl.conf').read_bytes()
         r=run(root,script);assert r.returncode!=0,(name,r.stdout)
         assert (project/'www/work.php').read_text()=='student work'
@@ -77,4 +80,4 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
     root,script,project=fixture('duplicate-user');(root/'etc/wsl.conf').write_text('[user]\ndefault=alumno\n[user]\ndefault=other\n')
     r=run(root,script);assert r.returncode!=0 and (root/'home/alumno').is_dir() and not(root/'home/ad').exists()
     print('PASS ambiguous config rejected before user rename')
-print('ALL 7 MIGRATION SCENARIOS PASSED')
+print('ALL 8 MIGRATION SCENARIOS PASSED')

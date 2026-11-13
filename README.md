@@ -404,3 +404,9 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
   Cambia o valor por defecto de `DAW_DEV_IMAGE` en `compose.yaml`, e a URL en
   [docs/wsl2-alumnado.md](docs/wsl2-alumnado.md).
 - **Credenciais:** son de exemplo e só para desenvolvemento local. Non hai que expoñer estes portos fóra do equipo.
+
+## Mantemento dos scripts de aula (13/11/2026)
+
+A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia do xestor paralelo está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `wsl/aula/actualizar-paquete.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
+
+Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [guía da aula](docs/aula-windows11.md) e as probas `tests/aula.ps1` e `tests/migration.py`.

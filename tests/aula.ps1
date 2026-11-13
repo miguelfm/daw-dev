@@ -154,7 +154,7 @@ try{
         Assert (@(Get-Job).Count -eq $before)
     }
 
-    foreach($mode in @('success','stale','failure','policy')){
+    foreach($mode in @('success','stale','corrupt','failure','policy')){
         Test "student task correlation and cleanup: $mode" {
             $root=Join-Path $script:Temp ('task-'+$mode)
             New-Item -ItemType Directory -Path (Join-Path $root 'AppData/Local/DAW-Aula') -Force|Out-Null
@@ -176,7 +176,8 @@ try{
                     $request=$matches[1]
                     if($script:Mode -eq 'stale'){$request='stale-success'}
                     $state=@{Schema=2;RequestId=$request;UserSid='S-1-5-21-123';Phase='Completed';Success=($script:Mode -ne 'failure');Error='component failed'}
-                    Write-DawState (Join-Path $script:Profile 'AppData/Local/DAW-Aula/estado.json') $state
+                    $path=Join-Path $script:Profile 'AppData/Local/DAW-Aula/estado.json'
+                    if($script:Mode -eq 'corrupt'){[IO.File]::WriteAllText($path,'{torn json')}else{Write-DawState $path $state}
                 }
                 function script:Get-ScheduledTaskInfo {param($TaskName) [pscustomobject]@{LastRunTime=if($script:Mode -eq 'policy'){Get-Date}else{[datetime]::MinValue};LastTaskResult=1}}
                 function script:Get-ScheduledTask {param($TaskName) [pscustomobject]@{State='Ready'}}
@@ -188,6 +189,7 @@ try{
                 switch($mode){
                     'success' {$r=Invoke-DawStudentInstall 1;Assert $r.Success}
                     'stale' {Throws {Invoke-DawStudentInstall 1} 'Tempo esgotado'}
+                    'corrupt' {Throws {Invoke-DawStudentInstall 1} 'Tempo esgotado'}
                     'failure' {Throws {Invoke-DawStudentInstall 1} 'component failed'}
                     # A current failure report would precede policy checking, so make it stale too.
                     'policy' {

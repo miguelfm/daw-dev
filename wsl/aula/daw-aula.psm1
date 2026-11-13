@@ -60,6 +60,11 @@ else
     home=/home/ad
 fi
 [[ $(id -u "$( [[ $old == yes ]] && echo alumno || echo ad )") == 1000 ]] || { echo 'UID non recoñecido.' >&2; exit 1; }
+account=$( [[ $old == yes ]] && echo alumno || echo ad )
+[[ -d "$home" && ! -L "$home" && $(getent passwd "$account" | cut -d: -f6) == "$home" ]] || { echo 'Home do usuario non recoñecido; conservouse.' >&2; exit 1; }
+if [[ $old == yes ]] && getent group alumno >/dev/null; then
+    [[ $(getent group alumno | cut -d: -f3) == $(id -g alumno) ]] || { echo 'Grupo alumno non recoñecido.' >&2; exit 1; }
+fi
 [[ -f "$home/proxectos/daw-dev/compose.yaml" ]] || { echo 'Falta o proxecto esperado.' >&2; exit 1; }
 if [[ -e "$home/www" || -L "$home/www" ]]; then
     [[ -L "$home/www" && $(readlink "$home/www") == /home/ad/proxectos/daw-dev/www ]] || { echo 'www contén datos ou outra ligazón; conservouse.' >&2; exit 1; }
@@ -172,6 +177,7 @@ function Test-DawRequestState {
     param($State,[string]$RequestId,[string]$UserSid)
     if(-not $State -or -not $State.PSObject.Properties['Schema'] -or $State.Schema -ne 2){return $false}
     foreach($name in @('RequestId','UserSid','Phase','Success','Error')){if(-not $State.PSObject.Properties[$name]){return $false}}
+    if($State.Success -isnot [bool]){return $false}
     if($State.RequestId -ne $RequestId -or $State.UserSid -ne $UserSid){return $false}
     return $State.Phase -eq 'Completed'
 }
@@ -200,7 +206,8 @@ function Invoke-DawStudentInstall {
         $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
         do{
             if(Test-Path -LiteralPath $status){
-                $state=Get-Content -LiteralPath $status -Raw -Encoding UTF8|ConvertFrom-Json
+                $state=$null
+                try{$state=Get-Content -LiteralPath $status -Raw -Encoding UTF8|ConvertFrom-Json}catch{ } # Old/torn state cannot confirm this request.
                 if(Test-DawRequestState $state $id $user.SID){
                     if(-not $state.Success){throw "Instalación $id fallou: $($state.Error)"}
                     return $state

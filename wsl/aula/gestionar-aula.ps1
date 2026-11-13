@@ -123,7 +123,7 @@ foreach ($n in $Numero) {
                                 $lockPath = Join-Path $profile.LocalPath 'AppData\Local\DAW-Aula\instalacion.lock'
                                 if (Test-Path -LiteralPath $lockPath) {
                                     try { $handle=[IO.File]::Open($lockPath,'Open','ReadWrite','None'); $handle.Dispose() }
-                                    catch { throw 'Hai unha instalación de alumno activa. Agardar antes de copiar o modelo.' }
+                                    catch { throw ("Bloqueo de instalación non dispoñible ({0}): {1}. Revisar antes de copiar." -f $lockPath,$_.Exception.Message) }
                                 }
                             }
                             $target = 'C:\ProgramData\DAW-Aula'
