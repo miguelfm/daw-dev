@@ -40,7 +40,7 @@ Só cando o docente decida actualizar os postos:
 
 Revisar Success/Error de **cada resultado**; un proceso PowerShell que remate sen erro fatal non implica que todos os postos teñan Success=true. Non reinstalar características Windows nin reiniciar equipos para actualizar só os scripts.
 
-CopiarModelo desactiva o Run xestionado antes de copiar e rexeita un bloqueo de instalación que estea aberto. A partir de aí non se importa nada ao iniciar sesión. Non copiar paquetes mentres se executan instalacións manuais ou outros despregamentos. Para unha aula de uso exclusivo, engadir **AutoInicio** expresamente a CopiarModelo; a entrada só se habilita despois de comprobar o paquete completo.
+CopiarModelo desactiva o Run xestionado antes de copiar e rexeita un bloqueo de instalación que estea aberto. Co modo predeterminado non se importa nada ao iniciar sesión. O autoarranque opt-in chama o instalador idempotente e volve validar o paquete e a distribución; non salta a validación por un Success=true antigo. Non copiar paquetes mentres se executan instalacións manuais ou outros despregamentos. Para unha aula de uso exclusivo, engadir **AutoInicio** expresamente a CopiarModelo; a entrada só se habilita despois de comprobar o paquete completo.
 
 ## Distribucións existentes
 
