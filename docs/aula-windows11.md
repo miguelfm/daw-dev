@@ -7,6 +7,8 @@ Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 
 
 A revisión do 13/11/2026 cambia os scripts e o contrato dos paquetes. Antes de reutilizar un paquete antigo, consultar [actualización segura e cambios](aula-correccions-20261113.md).
 
+O despregamento do 18/11/2026 deixou a aula 34 cos postos e problemas descritos en [despregamento na aula 34](aula-despregamento-20261118.md), que inclúe a orde para a próxima actualización. Se un posto responde por Veyon pero non por WinRM, comprobar tamén que o seu nome DNS resolva á súa IP da aula: os scripts usan o nome e Kerberos.
+
 ## Como funciona
 
 1. O profesor activa WinRM desde a rede con PsExec, unha ferramenta asinada de Microsoft.

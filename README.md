@@ -409,4 +409,4 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia do xestor paralelo está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `wsl/aula/actualizar-paquete.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
 
-Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [guía da aula](docs/aula-windows11.md) e as probas `tests/aula.ps1` e `tests/migration.py`.
+Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md) e as probas `tests/aula.ps1`, `tests/migration.py` e `tests/proxecto.py`.
