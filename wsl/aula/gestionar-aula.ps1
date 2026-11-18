@@ -6,16 +6,20 @@ Desprega DAW Dev desde o equipo 100. Por defecto aula 34, equipos 1-35.
 Comprobar: só diagnóstico. HabilitarWinRM: bootstrap con PsExec asinado de Microsoft.
 PrepararWSL: características + MSI oficial (non reinicia). CopiarModelo: copia local
 protexida e baixo demanda (AutoInicio opt-in). InstalarUsuario: tarefa sen
-elevación na sesión activa. Estado: consulta logs por perfil. Non almacena contrasinais.
+elevación na sesión activa. ActualizarProxecto: copia wsl\aula\proxecto\ficheiros no
+proxecto da Debian-DAW do alumno conectado, sen tocar www (Reiniciar recrea o contedor
+web se está en marcha). Estado: consulta logs por perfil. Non almacena contrasinais.
 .EXAMPLE
 .\gestionar-aula.ps1 -Action Comprobar -Aula 31 -Numero 1
 .EXAMPLE
 .\gestionar-aula.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
+.EXAMPLE
+.\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Comprobar','HabilitarWinRM','PrepararWSL','CopiarModelo','InstalarUsuario','Estado','Apagar')]
+    [ValidateSet('Comprobar','HabilitarWinRM','PrepararWSL','CopiarModelo','InstalarUsuario','ActualizarProxecto','Estado','Apagar')]
     [string]$Action,
     [ValidateRange(1,254)][int]$Aula = 34,
     [ValidateRange(1,35)][int[]]$Numero = (1..35),
@@ -25,6 +29,7 @@ param(
     [switch]$AutoInicio,
     [switch]$AdoptarExistente,
     [switch]$SenVSCode,
+    [switch]$Reiniciar,
     [ValidateRange(5,7200)][int]$TimeoutSeconds=1800,
     [string]$PsExecPath = (Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools\PsExec64.exe')
 )
@@ -76,6 +81,13 @@ if ($Action -eq 'CopiarModelo') {
     $manifest = Assert-DawPackage $PackageDirectory
     $files += $manifest.Image
 }
+$projectStage = $null
+if ($Action -eq 'ActualizarProxecto') {
+    # Preparado unha vez no profesor: ficheiros do proxecto, actualizador e módulo, con SHA256.
+    $projectStage = Join-Path ([IO.Path]::GetTempPath()) ('daw-proxecto-' + [guid]::NewGuid().ToString('N'))
+    $projectManifest = New-DawProjectStage $PSScriptRoot $projectStage
+    $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
+}
 foreach ($n in $Numero) {
     $computer = 'A{0}EQ{1:D2}.{2}' -f $Aula,$n,$Dominio
     $address = "172.21.$Aula.$n"
@@ -104,6 +116,22 @@ foreach ($n in $Numero) {
                             Invoke-DawStudentInstall -TimeoutSeconds $seconds -AdoptExisting:$adopt -WithoutCode:$withoutCode
                         } -ArgumentList $TimeoutSeconds,$AdoptarExistente.IsPresent,$SenVSCode.IsPresent
                         if (-not $details -or -not $details.Success) { throw 'Non se confirmou a instalación da solicitude actual.' }
+                    }
+                    'ActualizarProxecto' {
+                        Invoke-Command -Session $session -ScriptBlock {
+                            param($source)
+                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            Initialize-DawProjectDirectory
+                        } -ArgumentList $moduleSource
+                        # SMB como en CopiarModelo; o paquete do proxecto ocupa poucos KB.
+                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
+                        $details = Invoke-Command -Session $session -ScriptBlock {
+                            param($source,$seconds,$restart)
+                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            Reset-DawProjectAcl
+                            Invoke-DawProjectUpdate -TimeoutSeconds $seconds -Restart:$restart
+                        } -ArgumentList $moduleSource,$TimeoutSeconds,$Reiniciar.IsPresent
+                        if (-not $details -or -not $details.Success -or $details.Revision -ne $projectManifest.Revision) { throw 'Non se confirmou a actualización do proxecto da solicitude actual.' }
                     }
                     'PrepararWSL' {
                         $remoteMsi = 'C:\Windows\Temp\daw-wsl.x64.msi'
@@ -190,3 +218,4 @@ foreach ($n in $Numero) {
         if ($session) { Remove-PSSession $session }
     }
 }
+if ($projectStage) { Remove-Item -LiteralPath $projectStage -Recurse -Force -ErrorAction SilentlyContinue }

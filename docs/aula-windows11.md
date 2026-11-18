@@ -176,6 +176,42 @@ Nas aulas que se comparten con outros ciclos ou materias onde o resto do alumnad
 
 Repetir o instalador non substitúe unha Debian-DAW existente nin borra datos. Se a conta xa usa outro modelo,
 detense: actualizar o modelo distribuído non é un mecanismo para actualizar os proxectos existentes.
+Para iso está a acción seguinte.
+
+### Actualizar os ficheiros dos proxectos xa importados
+
+`ActualizarProxecto` copia `wsl/aula/proxecto/ficheiros` en `/home/ad/proxectos/daw-dev` da
+Debian-DAW do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
+regras da copia están no [README dos ficheiros do proxecto](../wsl/aula/proxecto/README.md).
+
+```powershell
+# Primeiro nun posto; despois no resto, de 5 en 5
+.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16 | Format-List
+.\wsl\aula\gestionar-aula-paralelo.ps1 -Action ActualizarProxecto -Aula 34 -Numero @(1..35)
+```
+
+Para cada posto:
+
+1. No profesor, prepara unha vez un directorio temporal cos ficheiros, `actualizar-proxecto.ps1`,
+   o módulo e `proxecto.json`, cos SHA256 e unha revisión.
+2. Por WinRM, crea `C:\ProgramData\DAW-Aula\proxecto` coa mesma ACL ca o paquete (escritura só para
+   SYSTEM e Administradores) e baleira o anterior, se non hai unha instalación en curso.
+3. Copia o directorio por SMB, restablece as ACL e volve comprobar os SHA256 no posto.
+4. Executa `actualizar-proxecto.ps1` cunha tarefa temporal co token do alumno conectado, como
+   `InstalarUsuario`, e agarda polo `proxecto-estado.json` desa solicitude.
+
+No alumno, o script comproba que a distribución é o modelo DAW co seu rexistro de orixe e copia
+os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e as listas `Created`,
+`Replaced`, `Unchanged` e `Kept`, e `Backup` se gardou copias. Os rexistros por usuario están en
+`%LOCALAPPDATA%\DAW-Aula\proxecto.log` e `proxecto-estado.json`.
+
+- Necesita unha única sesión de alumno no posto. Sen sesión, ou se a conta aínda non ten
+  Debian-DAW, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Numero`.
+- O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopiarModelo`.
+- Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start`. `-Reiniciar` recrea
+  o contedor web se está en marcha; pecha unha sesión aberta de Dev Containers e as sesións de PHP.
+- Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian-DAW despois
+  necesita outra vez `ActualizarProxecto`.
 
 ## 5. Uso diario sen administrador
 

@@ -1,0 +1,23 @@
+# Aula de DWCS: o contedor web compórtase como a VM Debian da aula.
+# daw-start le este ficheiro porque está ao lado de compose.yaml;
+# Dev Containers, porque o nomea .devcontainer/devcontainer.json.
+services:
+  web:
+    environment:
+      # Apache executa PHP como www-data, igual ca na VM
+      APACHE_RUN_USER: www-data
+      APACHE_RUN_GROUP: www-data
+    volumes:
+      # As rutas da VM: a raíz web e os datos fóra dela
+      - ${WWW_DIR:-./www}:/home/ad/html
+      - ./datos:/home/ad/datos
+      - ./docker/aula/zz-aula.ini:/usr/local/etc/php/conf.d/zz-aula.ini:ro
+      - ./docker/aula/000-default.conf:/etc/apache2/sites-available/000-default.conf:ro
+    command:
+      - bash
+      - -c
+      - |
+        # www-data fóra do grupo dev, e o directorio de sesións de Debian
+        gpasswd -d www-data dev >/dev/null 2>&1 || true
+        install -d -m 1733 /var/lib/php/sessions
+        exec apache2-foreground

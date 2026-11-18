@@ -28,3 +28,5 @@ jobs:
         run: ./tests/aula.ps1
       - name: Actual migration in isolated fixture
         run: python3 tests/migration.py
+      - name: Actual project overlay in isolated fixtures
+        run: python3 tests/proxecto.py

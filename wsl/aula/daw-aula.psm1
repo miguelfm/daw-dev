@@ -183,15 +183,22 @@ function Test-DawRequestState {
 }
 function Invoke-DawStudentInstall {
     param([int]$TimeoutSeconds=1800,[switch]$AdoptExisting,[switch]$WithoutCode)
+    $target='C:\ProgramData\DAW-Aula'
+    if(-not(Test-Path -LiteralPath "$target\daw-aula.psm1")){throw 'Paquete antigo: actualizar os scripts de aula antes de instalar.'}
+    $arguments="-PackageDirectory '$target'"
+    if($AdoptExisting){$arguments+=' -AdoptarExistente'}
+    if($WithoutCode){$arguments+=' -SenVSCode'}
+    Invoke-DawUserTask 'InstalarUsuario' "$target\instalar-alumno.ps1" $arguments 'estado.json' 'Instalación' $TimeoutSeconds
+}
+function Invoke-DawUserTask {
+    # Runs a package script as the single connected student and waits for the state of THIS request.
+    param([string]$Name,[string]$Script,[string]$Arguments,[string]$StateFile,[string]$Label,[int]$TimeoutSeconds=1800)
     $user=Get-DawStudent
     $id=[guid]::NewGuid().ToString('N')
-    $task='DAW-InstalarUsuario-'+$id
-    $target='C:\ProgramData\DAW-Aula'
-    $status=Join-Path $user.Profile 'AppData\Local\DAW-Aula\estado.json'
-    if(-not(Test-Path -LiteralPath "$target\daw-aula.psm1")){throw 'Paquete antigo: actualizar os scripts de aula antes de instalar.'}
-    $command="& '$target\instalar-alumno.ps1' -PackageDirectory '$target' -RequestId '$id' -ExpectedUserSid '$($user.SID)'"
-    if($AdoptExisting){$command+=' -AdoptarExistente'}
-    if($WithoutCode){$command+=' -SenVSCode'}
+    $task="DAW-$Name-$id"
+    $status=Join-Path $user.Profile ('AppData\Local\DAW-Aula\'+$StateFile)
+    $command="& '$Script' -RequestId '$id' -ExpectedUserSid '$($user.SID)'"
+    if($Arguments){$command+=' '+$Arguments}
     $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     $registered=$false
     try{
@@ -209,7 +216,7 @@ function Invoke-DawStudentInstall {
                 $state=$null
                 try{$state=Get-Content -LiteralPath $status -Raw -Encoding UTF8|ConvertFrom-Json}catch{ } # Old/torn state cannot confirm this request.
                 if(Test-DawRequestState $state $id $user.SID){
-                    if(-not $state.Success){throw "Instalación $id fallou: $($state.Error)"}
+                    if(-not $state.Success){throw "$Label $id fallou: $($state.Error)"}
                     return $state
                 }
             }
@@ -218,7 +225,7 @@ function Invoke-DawStudentInstall {
             if($current.State -ne 'Running' -and $info.LastRunTime -ge $started.AddSeconds(-2) -and $info.LastTaskResult -ne 0){throw "A tarefa $task fallou: $($info.LastTaskResult). Revisar políticas e logs."}
             Start-Sleep -Milliseconds 500
         }while([DateTime]::UtcNow -lt $deadline)
-        throw "Tempo esgotado na instalación $id. Revisar estado.json/log; non repetir ata comprobar a operación incompleta."
+        throw "Tempo esgotado: $Label $id. Revisar $StateFile e o log; non repetir ata comprobar a operación incompleta."
     }finally{
         if($registered){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue}
     }
@@ -274,6 +281,233 @@ function Update-DawPackage {
     $manifest|Add-Member NoteProperty ScriptSha256 ([pscustomobject]$hashes) -Force
     Write-DawState $path $manifest
     Assert-DawPackage $Directory|Out-Null
+}
+
+# Project files staged in C:\ProgramData\DAW-Aula\proxecto and copied into each student's
+# /home/ad/proxectos/daw-dev. The stage carries its own updater and module, so it does not
+# depend on the scripts of the model copied earlier.
+function Get-DawProjectDirectory { 'C:\ProgramData\DAW-Aula\proxecto' }
+function Get-DawProjectScripts { @('actualizar-proxecto.ps1','daw-aula.psm1') }
+function Test-DawProjectPath {
+    # Relative project path with '/', no '.' or '..' segments, never inside www.
+    param([string]$Path)
+    if($Path -cnotmatch '^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'){return $false}
+    if(@($Path -split '/'|Where-Object {$_ -in @('.','..')}).Count){return $false}
+    return $Path -notmatch '^www(/|$)'
+}
+function Get-DawProjectRevision {
+    param([object[]]$Files)
+    $text=(@($Files|ForEach-Object {'{0} {1} {2}' -f $_.Path,$_.Sha256.ToUpperInvariant(),$_.Mode}) -join "`n")
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try{([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-','')}finally{$sha.Dispose()}
+}
+function New-DawProjectStage {
+    # On the teacher's computer: copy wsl/aula/proxecto/ficheiros and the updater, with SHA256 manifest.
+    param([string]$Source,[string]$Destination)
+    $files=Join-Path $Source 'proxecto\ficheiros'
+    if(-not(Test-Path -LiteralPath $files -PathType Container)){throw "Falta $files"}
+    if(Test-Path -LiteralPath $Destination){throw "O destino xa existe: $Destination"}
+    New-Item -ItemType Directory -Path $Destination|Out-Null
+    $root=(Get-Item -LiteralPath $files).FullName.TrimEnd('\','/')
+    $entries=@()
+    foreach($file in @(Get-ChildItem -LiteralPath $files -Recurse -Force|Sort-Object FullName)){
+        if($file.Attributes -band [IO.FileAttributes]::ReparsePoint){throw "Ligazón no proxecto: $($file.FullName)"}
+        if($file.PSIsContainer){continue}
+        $relative=$file.FullName.Substring($root.Length+1).Replace('\','/')
+        if(-not(Test-DawProjectPath $relative)){throw "Ruta non permitida no proxecto: $relative"}
+        $target=Join-Path (Join-Path $Destination 'ficheiros') ($relative.Replace('/',[IO.Path]::DirectorySeparatorChar))
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $target
+        # Data folders only receive new files; the student's own files are never replaced.
+        $mode=if($relative -match '^datos/'){'CreateOnly'}else{'Replace'}
+        $entries+=[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash;Mode=$mode}
+    }
+    if(-not $entries.Count){throw 'O proxecto non ten ficheiros que copiar.'}
+    $scripts=[ordered]@{}
+    foreach($name in Get-DawProjectScripts){
+        $target=Join-Path $Destination $name
+        Copy-Item -LiteralPath (Join-Path $Source $name) -Destination $target
+        $scripts[$name]=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+    }
+    Write-DawState (Join-Path $Destination 'proxecto.json') ([ordered]@{Schema=1;Marker='daw-aula-v1';Revision=(Get-DawProjectRevision $entries);CreatedUtc=[DateTime]::UtcNow.ToString('o');Files=$entries;ScriptSha256=[pscustomobject]$scripts})
+    Assert-DawProjectOverlay $Destination
+}
+function Assert-DawProjectOverlay {
+    param([string]$Directory)
+    $manifest=Get-Content -LiteralPath (Join-Path $Directory 'proxecto.json') -Raw -Encoding UTF8|ConvertFrom-Json
+    foreach($name in @('Schema','Marker','Revision','Files','ScriptSha256')){if(-not $manifest.PSObject.Properties[$name]){throw 'Manifesto do proxecto non recoñecido.'}}
+    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Revision -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto do proxecto non recoñecido.'}
+    $files=@($manifest.Files)
+    if(-not $files.Count){throw 'O manifesto do proxecto non ten ficheiros.'}
+    $seen=@{}
+    foreach($entry in $files){
+        if(-not(Test-DawProjectPath ([string]$entry.Path)) -or $entry.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or $entry.Mode -cnotin @('Replace','CreateOnly')){throw "Entrada do proxecto non válida: $($entry.Path)"}
+        if($seen.ContainsKey($entry.Path)){throw "Entrada repetida no proxecto: $($entry.Path)"}
+        $seen[$entry.Path]=$true
+        $path=Join-Path (Join-Path $Directory 'ficheiros') (([string]$entry.Path).Replace('/',[IO.Path]::DirectorySeparatorChar))
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $entry.Sha256.ToUpperInvariant()){throw "SHA256 do proxecto non coincide: $($entry.Path)"}
+    }
+    if((Get-DawProjectRevision $files) -ne $manifest.Revision.ToUpperInvariant()){throw 'A revisión do proxecto non coincide co manifesto.'}
+    foreach($name in Get-DawProjectScripts){
+        $property=$manifest.ScriptSha256.PSObject.Properties[$name]
+        $path=Join-Path $Directory $name
+        if(-not $property -or $property.Value -notmatch '^[a-fA-F0-9]{64}$' -or -not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $property.Value.ToUpperInvariant()){throw "SHA256 do script non coincide: $name"}
+    }
+    return $manifest
+}
+function Assert-DawNoInstallRunning {
+    # An installer or updater holding its lock would read a half-replaced stage.
+    foreach($userProfile in @(Get-CimInstance Win32_UserProfile|Where-Object {-not $_.Special})){
+        $lockPath=Join-Path $userProfile.LocalPath 'AppData\Local\DAW-Aula\instalacion.lock'
+        if(Test-Path -LiteralPath $lockPath){
+            try{$handle=[IO.File]::Open($lockPath,'Open','ReadWrite','None');$handle.Dispose()}
+            catch{throw ("Bloqueo de instalación non dispoñible ({0}): {1}. Revisar antes de copiar." -f $lockPath,$_.Exception.Message)}
+        }
+    }
+}
+function Initialize-DawProjectDirectory {
+    # Remote admin session: an empty stage that only SYSTEM and Administrators can write.
+    $parent='C:\ProgramData\DAW-Aula'
+    $target=Get-DawProjectDirectory
+    if(-not(Test-Path -LiteralPath $parent -PathType Container)){throw "Falta $parent`: copiar antes o modelo."}
+    $items=@(Get-Item -LiteralPath $parent -Force)
+    if(Test-Path -LiteralPath $target){$items+=@(Get-Item -LiteralPath $target -Force)+@(Get-ChildItem -LiteralPath $target -Recurse -Force)}
+    if($items|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}){throw 'O destino contén ligazóns ou junctions.'}
+    Assert-DawNoInstallRunning
+    if(Test-Path -LiteralPath $target){
+        # Only a previous stage of ours (or an empty directory) is replaced.
+        if(@(Get-ChildItem -LiteralPath $target -Force).Count -and -not(Test-Path -LiteralPath (Join-Path $target 'proxecto.json') -PathType Leaf)){throw "$target contén ficheiros alleos; conservouse."}
+        Remove-Item -LiteralPath $target -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $target|Out-Null
+    $acl=New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true,$false)
+    $admins=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    $acl.SetOwner($admins)
+    foreach($sid in 'S-1-5-18','S-1-5-32-544','S-1-5-32-545'){
+        $rights=if($sid -eq 'S-1-5-32-545'){'ReadAndExecute'}else{'FullControl'}
+        $identity=New-Object Security.Principal.SecurityIdentifier($sid)
+        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity,$rights,'ContainerInherit,ObjectInherit','None','Allow')))
+    }
+    Set-Acl -LiteralPath $target -AclObject $acl
+}
+function Reset-DawProjectAcl {
+    # After the SMB copy: every item only inherits the protected ACL of the stage.
+    $admins=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    foreach($item in @(Get-ChildItem -LiteralPath (Get-DawProjectDirectory) -Recurse -Force)){
+        if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'O destino contén ligazóns ou junctions.'}
+        $acl=if($item.PSIsContainer){New-Object Security.AccessControl.DirectorySecurity}else{New-Object Security.AccessControl.FileSecurity}
+        $acl.SetAccessRuleProtection($false,$false)
+        $acl.SetOwner($admins)
+        Set-Acl -LiteralPath $item.FullName -AclObject $acl
+    }
+}
+function Invoke-DawProjectUpdate {
+    param([int]$TimeoutSeconds=1800,[switch]$Restart)
+    $target=Get-DawProjectDirectory
+    Assert-DawProjectOverlay $target|Out-Null
+    $arguments="-PackageDirectory '$target'"
+    if($Restart){$arguments+=' -Reiniciar'}
+    Invoke-DawUserTask 'ActualizarProxecto' "$target\actualizar-proxecto.ps1" $arguments 'proxecto-estado.json' 'Actualización do proxecto' $TimeoutSeconds
+}
+function Get-DawProjectOverlayScript {
+    # Runs as ad in the project directory. Arguments: source directory, then path/SHA256/mode triples.
+    # Everything is validated before the first change; nothing is deleted and www is never touched.
+    $text=@'
+set -euo pipefail
+fail() { echo "$1" >&2; exit 1; }
+[[ $# -ge 4 && $((($# - 1) % 3)) -eq 0 ]] || fail 'Lista de ficheiros do proxecto incorrecta.'
+if [[ $1 == /* ]]; then src=$1; else src=$(wslpath -u "$1"); fi
+shift
+project=$PWD
+[[ -f $project/compose.yaml && ! -L $project/compose.yaml ]] || fail 'Falta o proxecto esperado.'
+[[ -d $src && ! -L $src ]] || fail 'Falta o directorio dos ficheiros do proxecto.'
+digest() { sha256sum < "$1" | cut -d' ' -f1; }
+args=("$@")
+override=
+for ((i = 0; i < ${#args[@]}; i += 3)); do
+    rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
+    [[ $rel =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] || fail "Ruta non válida: $rel"
+    [[ /$rel/ != */./* && /$rel/ != */../* ]] || fail "Ruta non válida: $rel"
+    lower=${rel,,}
+    [[ $lower != www && $lower != www/* ]] || fail "Non se cambia www: $rel"
+    [[ $sha =~ ^[0-9a-f]{64}$ ]] || fail "SHA256 non válido: $rel"
+    [[ $mode == Replace || $mode == CreateOnly ]] || fail "Modo non válido: $rel"
+    [[ -f $src/$rel && ! -L $src/$rel ]] || fail "Falta no paquete: $rel"
+    [[ $(digest "$src/$rel") == "$sha" ]] || fail "SHA256 non coincide: $rel"
+    IFS=/ read -ra parts <<< "$rel"
+    path=$project
+    for ((j = 0; j < ${#parts[@]}; j++)); do
+        path=$path/${parts[j]}
+        [[ ! -L $path ]] || fail "O destino contén unha ligazón: $rel"
+        if ((j < ${#parts[@]} - 1)); then
+            [[ ! -e $path || -d $path ]] || fail "O destino non é un directorio: $rel"
+        else
+            [[ ! -e $path || -f $path ]] || fail "O destino non é un ficheiro: $rel"
+        fi
+    done
+    [[ $rel != compose.override.yaml ]] || override=$src/$rel
+done
+if [[ -n $override ]]; then
+    docker compose --project-directory "$project" -f "$project/compose.yaml" -f "$override" config --quiet \
+        || fail 'Compose non acepta os ficheiros novos; non se cambiou nada.'
+fi
+backup=.daw-backup/$(date +%Y%m%d-%H%M%S)-$$
+tmp=
+trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
+for ((i = 0; i < ${#args[@]}; i += 3)); do
+    rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
+    dest=$project/$rel
+    action=creado
+    if [[ -f $dest ]]; then
+        if [[ $(digest "$dest") == "$sha" ]]; then echo "igual $rel"; continue; fi
+        if [[ $mode == CreateOnly ]]; then echo "conservado $rel"; continue; fi
+        mkdir -p -- "$backup/$(dirname -- "$rel")"
+        cp -p -- "$dest" "$backup/$rel"
+        action=substituido
+    fi
+    mkdir -p -- "$(dirname -- "$dest")"
+    tmp=$(mktemp "$(dirname -- "$dest")/.daw-proxecto-XXXXXX")
+    cp -- "$src/$rel" "$tmp"
+    chmod 0644 -- "$tmp"
+    [[ $(digest "$tmp") == "$sha" ]] || fail "A copia non coincide: $rel"
+    mv -f -- "$tmp" "$dest"
+    tmp=
+    echo "$action $rel"
+done
+[[ ! -d $backup ]] || echo "copia $project/$backup"
+docker compose config --quiet || fail "Compose non acepta o proxecto actualizado. Ficheiros substituídos en $project/$backup"
+'@
+    $text.Replace("`r",'')
+}
+function Invoke-DawProjectOverlay {
+    param([string]$Distribution,[string]$Directory,$Manifest)
+    $arguments=@('-d',$Distribution,'-u','ad','--cd','/home/ad/proxectos/daw-dev','--exec','bash','-c',(Get-DawProjectOverlayScript),'daw-proxecto',[IO.Path]::Combine($Directory,'ficheiros'))
+    $files=@($Manifest.Files)
+    foreach($entry in $files){$arguments+=@([string]$entry.Path,$entry.Sha256.ToLowerInvariant(),[string]$entry.Mode)}
+    $result=[ordered]@{Created=@();Replaced=@();Unchanged=@();Kept=@();Backup=$null}
+    foreach($line in @(Invoke-DawNative 'wsl.exe' $arguments)){
+        switch -Regex ($line.Trim()){
+            '^creado (.+)$' {$result.Created+=$matches[1]}
+            '^substituido (.+)$' {$result.Replaced+=$matches[1]}
+            '^igual (.+)$' {$result.Unchanged+=$matches[1]}
+            '^conservado (.+)$' {$result.Kept+=$matches[1]}
+            '^copia (.+)$' {$result.Backup=$matches[1]}
+        }
+    }
+    $reported=@($result.Created)+@($result.Replaced)+@($result.Unchanged)+@($result.Kept)
+    if($reported.Count -ne $files.Count -or @($files|Where-Object {$_.Path -notin $reported}).Count){throw 'A copia non informou de todos os ficheiros do proxecto.'}
+    [pscustomobject]$result
+}
+function Restart-DawProjectWeb {
+    # Recreates web only when it is already running; Dev Containers sessions must be reopened.
+    param([string]$Distribution)
+    $base=@('-d',$Distribution,'-u','ad','--cd','/home/ad/proxectos/daw-dev','--exec')
+    Invoke-DawNative 'wsl.exe' ($base+@('bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'))|Out-Null
+    $running=@(Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','ps','--status','running','--services'))|ForEach-Object {$_.Trim()})
+    if('web' -notin $running){return $false}
+    Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','up','-d','--no-deps','--wait','--wait-timeout','300','web'))|Out-Null
+    return $true
 }
 
 Export-ModuleMember -Function *-Daw*

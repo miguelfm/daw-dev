@@ -154,14 +154,77 @@ try{
         Assert (@(Get-Job).Count -eq $before)
     }
 
+    Test 'project stage from the repository: modes, hashes and tampering' {
+        $stage=Join-Path $script:Temp 'stage'
+        $m=New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage
+        $paths=@($m.Files|ForEach-Object {$_.Path})
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
+        Assert ((@($m.Files|Where-Object {$_.Mode -eq 'CreateOnly'}|ForEach-Object {$_.Path}) -join ',') -eq 'datos/LEME.txt')
+        Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
+        Throws {New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage} 'xa existe'
+        $file=Join-Path $stage 'ficheiros/compose.override.yaml'
+        $original=[IO.File]::ReadAllBytes($file)
+        [IO.File]::WriteAllText($file,'services: {}')
+        Throws {Assert-DawProjectOverlay $stage} 'SHA256 do proxecto'
+        [IO.File]::WriteAllBytes($file,$original)
+        Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
+        [IO.File]::AppendAllText((Join-Path $stage 'actualizar-proxecto.ps1'),'#')
+        Throws {Assert-DawProjectOverlay $stage} 'SHA256 do script'
+    }
+    Test 'project paths stay inside the project and outside www' {
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','datos/LEME.txt','docker/aula/zz-aula.ini')){Assert (Test-DawProjectPath $p) "Rejected: $p"}
+        foreach($p in @('','/etc/passwd','../x','a/../../x','a/./b','www','www/u3/t1.php','WWW/x','a\b','a//b','a b','C:/x')){Assert (-not(Test-DawProjectPath $p)) "Accepted: $p"}
+        # A manifest edited by hand cannot reach outside the project either.
+        $stage=Join-Path $script:Temp 'stage-paths'
+        $null=New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage
+        $path=Join-Path $stage 'proxecto.json'
+        $m=Get-Content $path -Raw -Encoding UTF8|ConvertFrom-Json
+        $m.Files[0].Path='../compose.yaml'
+        Write-DawState $path $m
+        Throws {Assert-DawProjectOverlay $stage} 'non válida'
+    }
+    Test 'overlay devcontainer differs from the repository only by the override file' {
+        $repo=[IO.File]::ReadAllLines((Join-Path $script:Repo '.devcontainer/devcontainer.json'))
+        $overlay=[IO.File]::ReadAllLines((Join-Path $script:Repo 'wsl/aula/proxecto/ficheiros/.devcontainer/devcontainer.json'))
+        Assert ($repo.Count -eq $overlay.Count)
+        $diff=@(0..($repo.Count-1)|Where-Object {$repo[$_] -ne $overlay[$_]})
+        Assert ($diff.Count -eq 1)
+        Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
+    }
+    Test 'project updater validates package and origin BEFORE copying' {
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/actualizar-proxecto.ps1'))
+        $package=$t.IndexOf('Assert-DawProjectOverlay $PackageDirectory');$origin=$t.IndexOf('Assert-DawOrigin');$copy=$t.IndexOf('Invoke-DawProjectOverlay')
+        Assert ($package -gt 0 -and $package -lt $origin -and $origin -lt $copy)
+        $bash=Get-DawProjectOverlayScript
+        Assert (-not $bash.Contains("`r")) 'Bash must receive LF even from CRLF Windows source'
+        Assert ($bash -notmatch 'rm -rf|rm -r |chown|down -v|prune|--unregister|wsl --terminate')
+    }
+    Test 'overlay copy passes path triples and must report every file' {
+        $manifest=[pscustomobject]@{Files=@([pscustomobject]@{Path='compose.override.yaml';Sha256='A'*64;Mode='Replace'},[pscustomobject]@{Path='datos/LEME.txt';Sha256='B'*64;Mode='CreateOnly'})}
+        & $script:M {
+            $script:Lines=@('substituido compose.override.yaml','conservado datos/LEME.txt','copia /home/ad/proxectos/daw-dev/.daw-backup/x','');$script:Passed=$null
+            function script:Invoke-DawNative {param($File,$Arguments) $script:Passed=$Arguments;$script:Lines}
+        }
+        $r=Invoke-DawProjectOverlay 'Debian-DAW' 'C:\ProgramData\DAW-Aula\proxecto' $manifest
+        Assert ((@($r.Replaced) -join ',') -eq 'compose.override.yaml' -and (@($r.Kept) -join ',') -eq 'datos/LEME.txt' -and $r.Backup -like '*/.daw-backup/x')
+        $passed=& $script:M {,$script:Passed}
+        Assert (($passed[0..7] -join ' ') -eq '-d Debian-DAW -u ad --cd /home/ad/proxectos/daw-dev --exec bash')
+        Assert ($passed[-6] -eq 'compose.override.yaml' -and $passed[-5] -eq ('a'*64) -and $passed[-4] -eq 'Replace' -and $passed[-1] -eq 'CreateOnly')
+        & $script:M {$script:Lines=@('igual compose.override.yaml')}
+        Throws {Invoke-DawProjectOverlay 'Debian-DAW' 'C:\ProgramData\DAW-Aula\proxecto' $manifest} 'non informou'
+    }
+    # The installer and the project updater share the task runner; both must keep its guarantees.
+    foreach($kind in @('install','project')){
     foreach($mode in @('success','stale','corrupt','failure','policy')){
-        Test "student task correlation and cleanup: $mode" {
-            $root=Join-Path $script:Temp ('task-'+$mode)
+        Test "student task correlation and cleanup: $kind $mode" {
+            $root=Join-Path $script:Temp ('task-'+$kind+'-'+$mode)
             New-Item -ItemType Directory -Path (Join-Path $root 'AppData/Local/DAW-Aula') -Force|Out-Null
             & $script:M {
-                param($root,$mode)
+                param($root,$mode,$kind)
                 $script:Profile=$root;$script:Mode=$mode;$script:Trace=@();$script:Principal=$null;$script:Command=''
+                $script:StateFile=if($kind -eq 'install'){'estado.json'}else{'proxecto-estado.json'}
                 function script:Get-DawStudent {[pscustomobject]@{SID='S-1-5-21-123';Profile=$script:Profile}}
+                function script:Assert-DawProjectOverlay {param($Directory) if($Directory -ne 'C:\ProgramData\DAW-Aula\proxecto'){throw 'Unexpected stage'};[pscustomobject]@{Revision='r'}}
                 function script:Test-Path {param($LiteralPath) if($LiteralPath -eq 'C:\ProgramData\DAW-Aula\daw-aula.psm1'){return $true};Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath}
                 function script:New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) $script:Principal=@{User=$UserId;Logon=$LogonType;Level=$RunLevel};[pscustomobject]$script:Principal}
                 function script:New-ScheduledTaskAction {param($Execute,$Argument) $script:Command=$Argument;[pscustomobject]@{Command=$Argument}}
@@ -176,32 +239,37 @@ try{
                     $request=$matches[1]
                     if($script:Mode -eq 'stale'){$request='stale-success'}
                     $state=@{Schema=2;RequestId=$request;UserSid='S-1-5-21-123';Phase='Completed';Success=($script:Mode -ne 'failure');Error='component failed'}
-                    $path=Join-Path $script:Profile 'AppData/Local/DAW-Aula/estado.json'
+                    $path=Join-Path $script:Profile ('AppData/Local/DAW-Aula/'+$script:StateFile)
                     if($script:Mode -eq 'corrupt'){[IO.File]::WriteAllText($path,'{torn json')}else{Write-DawState $path $state}
                 }
                 function script:Get-ScheduledTaskInfo {param($TaskName) [pscustomobject]@{LastRunTime=if($script:Mode -eq 'policy'){Get-Date}else{[datetime]::MinValue};LastTaskResult=1}}
                 function script:Get-ScheduledTask {param($TaskName) [pscustomobject]@{State='Ready'}}
                 function script:Stop-ScheduledTask {param($TaskName,$ErrorAction) $script:Trace+='stopped'}
                 function script:Unregister-ScheduledTask {param($TaskName,$Confirm,$ErrorAction) $script:Trace+='removed'}
-            } $root $mode
+            } $root $mode $kind
+            $call=if($kind -eq 'install'){{Invoke-DawStudentInstall 1}}else{{Invoke-DawProjectUpdate 1 -Restart}}
             $old=$env:SystemRoot;if(-not $old){$env:SystemRoot=$script:Temp}
             try{
                 switch($mode){
-                    'success' {$r=Invoke-DawStudentInstall 1;Assert $r.Success}
-                    'stale' {Throws {Invoke-DawStudentInstall 1} 'Tempo esgotado'}
-                    'corrupt' {Throws {Invoke-DawStudentInstall 1} 'Tempo esgotado'}
-                    'failure' {Throws {Invoke-DawStudentInstall 1} 'component failed'}
+                    'success' {$r=& $call;Assert $r.Success}
+                    'stale' {Throws $call 'Tempo esgotado'}
+                    'corrupt' {Throws $call 'Tempo esgotado'}
+                    'failure' {Throws $call 'component failed'}
                     # A current failure report would precede policy checking, so make it stale too.
                     'policy' {
                         & $script:M {function script:Start-ScheduledTask {param($TaskName) $script:Trace+='started'}}
-                        Throws {Invoke-DawStudentInstall 1} 'Revisar políticas'
+                        Throws $call 'Revisar políticas'
                     }
                 }
             }finally{$env:SystemRoot=$old}
             $principal=& $script:M {$script:Principal}
             Assert ($principal.User -eq 'S-1-5-21-123' -and $principal.Logon -eq 'Interactive' -and $principal.Level -eq 'Limited')
             Assert (((& $script:M {$script:Trace}) -join ',') -eq 'registered,started,stopped,removed')
+            $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(((& $script:M {$script:Command}) -split ' ')[-1]))
+            $expected=if($kind -eq 'install'){"^& 'C:\\ProgramData\\DAW-Aula\\instalar-alumno\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Aula'$"}else{"^& 'C:\\ProgramData\\DAW-Aula\\proxecto\\actualizar-proxecto\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Aula\\proxecto' -Reiniciar$"}
+            Assert ($decoded -match $expected) ('Unexpected task command: '+$decoded)
         }
+    }
     }
     if($env:OS -eq 'Windows_NT'){
         Test 'actual Windows task principal constructor' {
