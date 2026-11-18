@@ -1,104 +1,142 @@
-# Guía de Inicio e Uso da Contorna de Desenvolvemento (DWCS)
+# Contorno DAW Dev na aula
 
-Benvido/a á contorna de desenvolvemento para o módulo de **Desenvolvemento Web en Contorno Servidor (DWCS)**.
+DAW Dev é un contorno de desenvolvemento PHP que funciona na túa conta de
+Windows sen permisos de administración. Está formado por unha distribución
+Linux de WSL2, `Debian-DAW`, con Docker, e tres contedores: `web` (Apache e
+PHP 8.5 con Xdebug), `db` (MariaDB) e `phpmyadmin`.
 
-Esta contorna baséase en contedores lixeiros sobre **WSL2 (Debian-DAW)** e **Docker Engine**. Funciona de maneira illada e optimizada no teu equipo, sen necesidade de permisos de administrador en Windows nin de software pesado como Docker Desktop.
+O contedor `web` compórtase como a máquina virtual (VM) da aula: a raíz web
+é `/home/ad/html`, Apache executa PHP como `www-data` e as directivas de PHP
+son as mesmas.
 
----
+O contorno instálase en cada conta e en cada computador. Noutro computador da
+aula tes outra copia, que non comparte ficheiros nin bases de datos con esta:
+para levar o traballo dun a outro, usa Git ou unha copia dos ficheiros.
 
-## 1. Onde están os teus proxectos e código (`www`)
+## Onde están os ficheiros
 
-O teu cartafol de traballo principal é o *document root* do servidor web Apache:
+- **`www`** é a raíz web. O acceso directo «DAW - Proxectos (www)» do
+  Escritorio abre o cartafol `\\wsl.localhost\Debian-DAW\home\ad\www`, que no
+  contedor é `/home/ad/html`. O ficheiro `www/u3/t1/index.php` ábrese en
+  `http://localhost/u3/t1/index.php`.
+- **`datos`** garda, como na VM, os ficheiros que unha aplicación le ou
+  escribe fóra da raíz web. En Windows está en
+  `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\datos`, e no
+  contedor, en `/home/ad/datos`.
 
-* **Acceso rápido no Escritorio:** Fai dobre clic na icona **«DAW - Proxectos (www)»**.
-* **Desde o Explorador de Windows:** Podes acceder en calquera momento pegando esta ruta na barra de direccións:
-  ```text
-  \\wsl.localhost\Debian-DAW\home\ad\www
+Apache executa PHP como `www-data`, que non pode escribir en `www` nin en
+`datos`. Se unha tarefa necesita que PHP cree ficheiros nun directorio,
+executa as ordes de permisos do enunciado no terminal do contedor, onde as
+rutas son as mesmas ca na VM (véxase *Abrir un terminal de Linux*).
+
+## Ordes diarias
+
+Escríbense nun terminal de PowerShell ou CMD de Windows:
+
+| Orde | Que fai |
+|---|---|
+| `daw-start` | Arranca só o contedor `web` |
+| `daw-start-db` | Arranca `web` e MariaDB |
+| `daw-start-all` | Arranca `web`, MariaDB e phpMyAdmin |
+| `daw-status` | Amosa os contedores, o seu estado e os portos |
+| `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
+| `daw-code` | Abre o proxecto en Visual Studio Code |
+| `daw-stop` | Para os contedores; ficheiros e bases de datos quedan |
+| `daw-help` | Lista as ordes |
+
+`daw-start` tarda uns segundos. A primeira vez que arranca MariaDB, crea as
+bases de datos e tarda uns 20 segundos.
+
+Ao rematar, `daw-stop` libera a memoria e os portos. Os ficheiros e as bases
+de datos consérvanse para a próxima sesión.
+
+## Servizos no navegador
+
+| Servizo | Enderezo | Arranque |
+|---|---|---|
+| Web | `http://localhost/` | `daw-start` |
+| phpMyAdmin | `http://localhost:8081/` | `daw-start-all` |
+| MariaDB | `localhost`, porto `3306` | `daw-start-db` |
+
+Só se pode acceder a eles desde o propio computador. MariaDB ten dous
+usuarios, co mesmo contrasinal:
+
+| Usuario | Contrasinal | Uso |
+|---|---|---|
+| `dwcs` | `abc123.` | Aplicacións; base de datos `dwcs` |
+| `root` | `abc123.` | Administración |
+
+Desde PHP, o servidor de bases de datos chámase `db`, non `localhost`. O
+contedor ten os datos de conexión en variables de contorno, que o código
+pode ler con `getenv('DB_HOST')`, `getenv('DB_NAME')`, `getenv('DB_USER')`
+e `getenv('DB_PASSWORD')`.
+
+## Abrir un terminal de Linux
+
+Desde PowerShell, esta orde abre un terminal en `Debian-DAW`:
+
+```powershell
+wsl -d Debian-DAW --cd ~
+```
+
+Entras como `ad` no teu directorio persoal, onde está `www`. Aquí hai Docker
+e o proxecto (`~/proxectos/daw-dev`), pero non PHP: PHP está no contedor.
+Para entrar no contedor `web`, que ten que estar arrancado:
+
+```bash
+cd ~/proxectos/daw-dev
+docker compose exec -u dev web bash
+```
+
+Entras como `dev` en `/var/www/html`, que é o mesmo directorio ca
+`/home/ad/html`. Tes `php`, `composer`, `git`, o cliente `mariadb` e `nano`,
+coas mesmas directivas de PHP ca Apache, e as rutas da VM: por exemplo,
+`cd /home/ad/html/u3/t1`. Un `exit` sae do contedor e outro, de `Debian-DAW`.
+
+::: warning
+
+Sen `-u dev` entras como `root`, e os ficheiros que crees así quedan de
+`root`: desde Windows non poderás gardar cambios neles.
+
+:::
+
+## Traballar con Visual Studio Code
+
+Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
+
+1. Executa `daw-code`. VS Code abre o proxecto,
+   `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev`.
+2. Preme `F1` e escolle **Dev Containers: Reopen in Container**.
+3. VS Code ábrese de novo dentro do contedor `web`, co proxecto en
+   `/workspace` e o código en `/workspace/www`. O terminal integrado
+   (`Ctrl+ñ`) xa é o do contedor, como `dev`.
+
+Ao abrir o proxecto no contedor arrancan tamén MariaDB e phpMyAdmin, e ao
+pechar VS Code páranse os contedores.
+
+Xdebug só depura as peticións que o piden, como na VM:
+
+1. Pon un punto de interrupción e preme `F5` coa configuración
+   **Escoitar Xdebug**.
+2. Abre a páxina engadindo `?XDEBUG_TRIGGER=1` ao enderezo, por exemplo
+   `http://localhost/u3/t1/index.php?XDEBUG_TRIGGER=1`.
+
+Xdebug conecta con VS Code cando este está dentro do contedor. Con VS Code
+aberto en Windows, fóra del, podes editar os ficheiros, pero non depurar.
+
+## Problemas habituais
+
+- **`http://localhost/` non responde.** Mira `daw-status`: se `daw-dev-web`
+  non está `Up`, executa `daw-start`.
+- **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
+- **Windows non recoñece `daw-start`.** Abre un terminal novo. Se segue sen
+  recoñecela, ou se estás noutro computador, o contorno aínda non está
+  activado nesa conta: o docente actívao desde o seu posto.
+- **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
+  necesita os permisos que indica o enunciado: Apache é `www-data`.
+- **Windows non deixa gardar un ficheiro.** Creouse como `root` dentro do
+  contedor. Desde `~/proxectos/daw-dev`, devólvello a `dev`:
+
+  ```bash
+  docker compose exec web chown dev:dev /home/ad/html/u3/t1/f.php
   ```
-
-> [!TIP]
-> Calquera ficheiro `.php` ou `.html` que gardes dentro deste cartafol estará inmediatamente dispoñible no navegador web.
-
----
-
-## 2. Comandos de control diario
-
-Podes controlar os servizos en calquera momento abrindo un terminal de **PowerShell** ou **CMD** (sen permisos de administrador):
-
-| Comando | Que fai | Cando usalo |
-|---|---|---|
-| `daw-start` | Inicia o servidor web Apache con PHP 8.5 | Para exercicios de PHP sen base de datos. |
-| `daw-start-all` | Inicia Web + MariaDB + phpMyAdmin | Para actividades con bases de datos. |
-| `daw-stop` | Detén todos os contedores | **Sempre ao rematar a clase** antes de pechar sesión. |
-| `daw-status` | Mostra o estado e portos dos contedores | Para comprobar se os servizos están en marcha. |
-| `daw-code` | Abre o proxecto en Visual Studio Code | Para comezar a programar. |
-| `daw-logs` | Mostra os rexistros e erros en tempo real | Para depurar erros internos de PHP ou Apache (`Ctrl+C` para saír). |
-| `daw-help` | Mostra a listaxe rápida de ordes | Cando non lembres algún comando. |
-
----
-
-## 3. Como traballar con Visual Studio Code
-
-### Opción recomendada: Dev Containers (Contenedor integrado)
-
-A aula está preparada para que poidas programar directamente **dentro do contedor**, coas ferramentas de PHP, Git, Composer e depuración listas:
-
-1. Abre un terminal e executa:
-   ```powershell
-   daw-code
-   ```
-2. Ao abrirse Visual Studio Code, aparecerá un aviso na esquina inferior dereita:
-   > *Folder contains a Dev Container configuration file. Reopen to run in a container.*
-3. Fai clic no botón **«Reopen in Container»**.
-   *(Se o aviso desapareceu, preme `F1` ou `Ctrl+Shift+P` e escribe `Dev Containers: Reopen in Container`).*
-4. O proxecto abrirase dentro do contedor en poucos segundos:
-   - Se abres o terminal integrado (`Ctrl+\``), estarás directamente na liña de ordes de Linux como usuario `dev`.
-   - Dispós de `php`, `composer`, `git` e do cliente de consola `mariadb` sen instalar nada en Windows.
-   - A depuración paso a paso con **Xdebug** funciona premendo `F5`.
-
-### Opción alternativa: Edición directa de ficheiros
-
-Se prefires traballar co teu editor local sen Dev Containers:
-1. Arranca o servizo web co comando `daw-start`.
-2. Abre o acceso directo do Escritorio **«DAW - Proxectos (www)»** en VS Code ou no teu editor habitual.
-3. Edita e garda os ficheiros `.php` normalmente.
-
----
-
-## 4. Acceso aos servizos desde o navegador
-
-Unha vez iniciados os servizos, accede desde calquera navegador:
-
-| Servizo | Dirección URL | Credenciais de acceso |
-|---|---|---|
-| **Servidor Web PHP** | [http://localhost](http://localhost) | Acceso directo aos ficheiros de `www/` |
-| **Xestor phpMyAdmin** | [http://localhost:8081](http://localhost:8081) | Servidor: `db`<br>Usuario: `dwcs`<br>Contrasinal: `dwcs` |
-| **Consola MariaDB** | Porto `3306` | Usuario root: `root` / `root` |
-
-> [!NOTE]
-> Para que funcionen **phpMyAdmin** e a base de datos **MariaDB**, debes arrancar a contorna con `daw-start-all` (ou `daw-start-db`).
-
----
-
-## 5. Boas prácticas na aula
-
-1. **Peche limpo ao rematar:** Antes de saír da aula ou apagar o equipo, executa sempre no terminal:
-   ```powershell
-   daw-stop
-   ```
-   Isto libera os portos de rede (`80`, `8081`, `3306`) e a memoria RAM para outros compañeiros ou sesións.
-2. **Persistencia dos teus datos:** Os teus ficheiros en `www` e as bases de datos que crees en MariaDB consérvanse intactos aínda que pares os contedores con `daw-stop`.
-3. **Copias de seguridade:** Lembra subir periodicamente o teu código ao teu repositorio persoal de Git (GitHub/GitLab).
-
----
-
-## 6. Dúbidas habituais e resolución de incidencias
-
-* **A páxina web dá erro de conexión («Non se pode conectar»):**
-  Comproba o estado con `daw-status`. Se os contedores están detidos, executa `daw-start` ou `daw-start-all`.
-* **Modifiquei un ficheiro PHP ou CSS pero non vexo os cambios:**
-  Forza a recarga da páxina no navegador limpando a caché con `Ctrl + F5` (ou `Ctrl + Shift + R`).
-* **phpMyAdmin indica erro ao conectar co servidor de base de datos:**
-  Verifica que arranquiches con `daw-start-all`. Se arrancaches con `daw-start`, só está activo o servidor web.
-* **Non se recoñecen os comandos `daw-*`:**
-  Abre unha nova ventá de terminal de PowerShell. Os atallos cárganse ao iniciar sesión na túa conta de usuario.

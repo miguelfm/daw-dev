@@ -207,7 +207,7 @@ try{
         $stage=Join-Path $script:Temp 'stage'
         $m=New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage
         $paths=@($m.Files|ForEach-Object {$_.Path})
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
         Assert ((@($m.Files|Where-Object {$_.Mode -eq 'CreateOnly'}|ForEach-Object {$_.Path}) -join ',') -eq 'datos/LEME.txt')
         Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
         Throws {New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage} 'xa existe'
@@ -221,7 +221,7 @@ try{
         Throws {Assert-DawProjectOverlay $stage} 'SHA256 do script'
     }
     Test 'project paths stay inside the project and outside www' {
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','datos/LEME.txt','docker/aula/zz-aula.ini')){Assert (Test-DawProjectPath $p) "Rejected: $p"}
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','datos/LEME.txt','docker/aula/zz-aula.ini')){Assert (Test-DawProjectPath $p) "Rejected: $p"}
         foreach($p in @('','/etc/passwd','../x','a/../../x','a/./b','www','www/u3/t1.php','WWW/x','a\b','a//b','a b','C:/x')){Assert (-not(Test-DawProjectPath $p)) "Accepted: $p"}
         # A manifest edited by hand cannot reach outside the project either.
         $stage=Join-Path $script:Temp 'stage-paths'
@@ -239,6 +239,11 @@ try{
         $diff=@(0..($repo.Count-1)|Where-Object {$repo[$_] -ne $overlay[$_]})
         Assert ($diff.Count -eq 1)
         Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
+    }
+    Test 'overlay launch.json is the repository one and maps the classroom web root' {
+        $repo=[IO.File]::ReadAllText((Join-Path $script:Repo '.vscode/launch.json'))
+        Assert ($repo -eq [IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/proxecto/ficheiros/.vscode/launch.json')))
+        Assert ($repo.Contains('"/home/ad/html": "${workspaceFolder}/www"') -and $repo.Contains('"/var/www/html": "${workspaceFolder}/www"'))
     }
     Test 'project updater validates package and origin BEFORE copying' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/actualizar-proxecto.ps1'))

@@ -16,6 +16,7 @@ permisos e as directivas coincidan cos enunciados:
 | `docker/aula/000-default.conf` | `DocumentRoot /home/ad/html` |
 | `datos/LEME.txt` | Crea `datos/` co usuario `ad`, non con `root` |
 | `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |
+| `.vscode/launch.json` | O do repositorio, que traduce tamén `/home/ad/html` a `www`: Apache serve desde esa ruta e Xdebug informa dela |
 
 `daw-start` le `compose.override.yaml` porque está ao lado de `compose.yaml`. Os
 cambios aplícanse ao recrear o contedor web: no seguinte `daw-start`, ou co
