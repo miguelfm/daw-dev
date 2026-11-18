@@ -33,6 +33,11 @@ try{
         $out=Invoke-DawNative $exe @('-NoProfile','-File',$f,'-Value',$value)
         Assert ((($out -join "`n")|ConvertFrom-Json) -eq $value)
         Throws {Invoke-DawNative $exe @('-NoProfile','-Command','exit 9')} 'exit 9'
+        # wsl.exe 3.0 executa "--list" como orde: as opcións van sen comiñas.
+        foreach($bare in '--list','-d','Debian-DAW','C:\ProgramData\DAW-Aula\','/home/ad/proxectos/daw-dev'){Assert ((ConvertTo-DawArgument $bare) -ceq $bare) "Quoted: $bare"}
+        Assert ((ConvertTo-DawArgument '') -eq '""')
+        Assert ((ConvertTo-DawArgument 'a b\') -eq '"a b\\"')
+        Assert ((ConvertTo-DawArgument 'a"b') -eq '"a\"b"')
         Throws {Invoke-DawNative $exe @('-NoProfile','-Command','Start-Sleep 20') 1} 'Tempo esgotado'
     }
     Test 'state writes atomically and can replace previous result' {
@@ -42,6 +47,28 @@ try{
         $s=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json
         Assert (-not $s.Success -and $s.User -eq 'ad')
         Assert (@(Get-ChildItem $script:Temp -Filter 'state.json.*.tmp').Count -eq 0)
+    }
+    Test 'account without distributions lists none; other WSL errors stop' {
+        & $script:M {
+            $script:Registered=@()
+            function script:Invoke-DawNative {param($File,$Arguments) throw 'wsl.exe (exit -1): Subsistema de Windows para Linux no tiene distribuciones instaladas.'}
+            function script:Get-DawRegisteredDistributions {$script:Registered}
+        }
+        Assert (@(Get-DawDistributions).Count -eq 0) 'A fresh account must report no distributions'
+        & $script:M {$script:Registered=@('Debian')}
+        Throws {Get-DawDistributions} 'exit -1'
+        & $script:M {
+            $script:Registered=@()
+            function script:Invoke-DawNative {param($File,$Arguments) throw 'wsl.exe (exit 1): WSL non dispoñible'}
+        }
+        Throws {Get-DawDistributions} 'exit 1'
+        & $script:M {function script:Invoke-DawNative {param($File,$Arguments) "D`0e`0b`0i`0a`0n`0-`0D`0A`0W`0",'',' Debian '}}
+        $list=@(Get-DawDistributions)
+        Assert ($list.Count -eq 2 -and $list[0] -eq 'Debian-DAW' -and $list[1] -eq 'Debian')
+        foreach($name in 'instalar-alumno.ps1','actualizar-proxecto.ps1'){
+            $t=[IO.File]::ReadAllText((Join-Path $script:Repo "wsl/aula/$name"))
+            Assert ($t.Contains('Get-DawDistributions') -and -not $t.Contains("'--list'")) "$name must use Get-DawDistributions"
+        }
     }
     Test 'unrecognized distro rejected with read-only WSL call' {
         & $script:M {
@@ -129,12 +156,34 @@ try{
             function script:Invoke-DawNative {param($File,$Arguments) @()}
         }
         # Use module-local path: no actual VS Code process is launched.
-        & $script:M {function script:Find-DawCode {'/fake/Code.exe'}}
+        & $script:M {function script:Find-DawCode {'/fake/Code.exe'};function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}}
         Throws {Install-DawCodeExtensions} 'non confirmada'
+    }
+    Test 'VS Code CLI found in versioned and legacy layouts' {
+        $sep=[IO.Path]::DirectorySeparatorChar
+        function New-Layout([string]$Name,[string]$CliDir,[string]$Cmd){
+            $root=Join-Path $script:Temp $Name
+            New-Item -ItemType Directory -Path (Join-Path $root 'bin') -Force|Out-Null
+            if($CliDir){
+                $out=Join-Path $root ($CliDir.Replace('\',$sep))
+                New-Item -ItemType Directory -Path $out -Force|Out-Null
+                Set-Content -LiteralPath (Join-Path $out 'cli.js') ''
+            }
+            if($Cmd){[IO.File]::WriteAllText((Join-Path $root ('bin'+$sep+'code.cmd')),$Cmd)}
+            Join-Path $root 'Code.exe'
+        }
+        # VS Code 1.122: recursos no directorio do commit, sinalado por bin\code.cmd.
+        $code=New-Layout 'vscode-versioned' '6a49527b96\resources\app\out' "@echo off`r`n`"%~dp0..\Code.exe`" `"%~dp0..\6a49527b96\resources\app\out\cli.js`" %*`r`n"
+        Assert ((Find-DawCodeCli $code).Replace($sep,'\').EndsWith('vscode-versioned\6a49527b96\resources\app\out\cli.js'))
+        $code=New-Layout 'vscode-legacy' 'resources\app\out' $null
+        Assert ((Find-DawCodeCli $code).Replace($sep,'\').EndsWith('vscode-legacy\resources\app\out\cli.js'))
+        $code=New-Layout 'vscode-missing' $null "@echo off`r`n`"%~dp0..\Code.exe`" `"%~dp0..\0000000000\resources\app\out\cli.js`" %*`r`n"
+        Throws {Find-DawCodeCli $code} 'Falta a CLI'
     }
     Test 'CLI errors remain failures and ELECTRON_RUN_AS_NODE restored' {
         & $script:M {
             function script:Find-DawCode {'/fake/Code.exe'}
+            function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}
             function script:Test-Path {param($LiteralPath) $true}
             function script:Invoke-DawNative {param($File,$Arguments) throw 'marketplace blocked'}
         }
@@ -215,7 +264,7 @@ try{
     }
     # The installer and the project updater share the task runner; both must keep its guarantees.
     foreach($kind in @('install','project')){
-    foreach($mode in @('success','stale','corrupt','failure','policy')){
+    foreach($mode in @('success','stale','corrupt','failure','policy','silent')){
         Test "student task correlation and cleanup: $kind $mode" {
             $root=Join-Path $script:Temp ('task-'+$kind+'-'+$mode)
             New-Item -ItemType Directory -Path (Join-Path $root 'AppData/Local/DAW-Aula') -Force|Out-Null
@@ -227,7 +276,7 @@ try{
                 function script:Assert-DawProjectOverlay {param($Directory) if($Directory -ne 'C:\ProgramData\DAW-Aula\proxecto'){throw 'Unexpected stage'};[pscustomobject]@{Revision='r'}}
                 function script:Test-Path {param($LiteralPath) if($LiteralPath -eq 'C:\ProgramData\DAW-Aula\daw-aula.psm1'){return $true};Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath}
                 function script:New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) $script:Principal=@{User=$UserId;Logon=$LogonType;Level=$RunLevel};[pscustomobject]$script:Principal}
-                function script:New-ScheduledTaskAction {param($Execute,$Argument) $script:Command=$Argument;[pscustomobject]@{Command=$Argument}}
+                function script:New-ScheduledTaskAction {param($Execute,$Argument) $script:Execute=$Execute;$script:Command=$Argument;[pscustomobject]@{Command=$Argument}}
                 function script:New-ScheduledTaskSettingsSet {param([switch]$Hidden,$ExecutionTimeLimit,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) [pscustomobject]@{Hidden=$true}}
                 function script:Register-ScheduledTask {param($TaskName,$Principal,$Action,$Settings) $script:Trace+='registered'}
                 function script:Start-ScheduledTask {
@@ -242,7 +291,7 @@ try{
                     $path=Join-Path $script:Profile ('AppData/Local/DAW-Aula/'+$script:StateFile)
                     if($script:Mode -eq 'corrupt'){[IO.File]::WriteAllText($path,'{torn json')}else{Write-DawState $path $state}
                 }
-                function script:Get-ScheduledTaskInfo {param($TaskName) [pscustomobject]@{LastRunTime=if($script:Mode -eq 'policy'){Get-Date}else{[datetime]::MinValue};LastTaskResult=1}}
+                function script:Get-ScheduledTaskInfo {param($TaskName) [pscustomobject]@{LastRunTime=if($script:Mode -in @('policy','silent')){Get-Date}else{[datetime]::MinValue};LastTaskResult=if($script:Mode -eq 'silent'){0}else{1}}}
                 function script:Get-ScheduledTask {param($TaskName) [pscustomobject]@{State='Ready'}}
                 function script:Stop-ScheduledTask {param($TaskName,$ErrorAction) $script:Trace+='stopped'}
                 function script:Unregister-ScheduledTask {param($TaskName,$Confirm,$ErrorAction) $script:Trace+='removed'}
@@ -260,8 +309,15 @@ try{
                         & $script:M {function script:Start-ScheduledTask {param($TaskName) $script:Trace+='started'}}
                         Throws $call 'Revisar políticas'
                     }
+                    # conhost --headless devolve 0 aínda que PowerShell morra sen escribir o estado.
+                    'silent' {
+                        & $script:M {function script:Start-ScheduledTask {param($TaskName) $script:Trace+='started'}}
+                        $call=if($kind -eq 'install'){{Invoke-DawStudentInstall 30}}else{{Invoke-DawProjectUpdate 30 -Restart}}
+                        Throws $call 'rematou sen informar'
+                    }
                 }
             }finally{$env:SystemRoot=$old}
+            Assert ((& $script:M {$script:Execute}) -match 'conhost\.exe$' -and (& $script:M {$script:Command}) -match '^--headless "') 'Task must run in headless conhost'
             $principal=& $script:M {$script:Principal}
             Assert ($principal.User -eq 'S-1-5-21-123' -and $principal.Logon -eq 'Interactive' -and $principal.Level -eq 'Limited')
             Assert (((& $script:M {$script:Trace}) -join ',') -eq 'registered,started,stopped,removed')

@@ -36,7 +36,7 @@ try{
     $transcriptStarted=$true
     $manifest=Assert-DawProjectOverlay $PackageDirectory
     $status.Revision=$manifest.Revision
-    $installed=@(Invoke-DawNative 'wsl.exe' @('--list','--quiet')) -replace "`0",''|ForEach-Object {$_.Trim()}|Where-Object {$_}
+    $installed=@(Get-DawDistributions)
     if($Distribution -notin $installed){throw 'Esta conta aínda non ten Debian-DAW: executar antes InstalarUsuario.'}
     $originPath=Join-Path $stateDir ($Distribution+'.sha256')
     $origin=''

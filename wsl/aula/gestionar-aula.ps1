@@ -118,19 +118,24 @@ foreach ($n in $Numero) {
                         if (-not $details -or -not $details.Success) { throw 'Non se confirmou a instalación da solicitude actual.' }
                     }
                     'ActualizarProxecto' {
+                        # O módulo cárgase desde un ficheiro temporal do administrador. Con New-Module,
+                        # todos os postos da aula 34 rexeitaron o bloque (ParameterBindingException,
+                        # 18-11-2026); a causa non se aclarou.
                         Invoke-Command -Session $session -ScriptBlock {
                             param($source)
-                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            $file = Join-Path $env:TEMP ('daw-aula-' + [guid]::NewGuid().ToString('N') + '.psm1')
+                            try { [IO.File]::WriteAllText($file, $source, (New-Object Text.UTF8Encoding($true))); Import-Module $file -Force }
+                            finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
                             Initialize-DawProjectDirectory
                         } -ArgumentList $moduleSource
                         # SMB como en CopiarModelo; o paquete do proxecto ocupa poucos KB.
                         Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
                         $details = Invoke-Command -Session $session -ScriptBlock {
-                            param($source,$seconds,$restart)
-                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            param($seconds,$restart)
+                            # O módulo segue cargado na mesma sesión desde a primeira chamada.
                             Reset-DawProjectAcl
                             Invoke-DawProjectUpdate -TimeoutSeconds $seconds -Restart:$restart
-                        } -ArgumentList $moduleSource,$TimeoutSeconds,$Reiniciar.IsPresent
+                        } -ArgumentList $TimeoutSeconds,$Reiniciar.IsPresent
                         if (-not $details -or -not $details.Success -or $details.Revision -ne $projectManifest.Revision) { throw 'Non se confirmou a actualización do proxecto da solicitude actual.' }
                     }
                     'PrepararWSL' {

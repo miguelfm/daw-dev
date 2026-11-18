@@ -34,7 +34,7 @@ try{
     $transcriptStarted=$true
     $manifest=Assert-DawPackage $PackageDirectory
     $status.ModelSha256=$manifest.Sha256
-    $installed=@(Invoke-DawNative 'wsl.exe' @('--list','--quiet')) -replace "`0",'' |ForEach-Object {$_.Trim()}|Where-Object {$_}
+    $installed=@(Get-DawDistributions)
     $importedNow=$false
     $originPath=Join-Path $stateDir ($Distribution+'.sha256')
     if($Distribution -notin $installed){

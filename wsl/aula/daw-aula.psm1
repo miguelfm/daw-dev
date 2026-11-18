@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 
 function ConvertTo-DawArgument {
     param([AllowEmptyString()][string]$Value)
+    # wsl.exe 3.0 non recoñece as opcións entre comiñas ("--list" execútase como orde):
+    # só se citan os argumentos baleiros ou con espazos ou comiñas.
+    if($Value -and $Value -notmatch '[\s"]'){return $Value}
     $v=[regex]::Replace($Value,'(\\*)"','$1$1\"')
     '"'+[regex]::Replace($v,'(\\+)$','$1$1')+'"'
 }
@@ -22,6 +25,22 @@ function Invoke-DawNative {
         if($p.ExitCode -ne 0){throw "$File (exit $($p.ExitCode)): $out`n$err"}
         return ($out -split '\r?\n')
     }finally{$p.Dispose()}
+}
+function Get-DawRegisteredDistributions {
+    # WSL rexistra as distribucións de cada conta en HKCU; non depende da lingua de wsl.exe.
+    $path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss'
+    if(-not(Test-Path -LiteralPath $path)){return @()}
+    @(Get-ChildItem -LiteralPath $path|ForEach-Object {$_.GetValue('DistributionName')}|Where-Object {$_})
+}
+function Get-DawDistributions {
+    # Por se wsl --list sae con -1 nunha conta sen distribucións (non comprobado coa 3.0.5),
+    # ese erro só vale como lista baleira se o rexistro da conta tampouco ten ningunha.
+    try{
+        @(Invoke-DawNative 'wsl.exe' @('--list','--quiet')) -replace "`0",''|ForEach-Object {$_.Trim()}|Where-Object {$_}
+    }catch{
+        if($_.Exception.Message -notmatch '^wsl\.exe \(exit -1\)' -or @(Get-DawRegisteredDistributions).Count){throw}
+        return @()
+    }
 }
 function Write-DawState {
     param([string]$Path,$State)
@@ -132,10 +151,26 @@ function Find-DawCode {
     }
     throw 'Falta VS Code. Instalalo para este usuario ou indicar SenVSCode para unha instalación explicitamente sen IDE.'
 }
+function Find-DawCodeCli {
+    param([string]$Code)
+    $dir=Split-Path $Code
+    # Desde a 1.10x, VS Code garda os recursos nun directorio co commit (6a49527b96\resources\...);
+    # bin\code.cmd apunta ao da versión actual. A ruta antiga queda como alternativa.
+    $cmd=[IO.Path]::Combine($dir,'bin','code.cmd')
+    if(Test-Path -LiteralPath $cmd -PathType Leaf){
+        $m=[regex]::Match([IO.File]::ReadAllText($cmd),'%~dp0\.\.\\([^"%]*?resources\\app\\out\\cli\.js)')
+        if($m.Success){
+            $cli=[IO.Path]::Combine($dir,$m.Groups[1].Value.Replace('\',[IO.Path]::DirectorySeparatorChar))
+            if(Test-Path -LiteralPath $cli -PathType Leaf){return $cli}
+        }
+    }
+    $cli=[IO.Path]::Combine($dir,'resources','app','out','cli.js')
+    if(Test-Path -LiteralPath $cli -PathType Leaf){return $cli}
+    throw 'Falta a CLI de VS Code.'
+}
 function Install-DawCodeExtensions {
     $code=Find-DawCode
-    $cli=Join-Path (Split-Path $code) 'resources\app\out\cli.js'
-    if(-not(Test-Path -LiteralPath $cli)){throw 'Falta a CLI de VS Code.'}
+    $cli=Find-DawCodeCli $code
     $old=$env:ELECTRON_RUN_AS_NODE
     try{
         $env:ELECTRON_RUN_AS_NODE='1'
@@ -204,13 +239,18 @@ function Invoke-DawUserTask {
     try{
         $principal=New-ScheduledTaskPrincipal -UserId $user.SID -LogonType Interactive -RunLevel Limited
         $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $action=New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded"
+        # Con Windows Terminal como terminal predeterminado, -WindowStyle Hidden non agocha a xanela:
+        # o alumno ve a xanela e, se a pecha, a tarefa morre con 0xC000013A (aula 34, 18-11-2026).
+        # conhost --headless non abre xanela, pero devolve sempre 0; o fin sen estado detéctase abaixo.
+        $conhost=Join-Path $env:SystemRoot 'System32\conhost.exe'
+        $action=New-ScheduledTaskAction -Execute $conhost -Argument "--headless `"$ps`" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded"
         $settings=New-ScheduledTaskSettingsSet -Hidden -ExecutionTimeLimit (New-TimeSpan -Seconds $TimeoutSeconds) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         Register-ScheduledTask -TaskName $task -Principal $principal -Action $action -Settings $settings|Out-Null
         $registered=$true
         $started=Get-Date
         Start-ScheduledTask -TaskName $task
         $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        $endedAt=$null
         do{
             if(Test-Path -LiteralPath $status){
                 $state=$null
@@ -222,7 +262,12 @@ function Invoke-DawUserTask {
             }
             $info=Get-ScheduledTaskInfo -TaskName $task
             $current=Get-ScheduledTask -TaskName $task
-            if($current.State -ne 'Running' -and $info.LastRunTime -ge $started.AddSeconds(-2) -and $info.LastTaskResult -ne 0){throw "A tarefa $task fallou: $($info.LastTaskResult). Revisar políticas e logs."}
+            if($current.State -ne 'Running' -and $info.LastRunTime -ge $started.AddSeconds(-2)){
+                if($info.LastTaskResult -ne 0){throw "A tarefa $task fallou: $($info.LastTaskResult). Revisar políticas e logs."}
+                # Rematou sen erro pero sen o estado desta solicitude: dáselle un momento á escritura.
+                if(-not $endedAt){$endedAt=[DateTime]::UtcNow}
+                elseif(([DateTime]::UtcNow-$endedAt).TotalSeconds -ge 5){throw "A tarefa $task rematou sen informar do resultado. Revisar $StateFile e o log antes de repetir."}
+            }
             Start-Sleep -Milliseconds 500
         }while([DateTime]::UtcNow -lt $deadline)
         throw "Tempo esgotado: $Label $id. Revisar $StateFile e o log; non repetir ata comprobar a operación incompleta."
