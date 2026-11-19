@@ -72,3 +72,40 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  angular:
+    name: Imaxe Angular (DWCC)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Node.js 26, Angular CLI 22 e servidor SSH; nas PR só se constrúe e proba
+      - uses: docker/build-push-action@v7
+        with:
+          context: docker/angular
+          load: true
+          tags: ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
+          labels: |
+            org.opencontainers.image.title=dwcc-angular
+            org.opencontainers.image.description=Node.js e Angular CLI con SSH para DWCC en DAW Dev
+          cache-from: type=gha,scope=angular
+          cache-to: type=gha,mode=max,scope=angular
+
+      - name: Comprobar Node, Angular CLI e sshd
+        run: |
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository_owner }}/dwcc-angular:22 \
+            -c 'node --version && ng version | grep -q "Angular CLI" && test -x /usr/sbin/sshd && id node'
+
+      - name: Publicar
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker push ghcr.io/${{ github.repository_owner }}/dwcc-angular:22

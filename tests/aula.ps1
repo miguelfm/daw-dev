@@ -240,6 +240,78 @@ try{
         Assert ($diff.Count -eq 1)
         Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
     }
+    Test 'extra Docker images in the package are registered, verified and copied' {
+        $dest=Join-Path $script:Temp 'package-images'
+        New-Item -ItemType Directory -Path $dest -Force|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
+        $image=Join-Path $dest 'debian-daw.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
+        $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='alumno';Image='debian-daw.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;SetupRevision=2;ScriptSha256=[pscustomobject]$hashes}
+        Assert (@(Get-DawPackageImages (Assert-DawPackage $dest)).Count -eq 0)
+        $archive=Join-Path $script:Temp 'dwcc-angular.tar.gz';[IO.File]::WriteAllText($archive,'angular bytes')
+        $entry=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
+        Assert ($entry.File -eq 'dwcc-angular.tar.gz' -and (Test-Path (Join-Path $dest 'dwcc-angular.tar.gz')))
+        $null=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
+        $images=@(Get-DawPackageImages (Assert-DawPackage $dest))
+        Assert ($images.Count -eq 1 -and $images[0].Name -eq 'ghcr.io/miguelfm/dwcc-angular:22') 'Repeating the image must replace its entry'
+        [IO.File]::WriteAllText((Join-Path $dest 'dwcc-angular.tar.gz'),'tampered')
+        Throws {Assert-DawPackage $dest} 'imaxe Docker'
+        Throws {Get-DawPackageImages ([pscustomobject]@{Images=@([pscustomobject]@{File='../x.tar';Sha256=('a'*64);Name='x'})})} 'non recoñecida'
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/gestionar-aula.ps1'))
+        Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopiarModelo must copy the extra images'
+    }
+    Test 'Angular is a profiled service started, stopped and logged by the launcher' {
+        $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
+        Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
+        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular'"){Assert ($daw.Contains($s)) "Missing: $s"}
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-start-angular' = 'start-angular'"))
+    }
+    Test 'manual activation installs, then applies the staged project, and reports failures' {
+        $exe=(Get-Process -Id $PID).Path
+        $dir=Join-Path $script:Temp 'activation'
+        New-Item -ItemType Directory -Path (Join-Path $dir 'proxecto') -Force|Out-Null
+        Copy-Item (Join-Path $script:Repo 'wsl/aula/activar-dawdev.ps1') $dir
+        $log=Join-Path $dir 'calls.txt'
+        [IO.File]::WriteAllText((Join-Path $dir 'instalar-alumno.ps1'),"param(`$PackageDirectory) Add-Content '$log' ('install '+`$PackageDirectory); if(`$env:DAW_TEST_FAIL){throw 'install failed'}")
+        [IO.File]::WriteAllText((Join-Path $dir 'proxecto/actualizar-proxecto.ps1'),"param(`$PackageDirectory) Add-Content '$log' ('project '+`$PackageDirectory)")
+        $script=Join-Path $dir 'activar-dawdev.ps1'
+        # Sen proxecto.json no equipo, só instala.
+        $null=& $exe -NoProfile -File $script -SenPausa
+        Assert ($LASTEXITCODE -eq 0)
+        $calls=@(Get-Content $log)
+        Assert ($calls.Count -eq 1 -and $calls[0] -eq "install $dir") ($calls -join ';')
+        [IO.File]::WriteAllText((Join-Path $dir 'proxecto/proxecto.json'),'{}')
+        Remove-Item $log
+        $null=& $exe -NoProfile -File $script -SenPausa
+        $calls=@(Get-Content $log)
+        Assert ($LASTEXITCODE -eq 0 -and $calls.Count -eq 2 -and $calls[1] -eq ('project '+(Join-Path $dir 'proxecto'))) ($calls -join ';')
+        Remove-Item $log
+        $env:DAW_TEST_FAIL='1'
+        try{$out=& $exe -NoProfile -File $script -SenPausa 6>&1|Out-String}finally{Remove-Item Env:\DAW_TEST_FAIL}
+        Assert ($LASTEXITCODE -eq 1 -and @(Get-Content $log).Count -eq 1 -and $out -match 'install failed')
+    }
+    if($env:OS -eq 'Windows_NT'){
+        Test 'start menu entry runs the activation script of the package' {
+            $dir=Join-Path $script:Temp 'start menu'
+            $path=Set-DawStartMenuShortcut -Directory $dir -Package 'C:\ProgramData\DAW-Aula'
+            $link=(New-Object -ComObject WScript.Shell).CreateShortcut($path)
+            Assert ($link.TargetPath -match 'WindowsPowerShell\\v1\.0\\powershell\.exe$')
+            Assert ($link.Arguments -eq '-NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\DAW-Aula\activar-dawdev.ps1"')
+        }
+    }
+    Test 'CopiarModelo stages the project and creates the start menu entry, without autostart' {
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/gestionar-aula.ps1'))
+        foreach($s in 'Initialize-DawProjectDirectory','Assert-DawProjectOverlay (Get-DawProjectDirectory)','Set-DawStartMenuShortcut','Set-DawAutoStart -Enabled:$enableAuto'){Assert ($t.Contains($s)) "Missing: $s"}
+        Assert ('activar-dawdev.ps1' -in @(Get-DawSetupFiles))
+    }
+    Test 'overlay Compose and Angular files are the repository ones' {
+        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/inicio.sh','docker/angular/.dockerignore'){
+            $a=[IO.File]::ReadAllBytes((Join-Path $script:Repo $p))
+            $b=[IO.File]::ReadAllBytes((Join-Path $script:Repo ('wsl/aula/proxecto/ficheiros/'+$p)))
+            Assert ([Convert]::ToBase64String($a) -eq [Convert]::ToBase64String($b)) "Overlay differs: $p"
+        }
+    }
     Test 'overlay launch.json is the repository one and maps the classroom web root' {
         $repo=[IO.File]::ReadAllText((Join-Path $script:Repo '.vscode/launch.json'))
         Assert ($repo -eq [IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/proxecto/ficheiros/.vscode/launch.json')))

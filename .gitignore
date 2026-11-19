@@ -2,3 +2,6 @@
 www/*
 !www/index.php
 !www/info.php
+angular/*
+!angular/LEME.txt
+docker/angular/chave.pub

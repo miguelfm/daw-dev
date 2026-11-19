@@ -215,6 +215,41 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
 - Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian-DAW despois
   necesita outra vez `ActualizarProxecto`.
 
+### Activación manual desde o menú Inicio
+
+Desde o 19/11/2026, `CopiarModelo` deixa tamén en cada equipo os ficheiros do proxecto
+(`C:\ProgramData\DAW-Aula\proxecto`, cos seus SHA256) e a entrada **DAW Dev → Activar DAW
+Dev** no menú Inicio común. Calquera usuario a executa cando a necesita, sen administración:
+`activar-dawdev.ps1` lanza `instalar-alumno.ps1` na súa conta e despois
+`actualizar-proxecto.ps1`, nunha xanela que amosa o progreso. Non se engade nada ao inicio
+de sesión, e os usuarios doutros módulos só ven a entrada no menú.
+
+- Repetir a activación é seguro, e é a forma de que unha conta xa activada reciba as
+  ordes `daw-*` e os ficheiros do proxecto novos.
+- O instalador rexeita as contas con elevación, como o Administrador integrado (`-500`);
+  comprobado no posto A34EQ01. Unha conta de dominio con UAC actívase sen elevar.
+- `InstalarUsuario` e `ActualizarProxecto` seguen dispoñibles para facelo desde o
+  profesor co alumno conectado.
+
+### Imaxes Docker adicionais: Angular (DWCC)
+
+O servizo `angular` de `compose.yaml` (perfil `angular`) é o contedor DWCC-Angular: Node.js
+26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
+`~/proxectos/daw-dev/angular`. O seu uso está na
+[guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
+`ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI; o paquete leva unha copia para cargala
+sen Internet:
+
+```powershell
+# Na Debian do profesor: docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
+.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory "$HOME\Projects\daw-aula-paquete-20261111-final" -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+```
+
+O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
+`CopiarModelo` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
+conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
+Compose non para os servizos dun perfil.
+
 ## 5. Uso diario sen administrador
 
 Para o material de clase ou entrega ao alumnado, disponse da [guía rápida de inicio e uso en Markdown para PDF](guia-inicio-alumnado.md).

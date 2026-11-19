@@ -80,10 +80,12 @@ if ($Action -eq 'CopiarModelo') {
     }
     $manifest = Assert-DawPackage $PackageDirectory
     $files += $manifest.Image
+    $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
 }
 $projectStage = $null
-if ($Action -eq 'ActualizarProxecto') {
+if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
     # Preparado unha vez no profesor: ficheiros do proxecto, actualizador e módulo, con SHA256.
+    # CopiarModelo tamén os deixa no equipo para a activación manual (activar-dawdev.ps1).
     $projectStage = Join-Path ([IO.Path]::GetTempPath()) ('daw-proxecto-' + [guid]::NewGuid().ToString('N'))
     $projectManifest = New-DawProjectStage $PSScriptRoot $projectStage
     $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
@@ -200,7 +202,18 @@ foreach ($n in $Numero) {
                             Import-Module (Join-Path $target 'daw-aula.psm1') -Force
                             Assert-DawPackage $target | Out-Null
                             Set-DawAutoStart -Enabled:$enableAuto
+                            Initialize-DawProjectDirectory
                         } -ArgumentList $AutoInicio.IsPresent
+                        # Ficheiros do proxecto e entrada do menú Inicio: cada usuario activa DAW Dev
+                        # cando o necesita, sen que o docente teña que estar conectado.
+                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
+                        $details = Invoke-Command -Session $session -ScriptBlock {
+                            param($revision)
+                            Reset-DawProjectAcl
+                            $stage = Assert-DawProjectOverlay (Get-DawProjectDirectory)
+                            if ($stage.Revision -ne $revision) { throw 'A revisión do proxecto copiado non coincide.' }
+                            [pscustomobject]@{ Revision = $stage.Revision; Shortcut = Set-DawStartMenuShortcut }
+                        } -ArgumentList $projectManifest.Revision
                     }
                     'Estado' {
                         $details = Invoke-Command -Session $session -ScriptBlock {

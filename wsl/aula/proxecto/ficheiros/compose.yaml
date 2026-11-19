@@ -1,0 +1,106 @@
+# Contorna de desenvolvemento DAW Dev: PHP + Apache + MariaDB + phpMyAdmin
+# Todas as variables ${...} teñen valor por defecto; pódense cambiar no ficheiro .env
+name: daw-dev
+
+services:
+  web:
+    # Nomes fixos (sen o sufixo -1 de Compose): daw-dev-web, daw-dev-db...
+    container_name: daw-dev-web
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.5}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    # Ruta pública histórica, tamén actualizada polo CI de daw-dev.
+    # Se non existe (outra versión de PHP...), Compose constrúea co Dockerfile.
+    image: ${DAW_DEV_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.5}
+    ports:
+      - "${WEB_PORT:-80}:80"
+    volumes:
+      - ${WWW_DIR:-./www}:/var/www/html
+      # Usa a configuración do repositorio tamén coas imaxes publicadas.
+      - ./docker/apache/daw-dev.conf:/etc/apache2/conf-available/daw-dev.conf:ro
+    environment:
+      XDEBUG_MODE: ${XDEBUG_MODE:-debug,develop}
+      # Credenciais dispoñibles en PHP con getenv('DB_HOST')...
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-dwcs}
+      DB_USER: ${DB_USER:-dwcs}
+      DB_PASSWORD: ${DB_PASSWORD:-abc123.}
+    extra_hosts:
+      # Necesario en Linux para que Xdebug chegue ao IDE do anfitrión
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    container_name: daw-dev-db
+    image: mariadb:${MARIADB_VERSION:-lts}
+    ports:
+      # Para conectar desde o anfitrión (DBeaver, HeidiSQL, extensión de VS Code...)
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-abc123.}
+      MARIADB_DATABASE: ${DB_NAME:-dwcs}
+      MARIADB_USER: ${DB_USER:-dwcs}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-abc123.}
+      # Coa etiqueta lts a versión pode cambiar: actualiza os datos existentes ao arrancar
+      MARIADB_AUTO_UPGRADE: "1"
+      TZ: Europe/Madrid
+    volumes:
+      - db_data:/var/lib/mysql
+      # Os .sql desta carpeta execútanse SÓ a primeira vez (volume baleiro)
+      - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Script incluído na imaxe oficial: só dá "ok" cando rematou a inicialización
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  phpmyadmin:
+    container_name: daw-dev-phpmyadmin
+    image: phpmyadmin:latest
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # DWCC: Node.js e Angular CLI, con SSH para VS Code (Remote-SSH a dwcc-angular).
+  # O perfil fai que só arranque con daw-start-angular, nunca con daw-start ou daw-start-all.
+  angular:
+    profiles: ["angular"]
+    container_name: daw-dev-angular
+    build:
+      context: ./docker/angular
+    image: ${ANGULAR_IMAGE:-ghcr.io/miguelfm/dwcc-angular}:${ANGULAR_TAG:-22}
+    ports:
+      - "${ANGULAR_SSH_PORT:-127.0.0.1:2222}:22"
+      - "${ANGULAR_PORT:-127.0.0.1:4200}:4200"
+    volumes:
+      # Inicio de node (configuración e servidor de VS Code) e chave do servidor SSH
+      - angular_home:/home/node
+      - angular_claves:/claves-host
+      # Os proxectos, visibles desde Windows como www
+      - ./angular:/home/node/proxectos
+      # Chave pública do usuario de Windows; daw-start-angular créaa
+      - type: bind
+        source: ./docker/angular/chave.pub
+        target: /chave.pub
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  db_data:
+    name: ${DB_VOLUME_NAME:-daw-dev_db_data}
+    external: ${DB_VOLUME_EXTERNAL:-false}
+  angular_home:
+  angular_claves:

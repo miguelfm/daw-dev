@@ -287,7 +287,23 @@ function Invoke-DawBoundedJobs {
         return $results
     }finally{foreach($job in $jobs){Stop-Job $job -ErrorAction SilentlyContinue;Remove-Job $job -Force -ErrorAction SilentlyContinue}}
 }
-function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','instalar-alumno.ps1','iniciar-usuario.ps1','daw-aula.psm1') }
+function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','instalar-alumno.ps1','iniciar-usuario.ps1','activar-dawdev.ps1','daw-aula.psm1') }
+function Set-DawStartMenuShortcut {
+    # Activación manual para calquera usuario: unha entrada no menú Inicio común, nada no inicio de sesión.
+    param([string]$Directory=(Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\DAW Dev'),[string]$Package='C:\ProgramData\DAW-Aula')
+    New-Item -ItemType Directory -Path $Directory -Force|Out-Null
+    $path=Join-Path $Directory 'Activar DAW Dev.lnk'
+    $shell=New-Object -ComObject WScript.Shell
+    $link=$shell.CreateShortcut($path)
+    $link.TargetPath=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $link.Arguments="-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $Package 'activar-dawdev.ps1')`""
+    $link.WorkingDirectory=$Package
+    # Texto sen tiles: o módulo non leva BOM e Windows PowerShell 5.1 leríao como ANSI.
+    $link.Description='Activa DAW Dev (WSL e Docker) na conta que o abre'
+    $link.Save()
+    if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'Non se confirmou a entrada do menú Inicio.'}
+    return $path
+}
 function Assert-DawPackage {
     param([string]$Directory)
     $manifest=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
@@ -298,7 +314,34 @@ function Assert-DawPackage {
         if(-not $property -or $property.Value -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath (Join-Path $Directory $name) -Algorithm SHA256).Hash -ne $property.Value){throw "SHA256 do script non coincide: $name"}
     }
     if((Get-FileHash -LiteralPath (Join-Path $Directory $manifest.Image) -Algorithm SHA256).Hash -ne $manifest.Sha256){throw 'O SHA256 da imaxe non coincide.'}
+    foreach($extra in @(Get-DawPackageImages $manifest)){
+        $path=Join-Path $Directory $extra.File
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 da imaxe Docker non coincide: $($extra.File)"}
+    }
     return $manifest
+}
+function Get-DawPackageImages {
+    # Imaxes Docker adicionais do paquete (Angular de DWCC...), que daw.ps1 carga en cada conta.
+    param($Manifest)
+    if(-not $Manifest.PSObject.Properties['Images']){return @()}
+    foreach($extra in @($Manifest.Images)){
+        if([string]$extra.File -cnotmatch '^[A-Za-z0-9._-]+\.tar(\.gz)?$' -or [string]$extra.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or [string]$extra.Name -notmatch '^[a-z0-9./:_-]+$'){throw 'Imaxe Docker do manifesto non recoñecida.'}
+        $extra
+    }
+}
+function Add-DawPackageImage {
+    # No profesor: copia un docker save (.tar ou .tar.gz) ao paquete e rexístrao co seu SHA256.
+    param([string]$Directory,[string]$Archive,[string]$Name)
+    $manifest=Assert-DawPackage $Directory
+    $file=Split-Path -Leaf $Archive
+    $target=Join-Path $Directory $file
+    if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
+    $entry=[pscustomobject]@{File=$file;Name=$Name;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
+    $images=@(Get-DawPackageImages $manifest|Where-Object {$_.File -ne $file -and $_.Name -ne $Name})+$entry
+    $manifest|Add-Member NoteProperty Images $images -Force
+    Write-DawState (Join-Path $Directory 'manifest.json') $manifest
+    Assert-DawPackage $Directory|Out-Null
+    return $entry
 }
 function Update-DawPackage {
     param([string]$Directory,[string]$Source=$PSScriptRoot)

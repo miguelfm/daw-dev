@@ -13,6 +13,16 @@ O contorno instálase en cada conta e en cada computador. Noutro computador da
 aula tes outra copia, que non comparte ficheiros nin bases de datos con esta:
 para levar o traballo dun a outro, usa Git ou unha copia dos ficheiros.
 
+## Activar o contorno
+
+A primeira vez que o usas nun computador, no menú Inicio, escolle **DAW Dev
+→ Activar DAW Dev**. Unha xanela amosa o progreso; tarda uns minutos e
+remata con «DAW Dev está activado». Despois abre un terminal novo para que
+as ordes `daw-*` estean dispoñibles.
+
+Repetir a activación é seguro: conserva os teus ficheiros e as bases de
+datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
+
 ## Onde están os ficheiros
 
 - **`www`** é a raíz web. O acceso directo «DAW - Proxectos (www)» do
@@ -38,10 +48,11 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-start` | Arranca só o contedor `web` |
 | `daw-start-db` | Arranca `web` e MariaDB |
 | `daw-start-all` | Arranca `web`, MariaDB e phpMyAdmin |
+| `daw-start-angular` | Arranca o contedor de Angular (DWCC) |
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
 | `daw-code` | Abre o proxecto en Visual Studio Code |
-| `daw-stop` | Para os contedores; ficheiros e bases de datos quedan |
+| `daw-stop` | Para todos os contedores; ficheiros e datos quedan |
 | `daw-help` | Lista as ordes |
 
 `daw-start` tarda uns segundos. A primeira vez que arranca MariaDB, crea as
@@ -49,6 +60,9 @@ bases de datos e tarda uns 20 segundos.
 
 Ao rematar, `daw-stop` libera a memoria e os portos. Os ficheiros e as bases
 de datos consérvanse para a próxima sesión.
+
+O uso do contedor de Angular, coa conexión de VS Code por SSH, está na
+guía *Angular con DAW Dev (DWCC)*.
 
 ## Servizos no navegador
 
@@ -131,7 +145,9 @@ aberto en Windows, fóra del, podes editar os ficheiros, pero non depurar.
 - **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
 - **Windows non recoñece `daw-start`.** Abre un terminal novo. Se segue sen
   recoñecela, ou se estás noutro computador, o contorno aínda non está
-  activado nesa conta: o docente actívao desde o seu posto.
+  activado nesa conta: escolle **DAW Dev → Activar DAW Dev** no menú Inicio.
+- **A activación remata cun erro.** Avisa ao docente: o rexistro está en
+  `%LOCALAPPDATA%\DAW-Aula`. Non a repitas mentres a xanela segue aberta.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
 - **Windows non deixa gardar un ficheiro.** Creouse como `root` dentro do
