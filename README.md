@@ -25,6 +25,8 @@ servidores nin bases de datos no equipo.
   para xestionar Docker desde o navegador en <https://localhost:9443>.
 - VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas. Se desexas executar o editor dentro do contedor, require a extensión **Dev Containers** (`ms-vscode-remote.remote-containers`).
 
+Para Angular (DWCC), consulta a [guía de uso](docs/guia-angular-alumnado.md) e o [procedemento para comparar o rendemento en WSL2 e VirtualBox](docs/rendemento-angular-wsl2-virtualbox.md).
+
 ## Posta en marcha
 
 Se xa tiñas unha instalación de `dwcs-php`, segue a [guía de migración a daw-dev](docs/renomeado-daw-dev.md)

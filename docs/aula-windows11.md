@@ -250,6 +250,9 @@ O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compr�
 conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
 Compose non para os servizos dun perfil.
 
+Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
+segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).
+
 ## 5. Uso diario sen administrador
 
 Para o material de clase ou entrega ao alumnado, disponse da [guía rápida de inicio e uso en Markdown para PDF](guia-inicio-alumnado.md).
