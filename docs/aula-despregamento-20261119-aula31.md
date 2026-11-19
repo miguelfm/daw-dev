@@ -8,7 +8,8 @@ Estado dos postos da Aula 31 ao rematar a intervención do 19/11/2026, problemas
 - **Postos totais no dominio:** 30 postos (`A31EQ01` a `A31EQ30`). Os postos 31 a 35 non existen no Active Directory nin no DNS do centro.
 - **Postos preparados e verificados (18):** `01, 03, 04, 05, 06, 07, 08, 10, 12, 14, 16, 20, 22, 24, 25, 27, 29, 30`.
 - **Postos con sesión activa de alumnado durante a intervención (11):** `02, 09, 11, 13, 15, 18, 19, 21, 23, 26, 28`. Mantivéronse intactos sen interromper o seu traballo (características Windows habilitadas en liña con `-NoRestart`; pendente completar paquete e reinicio cando queden libres).
-- **Posto apagado (1):** `A31EQ17` (sen resposta ICMP).
+- **Posto apagado (1):** `A31EQ17` (sen resposta ICMP; posto actualmente en reparación física polo servizo técnico).
+- **Wake-on-LAN e xestión remota de enerxía:** 100% dos 29 postos operativos rexistrados con MAC en Veyon e probados con WinRM/Kerberos. Validado o ciclo completo de apagado remoto e acendido por rede en `A31EQ01` (resposta en +39 segundos).
 - **Modelo de activación:** Aula compartida con outros ciclos. **Sen AutoInicio** en `HKLM Run` (impacto cero para usuarios doutros cursos). Inicialización baixo demanda mediante script lanzador (`iniciar-daw.cmd`), menú Inicio ou polo docente (`gestionar-aula.ps1 -Action InstalarUsuario`).
 
 ---
@@ -45,6 +46,61 @@ Estado dos postos da Aula 31 ao rematar a intervención do 19/11/2026, problemas
 ### 3. Actualización de integridade do paquete (`SetupRevision: 2`)
 - **Problema:** A copia inicial rexeitaba o paquete `daw-aula-paquete-20261111-final` mediante `Assert-DawPackage` porque os scripts foran actualizados con posterioridade ao cómputo de hashes do `manifest.json`.
 - **Solución:** Executouse `actualizar-paquete.ps1` no paquete local antes de proceder á réplica nos 18 postos, rexistrando as sinaturas SHA-256 actuais con `SetupRevision: 2`.
+
+### 4. Configuración de Wake-on-LAN (WoL) e saneamento de Veyon Master
+- **Problema:** O docente non podía acender os equipos dos alumnos remotamente desde o posto de control (`A31EQ100`). A configuración de Veyon tiña as IPs de cada posto rexistradas pero co **enderezo MAC baleiro**, e constaban postos inexistentes (31 e 32). Sen o enderezo MAC, é imposible xerar o *Magic Packet* de Wake-on-LAN na capa de enlace de datos (L2).
+- **Solución:**
+  1. Durante a sesión de aula co alumnado presente, recolléronse pola táboa ARP os **29 enderezos MAC reais** dos equipos activos.
+  2. Xenerouse o ficheiro de inventario `wsl/aula/a31-macs.csv` cos 30 postos (do 01 ao 16 e do 18 ao 30 coa súa MAC; o 17 sen MAC por estar en reparación).
+  3. Importouse a configuración mediante `veyon-cli networkobjects import` e elimináronse os postos sobrantes (31 e 32).
+  4. Saneáronse os 30 rexistros duplicados antigos sen MAC mediante `veyon-cli networkobjects remove <UID>`, deixando a aula cunha única entrada limpa por equipo.
+  5. Creouse o script `wsl/aula/encender-aula.ps1` que automatiza o acendido por difusión UDP e Veyon CLI con monitorización en tempo real do tempo de resposta.
+
+### 5. Validación experimental do ciclo completo de enerxía en `A31EQ01`
+- **Apagado remoto:** Enviouse a orde por WinRM desde o equipo do profesor:
+  ```powershell
+  Invoke-Command -ComputerName A31EQ01 -ScriptBlock { Stop-Computer -Force }
+  ```
+  O equipo apagouse completamente e deixou de responder ao ping en segundos.
+- **Acendido por Wake-on-LAN:** Enviouse o *Magic Packet* coa súa MAC (`e0:d5:5e:6c:d6:22`) empregando `veyon-cli power on` e difusión UDP nos portos 7 e 9.
+- **Resultado:** Aos **+39 segundos**, o posto `A31EQ01` acendeu a placa base, iniciou Windows 11, recuperou a conectividade de rede e activou o servizo WinRM (`LastBootUpTime: 19/11/2026 18:34:18`).
+
+---
+
+## Táboa de inventario de rede e MACs (Aula 31)
+
+| Posto | Hostname FQDN | IP | Enderezo MAC | Estado WinRM | Estado WoL |
+|---|---|---|---|:---:|:---:|
+| **01** | `A31EQ01.iesrodolfoucha.es` | `172.21.31.1` | `e0:d5:5e:6c:d6:22` | Operativo | Verificado |
+| **02** | `A31EQ02.iesrodolfoucha.es` | `172.21.31.2` | `e0:d5:5e:6f:bc:fe` | Operativo | Operativo |
+| **03** | `A31EQ03.iesrodolfoucha.es` | `172.21.31.3` | `e0:d5:5e:6f:de:dd` | Operativo | Operativo |
+| **04** | `A31EQ04.iesrodolfoucha.es` | `172.21.31.4` | `e0:d5:5e:6f:dc:c8` | Operativo | Operativo |
+| **05** | `A31EQ05.iesrodolfoucha.es` | `172.21.31.5` | `e0:d5:5e:6f:d7:b0` | Operativo | Operativo |
+| **06** | `A31EQ06.iesrodolfoucha.es` | `172.21.31.6` | `e0:d5:5e:6f:dc:c6` | Operativo | Operativo |
+| **07** | `A31EQ07.iesrodolfoucha.es` | `172.21.31.7` | `e0:d5:5e:6f:dc:a3` | Operativo | Operativo |
+| **08** | `A31EQ08.iesrodolfoucha.es` | `172.21.31.8` | `e0:d5:5e:6f:d7:c6` | Operativo | Operativo |
+| **09** | `A31EQ09.iesrodolfoucha.es` | `172.21.31.9` | `e0:d5:5e:6f:bd:0d` | Operativo | Operativo |
+| **10** | `A31EQ10.iesrodolfoucha.es` | `172.21.31.10` | `e0:d5:5e:6e:a3:d8` | Operativo | Operativo |
+| **11** | `A31EQ11.iesrodolfoucha.es` | `172.21.31.11` | `e0:d5:5e:6f:bc:a5` | Operativo | Operativo |
+| **12** | `A31EQ12.iesrodolfoucha.es` | `172.21.31.12` | `e0:d5:5e:6f:d9:fc` | Operativo | Operativo |
+| **13** | `A31EQ13.iesrodolfoucha.es` | `172.21.31.13` | `3c:7c:3f:2a:4e:bc` | Operativo | Operativo |
+| **14** | `A31EQ14.iesrodolfoucha.es` | `172.21.31.14` | `e0:d5:5e:6f:df:a0` | Operativo | Operativo |
+| **15** | `A31EQ15.iesrodolfoucha.es` | `172.21.31.15` | `e0:d5:5e:6f:a4:ad` | Operativo | Operativo |
+| **16** | `A31EQ16.iesrodolfoucha.es` | `172.21.31.16` | `e0:d5:5e:6f:d7:c8` | Operativo | Operativo |
+| **17** | `A31EQ17.iesrodolfoucha.es` | `172.21.31.17` | *(En reparación)* | Pendente | Pendente |
+| **18** | `A31EQ18.iesrodolfoucha.es` | `172.21.31.18` | `e0:d5:5e:6f:c3:85` | Operativo | Operativo |
+| **19** | `A31EQ19.iesrodolfoucha.es` | `172.21.31.19` | `e0:d5:5e:6f:b8:18` | Operativo | Operativo |
+| **20** | `A31EQ20.iesrodolfoucha.es` | `172.21.31.20` | `e0:d5:5e:6f:d9:af` | Operativo | Operativo |
+| **21** | `A31EQ21.iesrodolfoucha.es` | `172.21.31.21` | `e0:d5:5e:6f:d7:c4` | Operativo | Operativo |
+| **22** | `A31EQ22.iesrodolfoucha.es` | `172.21.31.22` | `e0:d5:5e:6f:d7:c0` | Operativo | Operativo |
+| **23** | `A31EQ23.iesrodolfoucha.es` | `172.21.31.23` | `e0:d5:5e:6f:dc:b9` | Operativo | Operativo |
+| **24** | `A31EQ24.iesrodolfoucha.es` | `172.21.31.24` | `e0:d5:5e:6f:bc:d6` | Operativo | Operativo |
+| **25** | `A31EQ25.iesrodolfoucha.es` | `172.21.31.25` | `e0:d5:5e:6d:04:7e` | Operativo | Operativo |
+| **26** | `A31EQ26.iesrodolfoucha.es` | `172.21.31.26` | `e0:d5:5e:6f:c3:82` | Operativo | Operativo |
+| **27** | `A31EQ27.iesrodolfoucha.es` | `172.21.31.27` | `e0:d5:5e:6f:9b:c4` | Operativo | Operativo |
+| **28** | `A31EQ28.iesrodolfoucha.es` | `172.21.31.28` | `e0:d5:5e:6f:df:9e` | Operativo | Operativo |
+| **29** | `A31EQ29.iesrodolfoucha.es` | `172.21.31.29` | `e0:d5:5e:6f:bd:12` | Operativo | Operativo |
+| **30** | `A31EQ30.iesrodolfoucha.es` | `172.21.31.30` | `e0:d5:5e:6f:d7:b8` | Operativo | Operativo |
 
 ---
 

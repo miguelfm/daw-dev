@@ -328,6 +328,21 @@ Ao rematar a xornada, o profesorado pode apagar todos os equipos da aula de form
 > [!NOTE]
 > Non se emprega a orde `Stop-Computer` de PowerShell porque depende do porto DCOM/RPC 135, que o cortalumes de Windows 11 bloquea por defecto con erro `0x800706BA`. O esquema híbrido WinRM (5985) + SMB/IP directa garante un 100% de efectividade en calquera escenario.
 
+## 8. Acendido remoto por rede (Wake-on-LAN)
+
+Para acender os equipos dos alumnos ao inicio da xornada sen desprazarse posto por posto, emprégase a tecnoloxía **Wake-on-LAN (WoL)** mediante a difusión de *Magic Packets* (portos UDP 7 e 9) aos enderezos MAC rexistrados da aula:
+
+```powershell
+# Acender todos os equipos da Aula 31:
+.\wsl\aula\encender-aula.ps1 -Aula 31
+
+# Acender un posto específico (ex. equipo 01) con monitorización:
+.\wsl\aula\encender-aula.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
+```
+
+Tamén pode empregarse a interface gráfica de **Veyon Master** seleccionando os equipos e premendo no botón **«Encender»**, grazas ao saneamento e rexistro previo das MACs en `BuiltinDirectory/NetworkObjects` (rexistradas no ficheiro de apoio `wsl/aula/a31-macs.csv`).
+
+
 ## Fontes e comprobacións
 
 - [WSL por usuario: preguntas frecuentes Microsoft](https://learn.microsoft.com/en-us/windows/wsl/faq).
