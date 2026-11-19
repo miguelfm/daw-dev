@@ -290,6 +290,8 @@ try{
         $env:DAW_TEST_FAIL='1'
         try{$out=& $exe -NoProfile -File $script -SenPausa 6>&1|Out-String}finally{Remove-Item Env:\DAW_TEST_FAIL}
         Assert ($LASTEXITCODE -eq 1 -and @(Get-Content $log).Count -eq 1 -and $out -match 'install failed')
+        # O executor de GitHub remata co último LASTEXITCODE: o fallo simulado non pode quedar nel.
+        $global:LASTEXITCODE=0
     }
     if($env:OS -eq 'Windows_NT'){
         Test 'start menu entry runs the activation script of the package' {
