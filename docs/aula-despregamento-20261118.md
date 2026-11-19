@@ -4,7 +4,26 @@ Estado dos postos ao rematar, problemas atopados e procedemento para a
 próxima actualización. Este repositorio é público: as contas do alumnado de
 cada posto rexístranse fóra del, nos documentos do docente.
 
-## Estado dos postos
+## Estado do 19/11/2026
+
+Comprobado desde A34EQ100 ao final da tarde, cos administradores locais
+conectados:
+
+| Postos | Estado |
+|---|---|
+| 01–13, 15–30, 32, 33 | WinRM restrinxido ao profesor, WSL 3.0.5.0 activo, paquete verificado cos scripts de `3366e5b` e a imaxe de Angular, ficheiros do proxecto na revisión `B4077547` e entrada **Activar DAW Dev** no menú Inicio |
+| 14 | WSL instalado por IP; sen paquete. O DNS do centro segue resolvendo `A34EQ14` a `172.20.14.3` |
+| 31, 34, 35 | Sen resposta; 34 e 35 non teñen rexistro DNS |
+
+- WSL instalouse o 19/11 nos postos 14, 18, 28 e 29, e WinRM no 28 e no 29,
+  con reinicio. Os postos 01–03, 10, 13, 19, 20, 22–27, 30, 32 e 33 tiñan o
+  paquete do 11/11, sen os scripts corrixidos.
+- Contas activadas: as doce do 18/11 e unha activada polo propio usuario no
+  posto 01 desde o menú Inicio (instalación en 53 s, proxecto en 4 s). Todas
+  están na revisión `471F9A86`: para ter `daw-start-angular` e a revisión
+  `B4077547`, cada usuario repite **Activar DAW Dev**.
+
+## Estado dos postos o 18/11/2026
 
 Cada posto instalouse para a conta que tiña a sesión aberta. Outra conta no
 mesmo posto aínda non ten o contorno.
