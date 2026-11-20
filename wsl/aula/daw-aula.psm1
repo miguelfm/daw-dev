@@ -338,6 +338,11 @@ function Add-DawPackageImage {
     param([string]$Directory,[string]$Archive,[string]$Name)
     $manifest=Assert-DawPackage $Directory
     $file=Split-Path -Leaf $Archive
+    # daw.ps1 busca a imaxe de Angular co nome fixo dwcc-angular.tar.gz, veña de onde veña.
+    if($Name -match '(^|/)dwcc-angular:'){
+        if($file -notmatch '\.tar\.gz$'){throw 'A imaxe de Angular vai comprimida: docker save ... | gzip > dwcc-angular.tar.gz'}
+        $file='dwcc-angular.tar.gz'
+    }
     $target=Join-Path $Directory $file
     if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
     $entry=[pscustomobject]@{File=$file;Name=$Name;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}

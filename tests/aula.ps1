@@ -254,6 +254,15 @@ try{
         $null=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
         $images=@(Get-DawPackageImages (Assert-DawPackage $dest))
         Assert ($images.Count -eq 1 -and $images[0].Name -eq 'ghcr.io/miguelfm/dwcc-angular:22') 'Repeating the image must replace its entry'
+        # Calquera nome de orixe: no paquete, a de Angular queda co nome que busca daw.ps1.
+        $renamed=Join-Path $script:Temp 'dwcc-angular-v2.tar.gz';[IO.File]::WriteAllText($renamed,'angular v2 bytes')
+        $entry=Add-DawPackageImage $dest $renamed 'ghcr.io/miguelfm/dwcc-angular:22'
+        $images=@(Get-DawPackageImages (Assert-DawPackage $dest))
+        Assert ($entry.File -eq 'dwcc-angular.tar.gz' -and $images.Count -eq 1 -and -not (Test-Path (Join-Path $dest 'dwcc-angular-v2.tar.gz'))) 'The Angular image must keep the name daw.ps1 looks for'
+        Assert ([IO.File]::ReadAllText((Join-Path $dest 'dwcc-angular.tar.gz')) -eq 'angular v2 bytes')
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1')).Contains("'C:\ProgramData\DAW-Aula\dwcc-angular.tar.gz'"))
+        $plain=Join-Path $script:Temp 'dwcc-angular.tar';[IO.File]::WriteAllText($plain,'not compressed')
+        Throws {Add-DawPackageImage $dest $plain 'ghcr.io/miguelfm/dwcc-angular:22'} 'comprimida'
         [IO.File]::WriteAllText((Join-Path $dest 'dwcc-angular.tar.gz'),'tampered')
         Throws {Assert-DawPackage $dest} 'imaxe Docker'
         Throws {Get-DawPackageImages ([pscustomobject]@{Images=@([pscustomobject]@{File='../x.tar';Sha256=('a'*64);Name='x'})})} 'non recoñecida'
