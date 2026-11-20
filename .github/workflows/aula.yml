@@ -30,3 +30,5 @@ jobs:
         run: python3 tests/migration.py
       - name: Actual project overlay in isolated fixtures
         run: python3 tests/proxecto.py
+      - name: VS Code Server installer on fake packages
+        run: python3 tests/vscode-server.py

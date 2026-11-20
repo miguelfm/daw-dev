@@ -1,2 +1,2 @@
 Proxectos de Angular (DWCC). No contedor: /home/node/proxectos.
-Créanse desde VS Code conectado a dwcc-angular, con ng new.
+Ábreos en VS Code con daw-code-angular: o terminal de VS Code é o do contedor (ng, npm, node).

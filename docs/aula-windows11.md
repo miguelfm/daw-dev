@@ -1,13 +1,17 @@
 # Despregar DAW Dev nunha aula Windows 11
 
 Este procedemento está pensado para **contas persoais de alumnado**, WSL2 con Debian e Docker Engine.
-O profesor administra desde `172.21.34.100`; os equipos de alumnado son `172.21.34.1–35`.
-Os exemplos usan o dominio `iesrodolfoucha.es` e nomes `A34EQ01`…`A34EQ35`.
+O profesor administra desde `172.21.34.100`. Na aula 134, o inventario
+verificado vai de `A34EQ01` a `A34EQ33` (`172.21.34.1–33`).
+Os exemplos usan o dominio `iesrodolfoucha.es` e o identificador de aula `34`.
 Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 31.
 
 A revisión do 13/11/2026 cambia os scripts e o contrato dos paquetes. Antes de reutilizar un paquete antigo, consultar [actualización segura e cambios](aula-correccions-20261113.md).
 
-O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 34](aula-despregamento-20261118.md), e a intervención na aula 31 do 19/11/2026 descríbese en [despregamento na aula 31](aula-despregamento-20261119-aula31.md), incluíndo o modelo de aula compartida baixo demanda, a coexistencia con alumnos conectados e a resolución de incidencias DNS locais. Se un posto responde por Veyon pero non por WinRM, comprobar tamén que o seu nome DNS resolva á súa IP da aula: os scripts usan o nome e Kerberos.
+Consulta o [estado e versións da aula 134 ao 20/11/2026](aula-despregamento-20261118.md#estado-do-20112026)
+e o [despregamento na aula 31 do 19/11/2026](aula-despregamento-20261119-aula31.md).
+Se un posto responde por Veyon pero non por WinRM, comproba que o seu nome
+DNS resolve á IP da aula. Os scripts de administración usan o nome e Kerberos.
 
 ## Como funciona
 
@@ -16,9 +20,9 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 3. Constrúe **un modelo limpo Debian**, con Docker Engine, Compose, o proxecto e as tres imaxes descargadas.
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Aula`, protexido contra escritura do alumnado.
 5. **Activación da contorna:**
-   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev > Inicializar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
+   - **En aulas compartidas (aulas 31 e 134):** Cada usuario activa o seu contorno cando o necesita desde **Inicio → DAW Dev → Activar DAW Dev**. O profesor tamén pode instalar o modelo na conta activa mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Cada conta decide cando iniciar a contorna con `daw-start` ou `daw-start-all`.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
-6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), con acceso directo en Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
+6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), co contrasinal `abc123..` e `sudo`, como na VM de DWCS. Se a conta xa ten un contrasinal propio, consérvase. Os proxectos ábrense no Explorador en `\\wsl.localhost\Debian-DAW\home\ad\www` e `\\wsl.localhost\Debian-DAW\home\ad\angular`, e no Escritorio quedan os accesos directos **«DAW - Proxectos (www)»** e **«DAW - Proxectos (angular)»**. Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
@@ -233,22 +237,75 @@ de sesión, e os usuarios doutros módulos só ven a entrada no menú.
 
 ### Imaxes Docker adicionais: Angular (DWCC)
 
-O servizo `angular` de `compose.yaml` (perfil `angular`) é o contedor DWCC-Angular: Node.js
-26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
-`~/proxectos/daw-dev/angular`. O seu uso está na
-[guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
-`ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI; o paquete leva unha copia para cargala
-sen Internet:
+O servizo `angular` de `compose.yaml` (perfil `angular`, contedor `daw-dev-angular`) trae
+Node.js 26 e Angular CLI 22, cos proxectos en `~/proxectos/daw-dev/angular` e
+`ng serve` publicado en `127.0.0.1:4200`. Non ten SSH. `daw-code-angular` arranca o
+contedor e abre VS Code en Debian-DAW por WSL co espazo de traballo
+`docker/angular/DWCC-Angular.code-workspace`, cuxo terminal entra no contedor con
+`docker exec`. `daw-start-angular` só o arranca. O uso está na
+[guía de Angular para o alumnado](guia-angular-alumnado.md).
+
+Do kit DWCC-Angular (`Angular-Aula.cmd`), que queda como referencia sen manter, tómanse
+o contedor sen SSH co usuario `node`, o terminal de VS Code no contedor e a instalación
+do VS Code Server desde un `.tar.gz` do mesmo commit. O resto do kit xa o resolve a
+aula: WSL, Debian e Docker, as contas, e o grupo `docker` en vez de `sudo`. Engádese
+`init: true`: `sleep infinity` non atende SIGTERM, e sen `init` cada `daw-stop` agardaba
+10 s polo contedor. Como `angular` está no mesmo proxecto de Compose ca `web` e `db`,
+Angular chega ao PHP en `http://web` (comprobado co *proxy* de `ng serve`). Esa é a
+base para un proxecto que combine cliente e servidor: `daw-code-proxecto` abre
+`docker/angular/DAW-Proxecto.code-workspace`, con `angular` e `www`, e o contedor de Angular
+ve `www` en `~/www` para compilar con Node os recursos de Laravel. Na aula, Apache executa
+PHP como `www-data`, e Laravel precisa `storage` e `bootstrap/cache` co grupo `www-data` e
+permiso de escritura. Os pasos comprobados están na
+[guía do proxecto con cliente e servidor](guia-proxecto-integrado.md).
+
+A imaxe `ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI, coa mesma etiqueta que a
+versión anterior con SSH. `daw.ps1` distíngueas polo usuario da imaxe (`node` na
+actual). Se a conta ten a anterior, carga a do paquete. Se o paquete tamén ten a
+anterior, detense e pide actualizar o paquete. Por iso a imaxe nova vai ao paquete
+xunto cos scripts:
 
 ```powershell
-# Na Debian do profesor: docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
-.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory "$HOME\Projects\daw-aula-paquete-20261111-final" -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+# Na Debian do profesor, despois de que a CI publique a imaxe nova:
+#   docker pull ghcr.io/miguelfm/dwcc-angular:22
+#   docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
+$paquete = "$HOME\Projects\daw-aula-paquete-20261111-final"
+.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
 ```
 
-O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
-`CopiarModelo` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
-conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
-Compose non para os servizos dun perfil.
+Despois, `CopiarModelo` e `ActualizarProxecto`. Este último leva
+`compose.yaml`, `docker/angular/` e `wsl/vscode-server.sh`; cada usuario repite
+**Activar DAW Dev** para ter `daw-code-angular`. O manifesto garda a imaxe en `Images`,
+co seu SHA256; `Assert-DawPackage` compróbaa e `CopiarModelo` cópiaa. `daw-stop` e
+`daw-logs` inclúen o perfil `angular`: sen el, Compose non para os servizos dun perfil.
+`daw-status` e `keep-alive.sh` non o precisan, porque `docker compose ps` lista tamén os
+servizos con perfil.
+
+**VS Code Server.** Ao conectar por WSL, VS Code descarga o seu servidor desde Debian.
+Antes de abrilo, `daw-code-angular` e `daw-code-proxecto` instálano en
+`~/.vscode-server/bin/<commit>`. Buscan `vscode-server-linux-x64.tar.gz` en
+`C:\ProgramData\DAW-Aula` e na carpeta Descargas do usuario e, se non está, descárgano
+con `curl.exe`. Antes de instalalo comproban o commit e a arquitectura. Se nada funciona,
+avisan e deixan que VS Code o intente. O paquete pode levalo: o commit é o do VS Code dos
+postos (`code --version`, segunda liña), e se os postos teñen VS Code para todo o equipo,
+todos comparten o commit.
+
+```powershell
+.\wsl\aula\engadir-vscode-server.ps1 -PackageDirectory $paquete -Commit <commit>
+```
+
+O script descárgao (ou usa `-Archive` cun ficheiro xa descargado), comproba no seu
+`product.json` que o commit coincide e rexístrao en `Files` do manifesto co SHA256.
+`Assert-DawPackage` compróbao e `CopiarModelo` cópiao. Cando se actualiza VS Code nos
+postos, hai que engadir o servidor do commit novo; mentres tanto, cada conta descárgao.
+
+**Restos da versión con SSH.** En cada conta quedan os volumes `daw-dev_angular_home`
+e `daw-dev_angular_claves`, a imaxe anterior sen etiqueta, `docker/angular/inicio.sh` e
+`chave.pub` (a copia non borra ficheiros), e a chave `dwcc_angular` coa súa entrada en
+`~\.ssh\config` de Windows. Ningún molesta. Cando o contedor xa estea recreado coa imaxe
+nova, liberan espazo `docker volume rm daw-dev_angular_home daw-dev_angular_claves` e
+`docker image prune -f`.
 
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).
@@ -264,6 +321,9 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-start` ou `daw-star` | Só PHP + Apache; sen arrancar as dependencias |
 | `daw-start-db` | Web + MariaDB |
 | `daw-start-all` | Web + MariaDB + phpMyAdmin |
+| `daw-start-angular` | Só o contedor de Angular (DWCC) |
+| `daw-code-angular` | Contedor de Angular e VS Code co seu terminal no contedor |
+| `daw-code-proxecto` | Web, MariaDB e Angular; VS Code con `angular` e `www` e un terminal en cada contedor |
 | `daw-stop` | Para os servizos e conserva a BD e o código |
 | `daw-status` | Lista tamén contedores parados |
 | `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |
@@ -276,7 +336,7 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 ### Acceso directo aos ficheiros web e contorna Linux
 
 O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
-- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
+- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` e `\\wsl.localhost\Debian-DAW\home\ad\angular` (ou a través dos accesos directos creados automaticamente no Escritorio: **«DAW - Proxectos (www)»** e **«DAW - Proxectos (angular)»**). Son ligazóns a `~/proxectos/daw-dev`, no disco Linux de Debian-DAW: os contedores len os ficheiros desde alí á velocidade nativa, e o Explorador só os consulta.
 - **Con VS Code e Dev Containers:**
   O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
   ```powershell

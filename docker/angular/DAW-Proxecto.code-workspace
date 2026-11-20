@@ -1,0 +1,62 @@
+{
+    // Proxecto con cliente e servidor. Ábreo daw-code-proxecto en VS Code conectado a
+    // Debian por WSL: Angular en angular/ e PHP (Laravel...) en www/, cun terminal en cada
+    // contedor. Os contedores van polo seu nome fixo: non depende da ruta do proxecto.
+    "folders": [
+        { "name": "Angular", "path": "../../angular" },
+        { "name": "Web (www)", "path": "../../www" }
+    ],
+    "settings": {
+        "terminal.integrated.profiles.linux": {
+            "Angular no contedor": {
+                "path": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-angular >/dev/null && exec docker exec -it -w /home/node/proxectos daw-dev-angular bash; echo 'O contedor de Angular non está creado: executa daw-code-proxecto en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "icon": "server-process"
+            },
+            "PHP no contedor web": {
+                "path": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-web >/dev/null && exec docker exec -it -u dev -w /var/www/html daw-dev-web bash; echo 'O contedor web non está creado: executa daw-code-proxecto en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "icon": "server"
+            }
+        },
+        "terminal.integrated.defaultProfile.linux": "Angular no contedor",
+        // Ao reconectar, VS Code non intenta recuperar terminais doutro arranque dos contedores.
+        "terminal.integrated.enablePersistentSessions": false
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                // Abre os dous terminais ao abrir o espazo de traballo.
+                "label": "Angular no contedor",
+                "type": "process",
+                "command": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-angular >/dev/null && exec docker exec -it -w /home/node/proxectos daw-dev-angular bash; echo 'O contedor de Angular non está creado: executa daw-code-proxecto en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "problemMatcher": [],
+                "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" },
+                "runOptions": { "runOn": "folderOpen" }
+            },
+            {
+                "label": "PHP no contedor web",
+                "type": "process",
+                "command": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-web >/dev/null && exec docker exec -it -u dev -w /var/www/html daw-dev-web bash; echo 'O contedor web non está creado: executa daw-code-proxecto en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "problemMatcher": [],
+                "presentation": { "reveal": "always", "focus": false, "panel": "dedicated" },
+                "runOptions": { "runOn": "folderOpen" }
+            }
+        ]
+    }
+}

@@ -12,6 +12,13 @@ servidores nin bases de datos no equipo.
 | `web`        | PHP 8.5 + Apache, Xdebug 3, Composer, cliente MariaDB, git | <http://localhost> |
 | `db`         | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
 | `phpmyadmin` | Xestión web da base de datos                           | <http://localhost:8081>          |
+| `angular`    | Node.js 26 + Angular CLI 22 (DWCC); só co perfil `angular` | <http://localhost:4200> con `ng serve --host 0.0.0.0`; Vite en `5173` |
+
+O contedor `angular` está na mesma rede ca `web` e `db`: unha aplicación Angular chega ao
+PHP en `http://web` (por exemplo, co *proxy* de `ng serve`), e ve `www` en `~/www` para
+compilar con Node os recursos dun proxecto Laravel. Así se pode desenvolver nun só contorno
+un proxecto con cliente e servidor. Consulta a [guía de Angular](docs/guia-angular-alumnado.md)
+e a [guía do proxecto con cliente e servidor](docs/guia-proxecto-integrado.md) (Laravel).
 
 ## Requisitos
 
@@ -70,8 +77,10 @@ Tras editar só este ficheiro de configuración, reinicia o web con
 
 En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para executar
 `daw-start` (só servidor web), `daw-start-db` (BD e web),
-`daw-start-all` (web, BD e phpMyAdmin), `daw-stop`,
-`daw-status`, `daw-logs` e `daw-code` (apertura directa en VS Code con soporte Dev Containers) desde PowerShell ou CMD.
+`daw-start-all` (web, BD e phpMyAdmin), `daw-start-angular` (só Angular), `daw-stop`,
+`daw-status`, `daw-logs`, `daw-code` (apertura directa en VS Code con soporte Dev Containers)
+`daw-code-angular` (Angular en VS Code, co terminal no contedor) e `daw-code-proxecto`
+(web, BD e Angular, con `angular` e `www` en VS Code) desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
 | Para…                                   | Comando                                         |
@@ -156,7 +165,8 @@ terminal para cargar os nomes actualizados.
 | `daw-start` | Arranca só `daw-dev-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
 | `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
 | `daw-start-db` | Arranca a base de datos e o web. |
-| `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
+| `daw-start-angular` | Arranca só `daw-dev-angular` (servizo `angular`, perfil `angular`): Node.js e Angular CLI. |
+| `daw-stop` | Para os contedores da contorna con `stop`, tamén o de Angular, conservando os contedores e os datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
 | `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
@@ -166,6 +176,15 @@ terminal para cargar os nomes actualizados.
 unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
 ou para que a comprobación completa saia en verde, usa `daw-start-all`. Se xa hai outros contedores
 en marcha, `daw-start` déixaos funcionando.
+
+`daw-stop` e `daw-logs` levan `--profile angular`: sen el, Compose non para nin amosa o servizo
+`angular`, e `daw-start-all` non o arranca. Para traballar con Angular en VS Code, abre
+`docker/angular/DWCC-Angular.code-workspace` (en Windows, `daw-code-angular`): o cartafol é
+`angular/` e o terminal integrado entra no contedor, onde están `ng`, `npm` e `node`.
+`docker/angular/DAW-Proxecto.code-workspace` (`daw-code-proxecto`) engade `www` e un terminal
+no contedor web.
+Se xa tiñas a imaxe anterior de Angular (con SSH), actualízaa unha vez con
+`docker compose --profile angular pull angular`.
 
 `daw-status` usa [`ps --all`](https://docs.docker.com/reference/cli/docker/compose/ps/):
 non mostra servizos cuxos contedores
@@ -179,10 +198,11 @@ Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e 
 alias daw-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
 alias daw-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
 alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-start-angular 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular up -d angular'
+alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular stop'
 alias daw-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
+alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular logs --tail 100 -f'
+alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-start-angular daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -197,10 +217,11 @@ terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_pr
 alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
 alias daw-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
 alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-start-angular='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular up -d angular'
+alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular stop'
 alias daw-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
+alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile angular logs --tail 100 -f'
+alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-start-angular daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -216,11 +237,12 @@ Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou rut
 $script:DawCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
 function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
+function daw-start-angular { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile angular up -d angular @args }
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
-function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose stop @args }
+function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile angular stop @args }
 function daw-status { wsl.exe -d Debian -- docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile angular logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-angular', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -245,11 +267,12 @@ Axusta a ruta se o proxecto está noutro cartafol:
 $script:DawCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
 function daw-start { docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { docker compose -f $script:DawCompose up -d db web @args }
+function daw-start-angular { docker compose -f $script:DawCompose --profile angular up -d angular @args }
 function daw-start-all { docker compose -f $script:DawCompose up -d @args }
-function daw-stop { docker compose -f $script:DawCompose stop @args }
+function daw-stop { docker compose -f $script:DawCompose --profile angular stop @args }
 function daw-status { docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { docker compose -f $script:DawCompose logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-logs { docker compose -f $script:DawCompose --profile angular logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-angular', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Unha vez cargado o bloque da túa shell, podes executar `daw-start`, `daw-start-all`, `daw-status`
@@ -359,10 +382,11 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 ```
 .
-├── compose.yaml              # servizos: web, db, phpmyadmin
+├── compose.yaml              # servizos: web, db, phpmyadmin e angular (perfil angular)
 ├── Dockerfile                # imaxe daw-dev (Apache)
 ├── .env.example              # variables configurables (portos, versións, credenciais, Xdebug)
 ├── docker/
+│   ├── angular/              # imaxe Node.js + Angular CLI e espazos de traballo de VS Code
 │   ├── apache/daw-dev.conf      # ServerName, AllowOverride All (.htaccess)
 │   ├── php/conf.d/
 │   │   ├── 90-daw-dev.ini       # zona horaria, erros visibles, límites de subida, OPcache
@@ -371,6 +395,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 │       ├── client/daw-dev.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
 │       └── init/             # scripts .sql iniciais
 ├── www/                      # ← O TEU CÓDIGO (DocumentRoot; carpetas locais como dwcs/ ignoradas en git)
+├── angular/                  # ← os teus proxectos Angular (/home/node/proxectos no contedor)
 ├── scripts/comprobar.sh      # comprobación automática da contorna
 ├── docs/                     # guías de Windows 11 + WSL2 (administración e alumnado)
 ├── wsl/                      # scripts de instalación para Windows 11 + WSL2
@@ -396,7 +421,8 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **OPcache** está activo en PHP 8.5, pero con `revalidate_freq=0` e os cambios vense ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/daw-dev:8.5` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.5`.
+  `ghcr.io/miguelfm/daw-dev:8.5` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.5`,
+  e tamén a imaxe de Angular, `ghcr.io/miguelfm/dwcc-angular:22`.
   Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
   ata que o propietario cambia a súa visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
   de seguridade de PHP e Debian.
@@ -411,4 +437,4 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia do xestor paralelo está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `wsl/aula/actualizar-paquete.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
 
-Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/aula.ps1`, `tests/migration.py` e `tests/proxecto.py`.
+Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [estado e versións da aula 134 ao 20/11/2026](docs/aula-despregamento-20261118.md#estado-do-20112026), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md), [proxecto con cliente e servidor](docs/guia-proxecto-integrado.md), [estado do traballo de Angular e pendentes (20/11/2026)](docs/estado-angular-20261120.md) e as probas `tests/aula.ps1`, `tests/migration.py`, `tests/proxecto.py` e `tests/vscode-server.py`.

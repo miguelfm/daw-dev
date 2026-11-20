@@ -81,6 +81,7 @@ if ($Action -eq 'CopiarModelo') {
     $manifest = Assert-DawPackage $PackageDirectory
     $files += $manifest.Image
     $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
+    $files += @(Get-DawPackageFiles $manifest | ForEach-Object { $_.File })
 }
 $projectStage = $null
 if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
