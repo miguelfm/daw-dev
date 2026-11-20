@@ -43,7 +43,7 @@ Write-Host "Iniciando acendido remoto Wake-on-LAN para a Aula $Aula..." -Foregro
 $enviados = 0
 foreach ($num in $Numero) {
     if (-not $macMap.ContainsKey($num)) {
-        Write-Warning "Equipo $num: Non hai enderezo MAC dispoñible (ex. equipo en reparación)."
+        Write-Warning "Equipo ${num}: Non hai enderezo MAC dispoñible (ex. equipo en reparación)."
         continue
     }
 
@@ -76,7 +76,7 @@ foreach ($num in $Numero) {
         $udp.Close()
         $enviados++
     } catch {
-        Write-Warning "Fallo no envío UDP para equipo $num: $_"
+        Write-Warning "Fallo no envío UDP para equipo ${num}: $_"
     }
 }
 
@@ -86,7 +86,9 @@ Write-Host "`nTotal de paquetes Wake-on-LAN transmitidos: $enviados" -Foreground
 if ($MonitorizarArranque -and $enviados -gt 0) {
     Write-Host "`nMonitorizando o arranque da rede (máx. $TempoEsperaSegundos segundos)..." -ForegroundColor Cyan
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $pendentes = [System.Collections.Generic.List[int]]::new($Numero | Where-Object { $macMap.ContainsKey($_) })
+    # Unha canalización non pode ser argumento dun método: vai entre @( ). Co tipo [int[]],
+    # PowerShell escolle o construtor da colección e non o da capacidade inicial.
+    $pendentes = [System.Collections.Generic.List[int]]::new([int[]]@($Numero | Where-Object { $macMap.ContainsKey($_) }))
     $acesos = [System.Collections.Generic.List[int]]::new()
 
     while ($sw.Elapsed.TotalSeconds -lt $TempoEsperaSegundos -and $pendentes.Count -gt 0) {
