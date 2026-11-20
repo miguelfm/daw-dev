@@ -1,8 +1,59 @@
-# Despregamento na aula 34 (18/11/2026)
+# Despregamento de DAW Dev na aula 134 (novembro de 2026)
 
 Estado dos postos ao rematar, problemas atopados e procedemento para a
 próxima actualización. Este repositorio é público: as contas do alumnado de
 cada posto rexístranse fóra del, nos documentos do docente.
+
+## Estado do 20/11/2026
+
+Os 33 postos de alumnado (`A34EQ01`–`A34EQ33`) e o posto docente
+`A34EQ100` teñen o mesmo paquete e a mesma revisión do proxecto. A aula 134
+usa o identificador `34` nos scripts de administración.
+
+| Postos | Resultado |
+|---|---|
+| 01–13, 15–30, 32 e 33 | Verificados o paquete, os scripts, WSL e o acceso no menú Inicio. Os postos 32 e 33 comprobáronse tras acendelos manualmente. |
+| 14 e 31 | Instaláronse o paquete compartido e o acceso no menú Inicio sobre o WSL existente. |
+| 100 | Instaláronse o paquete compartido e o acceso no menú Inicio para todas as contas. Na conta docente xa funcionaba `daw-status`. |
+
+Cada usuario pode abrir **Inicio → DAW Dev → Activar DAW Dev** sen elevación
+para importar o modelo na súa conta. Despois, nun terminal novo, pode
+executar `daw-start` para arrancar o servidor web ou `daw-start-all` para
+arrancar tamén MariaDB e phpMyAdmin. A activación e o arranque son manuais.
+Comprobáronse os ficheiros, os permisos de lectura e execución e o acceso
+común. A revisión do 20/11 non iniciou contedores nas contas do alumnado.
+
+O posto 14 instalouse pola IP da aula, porque o rexistro DNS do centro
+seguía apuntando a outra rede. Tamén se comprobou o paquete do 31 por IP
+mentres WinRM non respondía. Estes dous postos teñen xa acceso manual local.
+
+### Versións instaladas
+
+Comparáronse o SHA‑256 de `C:\ProgramData\DAW-Aula\manifest.json` e a
+revisión de `C:\ProgramData\DAW-Aula\proxecto\proxecto.json` nos 33 postos
+co posto docente. Os dous valores coincidiron en todos. Os identificadores
+permiten distinguir o modelo Debian, os scripts do paquete e os ficheiros
+do proxecto.
+
+| Peza | Identificador |
+|---|---|
+| Modelo `debian-daw.tar.gz` do 11/11/2026 | SHA‑256 `2A027CA382E46DEDE8CFF8772C7F1EEB05B756A331405BC2624938D03FBDDDB4` |
+| Código de orixe do modelo Debian | Commit `b8068faebc0f25043fa30093f79ecc379b20b320` |
+| Paquete compartido (scripts de instalación, revisión 2) | SHA‑256 do manifesto `BF32F716BA0E53DA8F26A53E0252DF101A25A75A02564D93029679AFE3BA2D49` |
+| Imaxe Angular `ghcr.io/miguelfm/dwcc-angular:22` | SHA‑256 do arquivo `dwcc-angular.tar.gz` `C3284A539C33BFBC5F4BD51555CE117C71786ECFA5C256427AC047226C5EA44B` |
+| Ficheiros do proxecto listos para a activación | Revisión `B40775470166E191FA1FACB9E5633B64A91DDD5207604755B51B4B763F5BB1A0` |
+
+A revisión compartida do proxecto queda dispoñible para cada conta ao
+executar **Activar DAW Dev**. Para saber que revisión ten unha conta que xa
+usaba o contorno, consulta `%LOCALAPPDATA%\DAW-Aula\proxecto-estado.json`
+nesa conta.
+
+### Proba de acendido e apagado con Veyon
+
+Gardáronse en Veyon as MAC dos 33 postos de alumnado. Na proba de apagado e
+Wake on LAN excluíronse o 07 e o posto docente. Dos 32 postos probados, 29
+volveron conectar a Veyon. Os postos 31, 32 e 33 precisaron acendido manual.
+O seu arranque por Wake on LAN segue pendente de resolver.
 
 ## Estado do 19/11/2026
 
