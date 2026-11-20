@@ -233,22 +233,75 @@ de sesión, e os usuarios doutros módulos só ven a entrada no menú.
 
 ### Imaxes Docker adicionais: Angular (DWCC)
 
-O servizo `angular` de `compose.yaml` (perfil `angular`) é o contedor DWCC-Angular: Node.js
-26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
-`~/proxectos/daw-dev/angular`. O seu uso está na
-[guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
-`ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI; o paquete leva unha copia para cargala
-sen Internet:
+O servizo `angular` de `compose.yaml` (perfil `angular`, contedor `daw-dev-angular`) trae
+Node.js 26 e Angular CLI 22, cos proxectos en `~/proxectos/daw-dev/angular` e
+`ng serve` publicado en `127.0.0.1:4200`. Non ten SSH. `daw-code-angular` arranca o
+contedor e abre VS Code en Debian-DAW por WSL co espazo de traballo
+`docker/angular/DWCC-Angular.code-workspace`, cuxo terminal entra no contedor con
+`docker exec`. `daw-start-angular` só o arranca. O uso está na
+[guía de Angular para o alumnado](guia-angular-alumnado.md).
+
+Do kit DWCC-Angular (`Angular-Aula.cmd`), que queda como referencia sen manter, tómanse
+o contedor sen SSH co usuario `node`, o terminal de VS Code no contedor e a instalación
+do VS Code Server desde un `.tar.gz` do mesmo commit. O resto do kit xa o resolve a
+aula: WSL, Debian e Docker, as contas, e o grupo `docker` en vez de `sudo`. Engádese
+`init: true`: `sleep infinity` non atende SIGTERM, e sen `init` cada `daw-stop` agardaba
+10 s polo contedor. Como `angular` está no mesmo proxecto de Compose ca `web` e `db`,
+Angular chega ao PHP en `http://web` (comprobado co *proxy* de `ng serve`). Esa é a
+base para un proxecto que combine cliente e servidor: `daw-code-proxecto` abre
+`docker/angular/DAW-Proxecto.code-workspace`, con `angular` e `www`, e o contedor de Angular
+ve `www` en `~/www` para compilar con Node os recursos de Laravel. Na aula, Apache executa
+PHP como `www-data`, e Laravel precisa `storage` e `bootstrap/cache` co grupo `www-data` e
+permiso de escritura. Os pasos comprobados están na
+[guía do proxecto con cliente e servidor](guia-proxecto-integrado.md).
+
+A imaxe `ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI, coa mesma etiqueta que a
+versión anterior con SSH. `daw.ps1` distíngueas polo usuario da imaxe (`node` na
+actual). Se a conta ten a anterior, carga a do paquete. Se o paquete tamén ten a
+anterior, detense e pide actualizar o paquete. Por iso a imaxe nova vai ao paquete
+xunto cos scripts:
 
 ```powershell
-# Na Debian do profesor: docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
-.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory "$HOME\Projects\daw-aula-paquete-20261111-final" -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+# Na Debian do profesor, despois de que a CI publique a imaxe nova:
+#   docker pull ghcr.io/miguelfm/dwcc-angular:22
+#   docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
+$paquete = "$HOME\Projects\daw-aula-paquete-20261111-final"
+.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
 ```
 
-O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
-`CopiarModelo` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
-conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
-Compose non para os servizos dun perfil.
+Despois, `CopiarModelo` e `ActualizarProxecto`. Este último leva
+`compose.yaml`, `docker/angular/` e `wsl/vscode-server.sh`; cada usuario repite
+**Activar DAW Dev** para ter `daw-code-angular`. O manifesto garda a imaxe en `Images`,
+co seu SHA256; `Assert-DawPackage` compróbaa e `CopiarModelo` cópiaa. `daw-stop` e
+`daw-logs` inclúen o perfil `angular`: sen el, Compose non para os servizos dun perfil.
+`daw-status` e `keep-alive.sh` non o precisan, porque `docker compose ps` lista tamén os
+servizos con perfil.
+
+**VS Code Server.** Ao conectar por WSL, VS Code descarga o seu servidor desde Debian.
+Antes de abrilo, `daw-code-angular` e `daw-code-proxecto` instálano en
+`~/.vscode-server/bin/<commit>`. Buscan `vscode-server-linux-x64.tar.gz` en
+`C:\ProgramData\DAW-Aula` e na carpeta Descargas do usuario e, se non está, descárgano
+con `curl.exe`. Antes de instalalo comproban o commit e a arquitectura. Se nada funciona,
+avisan e deixan que VS Code o intente. O paquete pode levalo: o commit é o do VS Code dos
+postos (`code --version`, segunda liña), e se os postos teñen VS Code para todo o equipo,
+todos comparten o commit.
+
+```powershell
+.\wsl\aula\engadir-vscode-server.ps1 -PackageDirectory $paquete -Commit <commit>
+```
+
+O script descárgao (ou usa `-Archive` cun ficheiro xa descargado), comproba no seu
+`product.json` que o commit coincide e rexístrao en `Files` do manifesto co SHA256.
+`Assert-DawPackage` compróbao e `CopiarModelo` cópiao. Cando se actualiza VS Code nos
+postos, hai que engadir o servidor do commit novo; mentres tanto, cada conta descárgao.
+
+**Restos da versión con SSH.** En cada conta quedan os volumes `daw-dev_angular_home`
+e `daw-dev_angular_claves`, a imaxe anterior sen etiqueta, `docker/angular/inicio.sh` e
+`chave.pub` (a copia non borra ficheiros), e a chave `dwcc_angular` coa súa entrada en
+`~\.ssh\config` de Windows. Ningún molesta. Cando o contedor xa estea recreado coa imaxe
+nova, liberan espazo `docker volume rm daw-dev_angular_home daw-dev_angular_claves` e
+`docker image prune -f`.
 
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).
@@ -264,6 +317,9 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-start` ou `daw-star` | Só PHP + Apache; sen arrancar as dependencias |
 | `daw-start-db` | Web + MariaDB |
 | `daw-start-all` | Web + MariaDB + phpMyAdmin |
+| `daw-start-angular` | Só o contedor de Angular (DWCC) |
+| `daw-code-angular` | Contedor de Angular e VS Code co seu terminal no contedor |
+| `daw-code-proxecto` | Web, MariaDB e Angular; VS Code con `angular` e `www` e un terminal en cada contedor |
 | `daw-stop` | Para os servizos e conserva a BD e o código |
 | `daw-status` | Lista tamén contedores parados |
 | `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |

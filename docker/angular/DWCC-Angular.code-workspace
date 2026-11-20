@@ -1,0 +1,42 @@
+{
+    // Ábreo daw-code-angular en VS Code conectado a Debian por WSL. Os ficheiros
+    // edítanse en Debian (angular/) e o terminal entra no contedor daw-dev-angular,
+    // onde están Node.js e Angular CLI. O contedor vai polo seu nome fixo, como no
+    // perfil "Contedor DAW Dev": non depende da ruta do proxecto.
+    "folders": [
+        { "name": "Proxectos Angular", "path": "../../angular" }
+    ],
+    "settings": {
+        "terminal.integrated.profiles.linux": {
+            "Angular no contedor": {
+                "path": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-angular >/dev/null && exec docker exec -it -w /home/node/proxectos daw-dev-angular bash; echo 'O contedor de Angular non está creado: executa daw-start-angular en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "icon": "server-process"
+            }
+        },
+        "terminal.integrated.defaultProfile.linux": "Angular no contedor",
+        // Ao reconectar, VS Code non intenta recuperar terminais doutro arranque do contedor.
+        "terminal.integrated.enablePersistentSessions": false
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                // Abre o terminal do contedor ao abrir o espazo de traballo.
+                "label": "Angular no contedor",
+                "type": "process",
+                "command": "/bin/bash",
+                "args": [
+                    "-c",
+                    "docker start daw-dev-angular >/dev/null && exec docker exec -it -w /home/node/proxectos daw-dev-angular bash; echo 'O contedor de Angular non está creado: executa daw-start-angular en PowerShell.'; read -r -p 'Preme Intro para pechar este terminal.'"
+                ],
+                "problemMatcher": [],
+                "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" },
+                "runOptions": { "runOn": "folderOpen" }
+            }
+        ]
+    }
+}

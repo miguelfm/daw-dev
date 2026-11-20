@@ -260,12 +260,93 @@ try{
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/gestionar-aula.ps1'))
         Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopiarModelo must copy the extra images'
     }
+    Test 'VS Code Server in the package is registered with its commit, verified and copied' {
+        $dest=Join-Path $script:Temp 'package-files'
+        New-Item -ItemType Directory -Path $dest -Force|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
+        $image=Join-Path $dest 'debian-daw.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
+        $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='alumno';Image='debian-daw.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;SetupRevision=2;ScriptSha256=[pscustomobject]$hashes}
+        Assert (@(Get-DawPackageFiles (Assert-DawPackage $dest)).Count -eq 0)
+        # Un paquete coa estrutura do real: vscode-server-linux-x64/product.json co commit.
+        $commit='0123456789abcdef0123456789abcdef01234567'
+        $src=Join-Path $script:Temp 'server-src'
+        New-Item -ItemType Directory -Path (Join-Path $src 'vscode-server-linux-x64/bin') -Force|Out-Null
+        [IO.File]::WriteAllText((Join-Path $src 'vscode-server-linux-x64/product.json'),"{`n  `"commit`": `"$commit`"`n}`n")
+        [IO.File]::WriteAllText((Join-Path $src 'vscode-server-linux-x64/bin/code-server'),'#!/bin/sh')
+        $tar=(Get-Command tar -CommandType Application|Select-Object -First 1).Source
+        $archive=Join-Path $script:Temp 'descarga (1).tar.gz'
+        $null=Invoke-DawNative $tar @('-czf',$archive,'-C',$src,'vscode-server-linux-x64')
+        $info=Get-DawCodeServerInfo $archive
+        Assert ($info.Arch -eq 'x64' -and $info.Commit -eq $commit)
+        # O nome da descarga non importa: no paquete queda co nome que busca daw.ps1.
+        Throws {Add-DawPackageFile $dest $archive ('f'*40)} 'commit'
+        Assert (@(Get-DawPackageFiles (Assert-DawPackage $dest)).Count -eq 0) 'A wrong commit must not change the package'
+        $entry=Add-DawPackageFile $dest $archive $commit.ToUpperInvariant()
+        Assert ($entry.File -eq 'vscode-server-linux-x64.tar.gz' -and $entry.Commit -eq $commit -and (Test-Path (Join-Path $dest $entry.File)))
+        $null=Add-DawPackageFile $dest $archive
+        $files=@(Get-DawPackageFiles (Assert-DawPackage $dest))
+        Assert ($files.Count -eq 1 -and $files[0].Commit -eq $commit) 'Repeating the server must replace its entry'
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
+        Assert ($daw.Contains('$file = "vscode-server-linux-$arch.tar.gz"') -and $daw.Contains('(Join-Path $packageDirectory $file)')) 'daw.ps1 must look for the same name in the package'
+        [IO.File]::WriteAllText((Join-Path $dest $entry.File),'tampered')
+        Throws {Assert-DawPackage $dest} 'VS Code Server'
+        $other=Join-Path $script:Temp 'other.tar.gz'
+        $null=Invoke-DawNative $tar @('-czf',$other,'-C',$src,'vscode-server-linux-x64/bin')
+        Throws {Get-DawCodeServerInfo $other} 'non é un paquete'
+        Throws {Get-DawPackageFiles ([pscustomobject]@{Files=@([pscustomobject]@{File='../x.tar.gz';Sha256=('a'*64);Commit=$commit})})} 'non recoñecido'
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/gestionar-aula.ps1'))
+        Assert ($t.Contains('Get-DawPackageFiles $manifest')) 'CopiarModelo must copy the VS Code Server'
+    }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
-        Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
+        Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:4200') -and $compose.Contains('init: true'))
+        # Sen SSH: nin porto 2222, nin chave, nin volumes do inicio de node.
+        foreach($s in '2222','chave.pub','angular_home','angular_claves'){Assert (-not $compose.Contains($s)) "Left from the SSH container: $s"}
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
-        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular'"){Assert ($daw.Contains($s)) "Missing: $s"}
-        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-start-angular' = 'start-angular'"))
+        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', 'stop') }","{ `$_ -in 'start-angular', 'code-angular' } { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular'"){Assert ($daw.Contains($s)) "Missing: $s"}
+        foreach($s in 'ssh-keygen','dwcc_angular','Remote-SSH'){Assert (-not $daw.Contains($s)) "Left from the SSH container: $s"}
+        $commands=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1'))
+        Assert ($commands.Contains("'daw-start-angular' = 'start-angular'") -and $commands.Contains("'daw-code-angular' = 'code-angular'"))
+        Assert (-not (Test-Path (Join-Path $script:Repo 'docker/angular/inicio.sh'))) 'inicio.sh belongs to the SSH container'
+    }
+    Test 'VS Code workspaces open the project folders with terminals in the containers' {
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
+        $expected=[ordered]@{
+            'DWCC-Angular.code-workspace'=@{Variable='angularWorkspace';Folders=@('../../angular');Containers=@('daw-dev-angular')}
+            'DAW-Proxecto.code-workspace'=@{Variable='proxectoWorkspace';Folders=@('../../angular','../../www');Containers=@('daw-dev-angular','daw-dev-web')}
+        }
+        $prefix=@{
+            'daw-dev-angular'='docker start daw-dev-angular >/dev/null && exec docker exec -it -w /home/node/proxectos daw-dev-angular bash;'
+            'daw-dev-web'='docker start daw-dev-web >/dev/null && exec docker exec -it -u dev -w /var/www/html daw-dev-web bash;'
+        }
+        foreach($name in $expected.Keys){
+            $e=$expected[$name]
+            Assert ($daw.Contains("`$$($e.Variable) = 'docker/angular/$name'")) "daw.ps1 must open $name"
+            $path=Join-Path $script:Repo "docker/angular/$name"
+            # JSON con comentarios de liña completa, como os garda VS Code.
+            $w=(@([IO.File]::ReadAllLines($path)|Where-Object {$_ -notmatch '^\s*//'}) -join "`n")|ConvertFrom-Json
+            Assert ((@($w.folders|ForEach-Object path) -join ',') -eq ($e.Folders -join ',')) "$name folders"
+            foreach($f in $w.folders){Assert (Test-Path (Join-Path (Split-Path $path) $f.path) -PathType Container) "$name`: missing folder $($f.path)"}
+            $profiles=$w.settings.'terminal.integrated.profiles.linux'
+            $commands=@($profiles.PSObject.Properties|ForEach-Object {$_.Value.args[1]})
+            Assert ($commands.Count -eq $e.Containers.Count) "$name terminals"
+            foreach($c in $e.Containers){Assert (@($commands|Where-Object {$_.StartsWith($prefix[$c])}).Count -eq 1) "$name`: no terminal for $c"}
+            foreach($c in $commands){Assert ($c -notmatch '"') 'The terminal commands must not need escaped quotes'}
+            Assert ($profiles.($w.settings.'terminal.integrated.defaultProfile.linux').args[1].StartsWith($prefix['daw-dev-angular'])) "$name default terminal"
+            $tasks=@($w.tasks.tasks)
+            Assert ($tasks.Count -eq $commands.Count) "$name tasks"
+            foreach($t in $tasks){Assert ($t.args[1] -in $commands -and $t.runOptions.runOn -eq 'folderOpen') "$name task $($t.label)"}
+        }
+        $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
+        Assert ($compose.Contains('${WWW_DIR:-./www}:/home/node/www') -and $compose.Contains('127.0.0.1:5173}:5173')) 'Angular must see www and publish the Vite port'
+        Assert ($daw.Contains("'code-proxecto' { `$composeArgs = @('--profile', 'angular') + `$startArgs + @('db', 'web', 'angular') }"))
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-code-proxecto' = 'code-proxecto'"))
+    }
+    Test 'Angular image check tells the current image from the previous SSH one' {
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
+        Assert ($daw.Contains("docker image inspect --format={{.Config.User}} `$1 2>/dev/null") -and $daw.Contains("`$user -eq 'node'"))
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'docker/angular/Dockerfile')).Contains("`nUSER node`n"))
     }
     Test 'manual activation installs, then applies the staged project, and reports failures' {
         $exe=(Get-Process -Id $PID).Path
@@ -308,7 +389,7 @@ try{
         Assert ('activar-dawdev.ps1' -in @(Get-DawSetupFiles))
     }
     Test 'overlay Compose and Angular files are the repository ones' {
-        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/inicio.sh','docker/angular/.dockerignore'){
+        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/.dockerignore','docker/angular/DWCC-Angular.code-workspace','docker/angular/DAW-Proxecto.code-workspace','wsl/vscode-server.sh'){
             $a=[IO.File]::ReadAllBytes((Join-Path $script:Repo $p))
             $b=[IO.File]::ReadAllBytes((Join-Path $script:Repo ('wsl/aula/proxecto/ficheiros/'+$p)))
             Assert ([Convert]::ToBase64String($a) -eq [Convert]::ToBase64String($b)) "Overlay differs: $p"

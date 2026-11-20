@@ -318,6 +318,10 @@ function Assert-DawPackage {
         $path=Join-Path $Directory $extra.File
         if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 da imaxe Docker non coincide: $($extra.File)"}
     }
+    foreach($extra in @(Get-DawPackageFiles $manifest)){
+        $path=Join-Path $Directory $extra.File
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 do VS Code Server non coincide: $($extra.File)"}
+    }
     return $manifest
 }
 function Get-DawPackageImages {
@@ -339,6 +343,45 @@ function Add-DawPackageImage {
     $entry=[pscustomobject]@{File=$file;Name=$Name;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
     $images=@(Get-DawPackageImages $manifest|Where-Object {$_.File -ne $file -and $_.Name -ne $Name})+$entry
     $manifest|Add-Member NoteProperty Images $images -Force
+    Write-DawState (Join-Path $Directory 'manifest.json') $manifest
+    Assert-DawPackage $Directory|Out-Null
+    return $entry
+}
+function Get-DawPackageFiles {
+    # Outros ficheiros que CopiarModelo leva aos postos: o VS Code Server que daw.ps1 instala
+    # en Debian-DAW antes de abrir VS Code (daw-code-angular), sen descargalo en cada conta.
+    param($Manifest)
+    if(-not $Manifest.PSObject.Properties['Files']){return @()}
+    foreach($extra in @($Manifest.Files)){
+        if([string]$extra.File -cnotmatch '^vscode-server-linux-(x64|arm64)\.tar\.gz$' -or [string]$extra.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or [string]$extra.Commit -cnotmatch '^[0-9a-f]{40}$'){throw 'Ficheiro do manifesto non recoñecido.'}
+        $extra
+    }
+}
+function Get-DawCodeServerInfo {
+    # Arquitectura e commit dun paquete do VS Code Server, lidos do seu product.json.
+    param([string]$Archive)
+    if(-not(Test-Path -LiteralPath $Archive -PathType Leaf)){throw "Non existe $Archive"}
+    $tar=Get-Command tar -CommandType Application -ErrorAction SilentlyContinue|Select-Object -First 1
+    if(-not $tar){throw 'Falta tar para ler o paquete do VS Code Server.'}
+    foreach($arch in 'x64','arm64'){
+        try{$text=(Invoke-DawNative $tar.Source @('-xzOf',$Archive,"vscode-server-linux-$arch/product.json")) -join "`n"}catch{continue}
+        $m=[regex]::Match($text,'"commit"\s*:\s*"([0-9a-f]{40})"')
+        if($m.Success){return [pscustomobject]@{Arch=$arch;Commit=$m.Groups[1].Value}}
+    }
+    throw 'O ficheiro non é un paquete do VS Code Server para Linux.'
+}
+function Add-DawPackageFile {
+    # No profesor: copia o VS Code Server ao paquete co nome que busca daw.ps1, o seu commit e o SHA256.
+    param([string]$Directory,[string]$Archive,[string]$ExpectedCommit)
+    $manifest=Assert-DawPackage $Directory
+    $info=Get-DawCodeServerInfo $Archive
+    if($ExpectedCommit -and $info.Commit -ne $ExpectedCommit.ToLowerInvariant()){throw "O paquete é do commit $($info.Commit), non de $ExpectedCommit."}
+    $file="vscode-server-linux-$($info.Arch).tar.gz"
+    $target=Join-Path $Directory $file
+    if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
+    $entry=[pscustomobject]@{File=$file;Commit=$info.Commit;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
+    $files=@(Get-DawPackageFiles $manifest|Where-Object {$_.File -ne $file})+$entry
+    $manifest|Add-Member NoteProperty Files $files -Force
     Write-DawState (Join-Path $Directory 'manifest.json') $manifest
     Assert-DawPackage $Directory|Out-Null
     return $entry

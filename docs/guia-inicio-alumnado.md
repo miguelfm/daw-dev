@@ -49,6 +49,8 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-start-db` | Arranca `web` e MariaDB |
 | `daw-start-all` | Arranca `web`, MariaDB e phpMyAdmin |
 | `daw-start-angular` | Arranca o contedor de Angular (DWCC) |
+| `daw-code-angular` | Arranca o contedor de Angular e ábreo en Visual Studio Code |
+| `daw-code-proxecto` | Arranca web, MariaDB e Angular e abre `angular` e `www` en Visual Studio Code |
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
 | `daw-code` | Abre o proxecto en Visual Studio Code |
@@ -61,8 +63,10 @@ bases de datos e tarda uns 20 segundos.
 Ao rematar, `daw-stop` libera a memoria e os portos. Os ficheiros e as bases
 de datos consérvanse para a próxima sesión.
 
-O uso do contedor de Angular, coa conexión de VS Code por SSH, está na
-guía *Angular con DAW Dev (DWCC)*.
+O uso do contedor de Angular con Visual Studio Code, e como conectalo co
+PHP do contedor web, está na guía *Angular con DAW Dev (DWCC)*. Para un
+proxecto con Angular e Laravel, consulta a guía *Proxecto con cliente e
+servidor en DAW Dev*.
 
 ## Servizos no navegador
 
