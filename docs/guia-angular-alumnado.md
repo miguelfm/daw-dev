@@ -43,8 +43,9 @@ o terminal se chama **Angular no contedor**, co indicador
 `node@…:~/proxectos$`. Todos os terminais novos (**Terminal → New
 Terminal**) entran tamén no contedor.
 
-Desde Windows, os mesmos proxectos están no cartafol
-`\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\angular`.
+Desde Windows, os mesmos proxectos ábrense co acceso directo **DAW -
+Proxectos (angular)** do Escritorio, que leva a
+`\\wsl.localhost\Debian-DAW\home\ad\angular`.
 
 ## Crear e executar unha aplicación
 

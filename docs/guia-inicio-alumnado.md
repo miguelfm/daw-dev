@@ -23,12 +23,17 @@ as ordes `daw-*` estean dispoñibles.
 Repetir a activación é seguro: conserva os teus ficheiros e as bases de
 datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 
+O usuario de Linux é `ad`, co contrasinal `abc123..`, como na VM. Pídeo
+`sudo` en Debian. Se o cambias con `passwd`, a activación consérvao.
+
 ## Onde están os ficheiros
 
 - **`www`** é a raíz web. O acceso directo «DAW - Proxectos (www)» do
   Escritorio abre o cartafol `\\wsl.localhost\Debian-DAW\home\ad\www`, que no
   contedor é `/home/ad/html`. O ficheiro `www/u3/t1/index.php` ábrese en
   `http://localhost/u3/t1/index.php`.
+- **`angular`** garda os proxectos de Angular. O acceso directo «DAW -
+  Proxectos (angular)» abre `\\wsl.localhost\Debian-DAW\home\ad\angular`.
 - **`datos`** garda, como na VM, os ficheiros que unha aplicación le ou
   escribe fóra da raíz web. En Windows está en
   `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\datos`, e no

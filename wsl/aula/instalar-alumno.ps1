@@ -26,7 +26,7 @@ $stateDir=Join-Path $env:LOCALAPPDATA 'DAW-Aula'
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir 'instalacion.lock'),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir 'estado.json'
-$status=[ordered]@{Schema=2;SetupRevision=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;CodeExtensions=@();CodeSkipped=$SenVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;SetupRevision=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;CodeExtensions=@();CodeSkipped=$SenVSCode.IsPresent;Shortcut=$null;AngularShortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -64,6 +64,7 @@ try{
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath '/home/ad/proxectos/daw-dev' -LinuxUser ad
     if(-not $SenVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
     $status.Shortcut=New-DawShortcut $Distribution
+    $status.AngularShortcut=New-DawShortcut $Distribution 'angular'
     $status.Success=$true
     Write-Output "Instalación $RequestId comprobada. Ruta: \\wsl.localhost\$Distribution\home\ad\www"
 }catch{$status.Error=$_.Exception.Message;throw}

@@ -22,7 +22,7 @@ DNS resolve á IP da aula. Os scripts de administración usan o nome e Kerberos.
 5. **Activación da contorna:**
    - **En aulas compartidas (aulas 31 e 134):** Cada usuario activa o seu contorno cando o necesita desde **Inicio → DAW Dev → Activar DAW Dev**. O profesor tamén pode instalar o modelo na conta activa mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Cada conta decide cando iniciar a contorna con `daw-start` ou `daw-start-all`.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
-6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), con acceso directo en Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
+6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), co contrasinal `abc123..` e `sudo`, como na VM de DWCS. Se a conta xa ten un contrasinal propio, consérvase. Os proxectos ábrense no Explorador en `\\wsl.localhost\Debian-DAW\home\ad\www` e `\\wsl.localhost\Debian-DAW\home\ad\angular`, e no Escritorio quedan os accesos directos **«DAW - Proxectos (www)»** e **«DAW - Proxectos (angular)»**. Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
@@ -336,7 +336,7 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 ### Acceso directo aos ficheiros web e contorna Linux
 
 O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
-- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
+- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` e `\\wsl.localhost\Debian-DAW\home\ad\angular` (ou a través dos accesos directos creados automaticamente no Escritorio: **«DAW - Proxectos (www)»** e **«DAW - Proxectos (angular)»**). Son ligazóns a `~/proxectos/daw-dev`, no disco Linux de Debian-DAW: os contedores len os ficheiros desde alí á velocidade nativa, e o Explorador só os consulta.
 - **Con VS Code e Dev Containers:**
   O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
   ```powershell

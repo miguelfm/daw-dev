@@ -105,6 +105,18 @@ if getent group alumno >/dev/null && ! getent group ad >/dev/null; then
 fi
 [[ -L /home/alumno ]] || ln -s /home/ad /home/alumno
 [[ -L /home/ad/www ]] || ln -s /home/ad/proxectos/daw-dev/www /home/ad/www
+# Angular projects get the same short path as www. A path already in use is kept untouched.
+if [[ ! -e /home/ad/angular && ! -L /home/ad/angular ]]; then
+    [[ -d /home/ad/proxectos/daw-dev/angular ]] || install -d -o ad -g ad /home/ad/proxectos/daw-dev/angular
+    ln -s /home/ad/proxectos/daw-dev/angular /home/ad/angular
+elif [[ ! -L /home/ad/angular || $(readlink /home/ad/angular) != /home/ad/proxectos/daw-dev/angular ]]; then
+    echo '/home/ad/angular xa existe; non se creou a ligazón.' >&2
+fi
+# Account as in the DWCS VM: classroom password and sudo. A password already changed is kept.
+if [[ $(passwd -S ad | cut -d' ' -f2) != P ]]; then
+    chpasswd <<< 'ad:abc123..'
+fi
+id -nG ad | tr ' ' '\n' | grep -qx sudo || usermod -aG sudo ad
 # Preserve every other section/key/comment; change only [user].default.
 temp=$(mktemp /etc/.wsl.conf.daw-XXXXXX)
 trap 'rm -f "$temp"' EXIT
@@ -183,14 +195,15 @@ function Install-DawCodeExtensions {
     }finally{$env:ELECTRON_RUN_AS_NODE=$old}
 }
 function New-DawShortcut {
-    param([string]$Distribution)
+    # www (PHP) ou angular: as ligazóns curtas que crea a migración en /home/ad.
+    param([string]$Distribution,[ValidateSet('www','angular')][string]$Folder='www')
     $desktop=[Environment]::GetFolderPath('Desktop')
     if(-not $desktop -or -not(Test-Path -LiteralPath $desktop)){throw 'Non se atopou o Escritorio do alumno.'}
-    $path=Join-Path $desktop 'DAW - Proxectos (www).lnk'
+    $path=Join-Path $desktop "DAW - Proxectos ($Folder).lnk"
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
-    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\www"
-    $link.Description='Cartafol de proxectos web DAW Dev'
+    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\$Folder"
+    $link.Description=if($Folder -eq 'www'){'Cartafol de proxectos web DAW Dev'}else{'Cartafol de proxectos Angular DAW Dev'}
     $link.Save()
     if(-not(Test-Path -LiteralPath $path)){throw 'Non se confirmou o acceso directo.'}
     return $path

@@ -352,6 +352,13 @@ try{
         Assert ($daw.Contains("'code-proxecto' { `$composeArgs = @('--profile', 'angular') + `$startArgs + @('db', 'web', 'angular') }"))
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-code-proxecto' = 'code-proxecto'"))
     }
+    Test 'student installer creates the www and angular shortcuts and the account as in the VM' {
+        $installer=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/instalar-alumno.ps1'))
+        Assert ($installer.Contains('$status.Shortcut=New-DawShortcut $Distribution') -and $installer.Contains("`$status.AngularShortcut=New-DawShortcut `$Distribution 'angular'"))
+        $migration=Get-DawMigration
+        foreach($s in 'ln -s /home/ad/proxectos/daw-dev/angular /home/ad/angular',"chpasswd <<< 'ad:abc123..'",'usermod -aG sudo ad','passwd -S ad'){Assert ($migration.Contains($s)) "Missing in the migration: $s"}
+        Throws {New-DawShortcut 'Debian-DAW' 'outro'} 'outro'
+    }
     Test 'Angular image check tells the current image from the previous SSH one' {
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
         Assert ($daw.Contains("docker image inspect --format={{.Config.User}} `$1 2>/dev/null") -and $daw.Contains("`$user -eq 'node'"))
