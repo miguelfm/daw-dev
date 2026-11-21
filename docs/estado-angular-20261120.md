@@ -44,7 +44,7 @@ tomadas, en que estado queda o paquete da aula e que falta.
   - `ad` no grupo `sudo`;
   - ligazón `~/angular` e acceso directo «DAW - Proxectos (angular)».
 - **Correccións:**
-  - `encender-aula.ps1` non se analizaba en PowerShell 5.1;
+  - `acender-aula.ps1` non se analizaba en PowerShell 5.1;
   - `Add-DawPackageImage` garda sempre a imaxe de Angular como
     `dwcc-angular.tar.gz`, o nome que busca `daw.ps1`.
 
