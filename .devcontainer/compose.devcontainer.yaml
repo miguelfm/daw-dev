@@ -1,8 +1,7 @@
 # Só se usa co Dev Container. As rutas relativas son respecto á raíz do proxecto.
 services:
   web:
-    # Evita que Dev Containers tente reconstruír ou descargar php:8.5-apache de Docker Hub
-    # xa que a imaxe ghcr.io/miguelfm/dwcs-php:8.5 xa está dispoñible localmente.
+    # Dev Containers reutiliza a imaxe web construída ou descargada previamente.
     build: !reset null
     volumes:
       # O proxecto completo en /workspace (www/ segue montado en /var/www/html)

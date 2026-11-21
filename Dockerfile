@@ -1,6 +1,6 @@
 # Imaxe de desenvolvemento PHP para DAW Dev
 # Inclúe: Apache + mod_php, Xdebug, Composer, cliente MariaDB/MySQL, git e ferramentas básicas de shell.
-ARG PHP_VERSION=8.5
+ARG PHP_VERSION=8.6
 FROM php:${PHP_VERSION}-apache
 
 ARG USERNAME=dev
@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Extensións de PHP habituais no módulo + Xdebug + Composer
+# Xdebug 3.6.0alpha1 publica o código en GitHub.
 RUN install-php-extensions \
         bcmath \
         pdo_mysql \
@@ -46,7 +47,7 @@ RUN install-php-extensions \
         intl \
         zip \
         gd \
-        xdebug \
+        xdebug/xdebug@refs/tags/3.6.0alpha1 \
         @composer
 
 # php.ini de desenvolvemento (display_errors=On, E_ALL...) como base
