@@ -6,13 +6,13 @@ O procedemento está na [guía de despregamento](../../../docs/aula-windows11.md
 
 ## O que contén agora
 
-O contedor web compórtase como a VM Debian da aula de DWCS, para que as rutas, os
+O contedor web compórtase como a MV Debian da aula de DWCS, para que as rutas, os
 permisos e as directivas coincidan cos enunciados:
 
 | Ficheiro | Efecto |
 |---|---|
 | `compose.override.yaml` | Apache como `www-data:www-data`; `www` tamén en `/home/ad/html`, que é a raíz web; `datos/` en `/home/ad/datos`; `www-data` sae do grupo `dev`; `/var/lib/php/sessions` con permisos 1733 |
-| `docker/aula/zz-aula.ini` | Os valores do `99-dev.ini` de Apache na VM: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
+| `docker/aula/zz-aula.ini` | Os valores do `99-dev.ini` de Apache na MV: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
 | `docker/aula/000-default.conf` | `DocumentRoot /home/ad/html` |
 | `datos/LEME.txt` | Crea `datos/` co usuario `ad`, non con `root` |
 | `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |

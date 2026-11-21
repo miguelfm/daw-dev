@@ -10,7 +10,7 @@
             "port": 9003,
             "pathMappings": {
                 "/var/www/html": "${workspaceFolder}/www",
-                // Aula de DWCS: compose.override.yaml serve www desde /home/ad/html, como a VM
+                // Aula de DWCS: compose.override.yaml serve www desde /home/ad/html, como a MV
                 "/home/ad/html": "${workspaceFolder}/www"
             }
         }
