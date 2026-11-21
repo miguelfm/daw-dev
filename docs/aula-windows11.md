@@ -231,6 +231,14 @@ da aula, Xdebug conectou con `XDEBUG_TRIGGER=1`. A primeira proba nun
 posto Windows/WSL2 da aula está pendente e poderá facerse a partir do luns 23/11/2026.
 [Execución de publicación](https://github.com/miguelfm/daw-dev/actions/runs/44934087884).
 
+Esa imaxe non tiña `mbstring`: a imaxe oficial de PHP 8.6 xa non a compila, como
+facía a 8.5, e `mb_strlen()`, que usa DWCS desde a U4, daba un erro fatal. O mesmo
+día publicouse de novo con `mbstring` nas dúas etiquetas, que pasaron a apuntar a
+`sha256:bb7762ad0e307f1e64bb0c6c6f213d97eaa47311e6e16a29a7aff13d82caa1d6`
+([execución](https://github.com/miguelfm/daw-dev/actions/runs/44939197023)). Ten os
+mesmos 45 módulos de PHP ca a 8.5. Un paquete de aula preparado coa imaxe anterior
+hai que volver preparalo con esta antes da proba no posto.
+
 Para preparar a copia sen Internet, descarga e exporta a imaxe desde o equipo do
 profesor en Linux ou WSL:
 
