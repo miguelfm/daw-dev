@@ -3,7 +3,7 @@
 DAW Dev é un contorno de desenvolvemento PHP que funciona na túa conta de
 Windows sen permisos de administración. Está formado por unha distribución
 Linux de WSL2, `Debian-DAW`, con Docker, e tres contedores: `web` (Apache e
-PHP 8.5 con Xdebug), `db` (MariaDB) e `phpmyadmin`.
+PHP 8.6 con Xdebug 3.6), `db` (MariaDB) e `phpmyadmin`.
 
 O contedor `web` compórtase como a máquina virtual (VM) da aula: a raíz web
 é `/home/ad/html`, Apache executa PHP como `www-data` e as directivas de PHP

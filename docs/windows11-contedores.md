@@ -137,12 +137,12 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
      "dev.containers.executeInWSLDistro": "Debian"
      ```
      *(No modelo de aula `Debian-DAW`, o script do alumno axusta automaticamente o valor a `"Debian-DAW"`).*
-   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) anula calquera paso de construción (`build: !reset null`) para arrancar de xeito inmediato coa imaxe precompilada local (`ghcr.io/miguelfm/dwcs-php:8.5`), evitando tempos de espera e descargas desde Docker Hub.
+   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/dwcs-php:8.6`) ou descargala de GHCR.
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
    - O espazo de traballo abrirase en `/workspace` dentro do contedor.
-   - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `dev`, con PHP 8.5, Composer, Git e o cliente de MariaDB dispoñibles.
+   - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `dev`, con PHP 8.6, Composer, Git e o cliente de MariaDB dispoñibles.
 
 ### Opción B: VS Code en Windows con terminal integrado no contedor
 
