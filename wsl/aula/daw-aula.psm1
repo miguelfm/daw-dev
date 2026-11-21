@@ -321,7 +321,7 @@ function Assert-DawPackage {
     return $manifest
 }
 function Get-DawPackageImages {
-    # Imaxes Docker adicionais do paquete (Angular de DWCC...), que daw.ps1 carga en cada conta.
+    # Imaxes Docker adicionais que se cargan na conta cando se precisan.
     param($Manifest)
     if(-not $Manifest.PSObject.Properties['Images']){return @()}
     foreach($extra in @($Manifest.Images)){
@@ -499,19 +499,21 @@ function Invoke-DawProjectUpdate {
     Invoke-DawUserTask 'ActualizarProxecto' "$target\actualizar-proxecto.ps1" $arguments 'proxecto-estado.json' 'Actualización do proxecto' $TimeoutSeconds
 }
 function Get-DawProjectOverlayScript {
-    # Runs as ad in the project directory. Arguments: source directory, then path/SHA256/mode triples.
+    # Runs as ad. Arguments: source directory, optional image archive and SHA256, and file triples.
     # Everything is validated before the first change; nothing is deleted and www is never touched.
     $text=@'
 set -euo pipefail
 fail() { echo "$1" >&2; exit 1; }
-[[ $# -ge 4 && $((($# - 1) % 3)) -eq 0 ]] || fail 'Lista de ficheiros do proxecto incorrecta.'
+[[ $# -ge 6 && $((($# - 3) % 3)) -eq 0 ]] || fail 'Lista de ficheiros do proxecto incorrecta.'
 if [[ $1 == /* ]]; then src=$1; else src=$(wslpath -u "$1"); fi
-shift
+archive=$2 archive_sha=$3
+shift 3
 project=$PWD
 [[ -f $project/compose.yaml && ! -L $project/compose.yaml ]] || fail 'Falta o proxecto esperado.'
 [[ -d $src && ! -L $src ]] || fail 'Falta o directorio dos ficheiros do proxecto.'
 digest() { sha256sum < "$1" | cut -d' ' -f1; }
 args=("$@")
+compose=$project/compose.yaml
 override=
 for ((i = 0; i < ${#args[@]}; i += 3)); do
     rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
@@ -534,15 +536,44 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
             [[ ! -e $path || -f $path ]] || fail "O destino non é un ficheiro: $rel"
         fi
     done
+    [[ $rel != compose.yaml ]] || compose=$src/$rel
     [[ $rel != compose.override.yaml ]] || override=$src/$rel
 done
-if [[ -n $override ]]; then
-    docker compose --project-directory "$project" -f "$project/compose.yaml" -f "$override" config --quiet \
-        || fail 'Compose non acepta os ficheiros novos; non se cambiou nada.'
-fi
 backup=.daw-backup/$(date +%Y%m%d-%H%M%S)-$$
 tmp=
-trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
+env_tmp=
+trap '[[ -z $tmp ]] || rm -f -- "$tmp"; [[ -z $env_tmp ]] || rm -f -- "$env_tmp"' EXIT
+compose_args=(--project-directory "$project" -f "$compose")
+# O modelo anterior fixaba o PHP do proxecto en 8.5 no .env creado durante a instalación.
+if [[ $compose != "$project/compose.yaml" && -f .env && ! -L .env ]] \
+    && grep -Fxq 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php' .env \
+    && grep -Fxq 'PHP_VERSION=8.5' .env; then
+    env_tmp=$(mktemp "$project/.daw-env-XXXXXX")
+    sed '/^PHP_VERSION=8\.5$/d' .env > "$env_tmp"
+    compose_args+=(--env-file "$env_tmp")
+fi
+if [[ -n $override ]]; then
+    compose_args+=(-f "$override")
+fi
+images=$(docker compose "${compose_args[@]}" config --images) \
+    || fail 'Compose non acepta os ficheiros novos; non se cambiou nada.'
+web_image=ghcr.io/miguelfm/dwcs-php:8.6
+if grep -Fxq "$web_image" <<< "$images"; then
+    for ((i=0; i<60; i++)); do docker info >/dev/null 2>&1 && break; sleep 1; done
+    docker info >/dev/null 2>&1 || fail 'Docker non responde.'
+    if ! docker image inspect "$web_image" >/dev/null 2>&1; then
+        if [[ $archive != - ]]; then
+            [[ $archive == /* ]] || archive=$(wslpath -u "$archive")
+            [[ -f $archive && ! -L $archive && $(digest "$archive") == "$archive_sha" ]] \
+                || fail 'O SHA256 do arquivo Docker de PHP non coincide.'
+            docker image load --input "$archive" >&2 || fail 'Non se puido cargar a imaxe de PHP.'
+        else
+            docker image pull "$web_image" >&2 \
+                || fail 'Falta a imaxe de PHP 8.6. Engádea ao paquete da aula con engadir-imaxe.ps1.'
+        fi
+        docker image inspect "$web_image" >/dev/null || fail "Falta a etiqueta $web_image na imaxe cargada."
+    fi
+fi
 for ((i = 0; i < ${#args[@]}; i += 3)); do
     rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
     dest=$project/$rel
@@ -563,6 +594,13 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
     tmp=
     echo "$action $rel"
 done
+if [[ -n $env_tmp ]]; then
+    mkdir -p -- "$backup"
+    cp -p -- .env "$backup/.env"
+    chmod --reference=.env "$env_tmp"
+    mv -f -- "$env_tmp" .env
+    env_tmp=
+fi
 [[ ! -d $backup ]] || echo "copia $project/$backup"
 docker compose config --quiet || fail "Compose non acepta o proxecto actualizado. Ficheiros substituídos en $project/$backup"
 '@
@@ -571,6 +609,15 @@ docker compose config --quiet || fail "Compose non acepta o proxecto actualizado
 function Invoke-DawProjectOverlay {
     param([string]$Distribution,[string]$Directory,$Manifest)
     $arguments=@('-d',$Distribution,'-u','ad','--cd','/home/ad/proxectos/daw-dev','--exec','bash','-c',(Get-DawProjectOverlayScript),'daw-proxecto',[IO.Path]::Combine($Directory,'ficheiros'))
+    $package=Split-Path -Parent ([IO.Path]::GetFullPath($Directory))
+    $packageManifest=Join-Path $package 'manifest.json'
+    $image=$null
+    if(Test-Path -LiteralPath $packageManifest -PathType Leaf){
+        $packageData=Get-Content -LiteralPath $packageManifest -Raw -Encoding UTF8|ConvertFrom-Json
+        $image=Get-DawPackageImages $packageData|Where-Object {$_.Name -eq 'ghcr.io/miguelfm/dwcs-php:8.6'}|Select-Object -First 1
+    }
+    if($image){$arguments+=@((Join-Path $package $image.File),$image.Sha256.ToLowerInvariant())}
+    else{$arguments+=@('-','-')}
     $files=@($Manifest.Files)
     foreach($entry in $files){$arguments+=@([string]$entry.Path,$entry.Sha256.ToLowerInvariant(),[string]$entry.Mode)}
     $result=[ordered]@{Created=@();Replaced=@();Unchanged=@();Kept=@();Backup=$null}

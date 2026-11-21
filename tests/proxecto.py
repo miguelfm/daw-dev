@@ -10,9 +10,17 @@ repo = pathlib.Path(__file__).resolve().parents[1]
 pwsh = os.environ.get('PWSH_BIN', 'pwsh')
 overlay = repo / 'wsl/aula/proxecto/ficheiros'
 STUB = r'''#!/usr/bin/env python3
-import json,os,sys
-with open(os.environ['DAW_DOCKER_LOG'],'a') as f: f.write(json.dumps(sys.argv[1:])+'\n')
-fail=os.environ.get('DAW_DOCKER_FAIL','');pre='-f' in sys.argv
+import json,os,pathlib,sys
+args=sys.argv[1:]
+with open(os.environ['DAW_DOCKER_LOG'],'a') as f: f.write(json.dumps(args)+'\n')
+fail=os.environ.get('DAW_DOCKER_FAIL','');pre='-f' in args
+if '--images' in args:
+    print(os.environ['DAW_DOCKER_IMAGE'])
+loaded=pathlib.Path(os.environ['DAW_DOCKER_LOG']).with_suffix('.loaded')
+if args[:2] == ['image', 'inspect']:
+    sys.exit(0 if loaded.is_file() else 1)
+if args[:2] in (['image', 'load'], ['image', 'pull']):
+    loaded.touch()
 sys.exit(1 if (fail=='pre' and pre) or (fail=='post' and not pre) else 0)
 '''
 
@@ -59,10 +67,11 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
             out += [rel, digest(p), 'CreateOnly' if rel.startswith('datos/') else 'Replace']
         return out
 
-    def run(root, src, project, args=None, fail='', path=None):
+    def run(root, src, project, args=None, fail='', path=None, image='', archive=('-', '-')):
         log = root / 'docker.log'
-        env = dict(os.environ, PATH=path or (str(bin_dir) + os.pathsep + os.environ['PATH']), DAW_DOCKER_LOG=str(log), DAW_DOCKER_FAIL=fail)
-        r = subprocess.run(['bash', str(script), str(src)] + (triples(src) if args is None else args), cwd=project, env=env, capture_output=True, text=True)
+        log.unlink(missing_ok=True)
+        env = dict(os.environ, PATH=path or (str(bin_dir) + os.pathsep + os.environ['PATH']), DAW_DOCKER_LOG=str(log), DAW_DOCKER_FAIL=fail, DAW_DOCKER_IMAGE=image)
+        r = subprocess.run(['bash', str(script), str(src), *archive] + (triples(src) if args is None else args), cwd=project, env=env, capture_output=True, text=True)
         calls = [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []
         return r, calls
 
@@ -87,6 +96,27 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
     assert all(l.startswith('igual ') for l in r.stdout.splitlines()), r.stdout
     assert backups(project) == before
     count += 1; print('PASS second run changes nothing')
+
+    root86, src86, project86 = fixture('php86-offline')
+    env_file = project86 / '.env'
+    old_env = 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php\nPHP_VERSION=8.5\nWEB_PORT=127.0.0.1:80\n'
+    env_file.write_text(old_env)
+    env_file.chmod(0o600)
+    archive = root86 / 'daw-dev-php86.tar.gz'
+    archive.write_bytes(b'docker image archive')
+    image = 'ghcr.io/miguelfm/dwcs-php:8.6'
+    before86 = snapshot(project86)
+    r, calls = run(root86, src86, project86, image=image, archive=(str(archive), '0' * 64))
+    assert r.returncode != 0 and 'SHA256' in r.stderr and snapshot(project86) == before86, r.stderr
+    r, calls = run(root86, src86, project86, image=image, archive=(str(archive), digest(archive)))
+    assert r.returncode == 0 and ['image', 'load', '--input', str(archive)] in calls, r.stderr
+    assert calls[0][4] == str(src86 / 'compose.yaml') and '--env-file' in calls[0], calls
+    assert (project86 / '.daw-backup' / backups(project86)[0] / '.env').read_text() == old_env
+    assert env_file.read_text() == old_env.replace('PHP_VERSION=8.5\n', '')
+    assert env_file.stat().st_mode & 0o777 == 0o600
+    r, calls = run(root86, src86, project86, image=image)
+    assert r.returncode == 0 and not any(call[:2] in (['image', 'load'], ['image', 'pull']) for call in calls), calls
+    count += 1; print('PASS PHP 8.6 is loaded from the verified archive and the old default is migrated once')
 
     (project / 'datos/LEME.txt').write_text('notas do alumno')
     (project / 'compose.override.yaml').write_text('services: {}\n')
@@ -138,11 +168,13 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
         project.mkdir(parents=True)
         for name in ('compose.yaml', '.env.example', '.devcontainer'):
             (shutil.copytree if (repo / name).is_dir() else shutil.copy)(repo / name, project / name)
-        shutil.copy(project / '.env.example', project / '.env')
+        # Use a custom tag to exercise real Compose without downloading the web image.
+        (project / '.env').write_text('DAW_DEV_IMAGE=example.invalid/dwcs-php\n')
         r, calls = run(root, overlay, project, path=os.environ['PATH'])
         assert r.returncode == 0, r.stderr
         config = subprocess.run([docker, 'compose', 'config', '--format', 'json'], cwd=project, capture_output=True, text=True, check=True)
         web = json.loads(config.stdout)['services']['web']
+        assert web['image'] == 'example.invalid/dwcs-php:8.6' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-aula.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']

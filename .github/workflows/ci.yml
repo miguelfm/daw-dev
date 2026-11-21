@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PHP_VERSION: "8.6"
+
 jobs:
   probas:
     name: Probas
@@ -27,6 +30,12 @@ jobs:
       - name: Comprobar a contorna
         run: ./scripts/comprobar.sh --build
 
+      - name: Comprobar as versións de PHP e Xdebug
+        run: |
+          docker compose exec -T web php --version
+          test "$(docker compose exec -T web php -r 'echo PHP_MAJOR_VERSION, ".", PHP_MINOR_VERSION;')" = "$PHP_VERSION"
+          docker compose exec -T web php -r 'exit(str_starts_with((string) phpversion("xdebug"), "3.6.") ? 0 : 1);'
+
       - name: Logs se algo falla
         if: failure()
         run: docker compose logs --tail 100
@@ -39,8 +48,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      PHP_VERSION: "8.5"
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
