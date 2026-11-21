@@ -117,7 +117,11 @@ A Aula 31 é utilizada por diversos cursos e materias que non precisan nin deben
    - Creouse o acceso directo en `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DAW Dev\Inicializar DAW Dev.lnk`.
    - Ao executarse sen elevación polo alumno conectado:
      1. Importa a imaxe `debian-daw.tar.gz` en `%LOCALAPPDATA%\wsl\Debian-DAW`.
-     2. Configura o usuario Linux `ad` (contrasinal `abc123..`).
+     2. Configura o usuario Linux `ad`. Nesa data a conta quedaba co contrasinal bloqueado
+        e sen `sudo`, como sae do modelo: ningún script lle puña `abc123..`. Desde o
+        PR #3, a instalación pon o contrasinal `abc123..` (só se a conta aínda non ten un
+        propio) e engade `ad` ao grupo `sudo`; as contas existentes recíbeno ao repetir
+        **Activar DAW Dev**.
      3. Arranca o servizo Docker e valida `docker info` e o Compose do proxecto.
      4. Xera os scripts CLI de control (`daw-start`, `daw-stop`, etc.) no seu `%USERPROFILE%\.local\bin`.
      5. Coloca o acceso directo `DAW - Proxectos (www).lnk` no escritorio dese alumno.

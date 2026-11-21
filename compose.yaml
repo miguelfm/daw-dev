@@ -73,7 +73,8 @@ services:
       db:
         condition: service_healthy
 
-  # DWCC: Node.js e Angular CLI, con SSH para VS Code (Remote-SSH a dwcc-angular).
+  # DWCC: Node.js e Angular CLI. VS Code ábrese en Debian por WSL (daw-code-angular)
+  # e o seu terminal entra neste contedor; ng serve --host 0.0.0.0 publica o 4200.
   # O perfil fai que só arranque con daw-start-angular, nunca con daw-start ou daw-start-all.
   angular:
     profiles: ["angular"]
@@ -81,26 +82,20 @@ services:
     build:
       context: ./docker/angular
     image: ${ANGULAR_IMAGE:-ghcr.io/miguelfm/dwcc-angular}:${ANGULAR_TAG:-22}
+    # sleep infinity non atende SIGTERM: sen init, stop agarda 10 s antes de matalo.
+    init: true
     ports:
-      - "${ANGULAR_SSH_PORT:-127.0.0.1:2222}:22"
       - "${ANGULAR_PORT:-127.0.0.1:4200}:4200"
+      # Vite de Laravel (npm run dev nun proxecto de www)
+      - "${ANGULAR_VITE_PORT:-127.0.0.1:5173}:5173"
     volumes:
-      # Inicio de node (configuración e servidor de VS Code) e chave do servidor SSH
-      - angular_home:/home/node
-      - angular_claves:/claves-host
       # Os proxectos, visibles desde Windows como www
       - ./angular:/home/node/proxectos
-      # Chave pública do usuario de Windows; daw-start-angular créaa
-      - type: bind
-        source: ./docker/angular/chave.pub
-        target: /chave.pub
-        read_only: true
-        bind:
-          create_host_path: false
+      # O código PHP do web, para compilar con Node os recursos de Laravel
+      # ou deixar onde o serve Apache o resultado de ng build
+      - ${WWW_DIR:-./www}:/home/node/www
 
 volumes:
   db_data:
     name: ${DB_VOLUME_NAME:-daw-dev_db_data}
     external: ${DB_VOLUME_EXTERNAL:-false}
-  angular_home:
-  angular_claves:

@@ -178,6 +178,10 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-aula.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']
+        config = subprocess.run([docker, 'compose', '--profile', 'angular', 'config', '--format', 'json'], cwd=project, capture_output=True, text=True, check=True)
+        angular = json.loads(config.stdout)['services']['angular']
+        assert angular['init'] is True and [p['target'] for p in angular['ports']] == [4200, 5173], angular
+        assert [v['target'] for v in angular['volumes']] == ['/home/node/proxectos', '/home/node/www'], angular['volumes']
         count += 1; print('PASS real docker compose accepts the classroom project files')
     else:
         print('SKIP real docker compose: docker is not installed')

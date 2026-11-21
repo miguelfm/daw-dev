@@ -17,7 +17,7 @@ permisos e as directivas coincidan cos enunciados:
 | `datos/LEME.txt` | Crea `datos/` co usuario `ad`, non con `root` |
 | `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |
 | `.vscode/launch.json` | O do repositorio, que traduce tamén `/home/ad/html` a `www`: Apache serve desde esa ruta e Xdebug informa dela |
-| `compose.yaml` e `docker/angular/` | Os do repositorio, co servizo `angular` de DWCC (perfil `angular`); `daw-start-angular` precisa tamén os comandos novos, que instala «Activar DAW Dev» |
+| `compose.yaml`, `docker/angular/` e `wsl/vscode-server.sh` | Os do repositorio: o servizo `angular` de DWCC (perfil `angular`, sen SSH), os espazos de traballo de VS Code que abren `daw-code-angular` e `daw-code-proxecto` e o instalador do VS Code Server que usa. As ordes chegan con «Activar DAW Dev». A copia non borra `docker/angular/inicio.sh` nin `chave.pub` da versión con SSH: xa non se usan |
 
 `daw-start` le `compose.override.yaml` porque está ao lado de `compose.yaml`. Os
 cambios aplícanse ao recrear o contedor web: no seguinte `daw-start`, ou co

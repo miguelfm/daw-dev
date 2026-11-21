@@ -51,15 +51,14 @@ compartidas poden ter un impacto importante. [Sistemas de ficheiros en WSL](http
 ### Arranque e conexión
 
 En PowerShell, `Measure-Command { daw-start-angular | Out-Host }` mide o tempo
-que percibe o usuario. A primeira execución pode arrincar WSL, agardar por Docker,
-preparar as chaves SSH e cargar desde o paquete da aula ou descargar a imaxe. Cronometra
-por separado o tempo desde que seleccionas `dwcc-angular` en VS Code ata que abre
-o terminal remoto. A primeira conexión pode instalar o servidor de VS Code no contedor.
+que percibe o usuario. A primeira execución pode arrincar WSL, agardar por Docker
+e cargar desde o paquete da aula ou descargar a imaxe. Cronometra por separado o tempo
+desde que `daw-code-angular` abre VS Code ata que aparece o terminal **Angular no
+contedor**. A primeira vez pode instalar o servidor de VS Code en Debian.
 
 Para comparar só o arranque do mesmo servizo, executa o seguinte desde a raíz de
 `daw-dev` nos dous Debian. Prepara o servizo segundo a [guía de Angular](guia-angular-alumnado.md)
-en WSL. Na MV, se o preparas manualmente, pon a chave **pública** do cliente SSH en
-`docker/angular/chave.pub`, tal e como require a montaxe de Compose. Parte coa mesma
+en WSL. Na MV abonda co `compose.yaml` do repositorio, sen ficheiros adicionais. Parte coa mesma
 imaxe xa dispoñible nos dous e, se mediches a carga co paquete da aula, apunta ese tempo
 separado da descarga por rede.
 
@@ -73,7 +72,7 @@ dun contedor existente noutra serie. Se tamén queres medir a obtención da imax
 cronometra `docker load -i /ruta/dwcc-angular.tar.gz` ou
 `docker compose --profile angular pull angular` antes do arranque. Anota se xa había
 capas da imaxe no equipo.
-`--wait` indica que o servizo está en marcha. Comproba o SSH ou o HTTP por separado
+`--wait` indica que o servizo está en marcha. Comproba o HTTP por separado
 para medir cando responden. Se distribúes a aplicación compilada mediante o servizo
 Apache `web`, mide ese arranque á parte. O Compose base fai que `web` agarde por
 MariaDB cando se arranca con dependencias. [Referencia de `docker compose up`](https://docs.docker.com/reference/cli/docker/compose/up/)
@@ -105,7 +104,7 @@ Se o proxecto ten o seu propio `Dockerfile` que instala dependencias e compila
 Angular, executa `docker compose --progress plain build SERVIZO` desde ese proxecto,
 substituíndo `SERVIZO` polo nome do servizo,
 e compara os tempos de transferencia do contexto, de `npm ci` e da compilación.
-O `Dockerfile` de `daw-dev` para `angular` prepara Node, a CLI e SSH. A aplicación
+O `Dockerfile` de `daw-dev` para `angular` só prepara Node e a CLI. A aplicación
 compílase sobre a montaxe dos proxectos. [Caché de compilación de Docker](https://docs.docker.com/build/cache/optimize/)
 
 ## Interpretar e rexistrar o resultado

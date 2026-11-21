@@ -97,7 +97,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Node.js 26, Angular CLI 22 e servidor SSH; nas PR só se constrúe e proba
+      # Node.js 26 e Angular CLI 22, sen SSH; nas PR só se constrúe e proba
       - uses: docker/build-push-action@v7
         with:
           context: docker/angular
@@ -105,14 +105,16 @@ jobs:
           tags: ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
           labels: |
             org.opencontainers.image.title=dwcc-angular
-            org.opencontainers.image.description=Node.js e Angular CLI con SSH para DWCC en DAW Dev
+            org.opencontainers.image.description=Node.js e Angular CLI para DWCC en DAW Dev
           cache-from: type=gha,scope=angular
           cache-to: type=gha,mode=max,scope=angular
 
-      - name: Comprobar Node, Angular CLI e sshd
+      # daw.ps1 distingue esta imaxe da anterior (con SSH, como root) polo usuario node.
+      - name: Comprobar Node, Angular CLI e o usuario node
         run: |
           docker run --rm --entrypoint sh ghcr.io/${{ github.repository_owner }}/dwcc-angular:22 \
-            -c 'node --version && ng version | grep -q "Angular CLI" && test -x /usr/sbin/sshd && id node'
+            -c 'node --version && ng version | grep -q "Angular CLI" && test "$(id -un):$(id -u)" = node:1000 && test -w /home/node/proxectos && test ! -e /usr/sbin/sshd'
+          test "$(docker image inspect --format '{{.Config.User}}' ghcr.io/${{ github.repository_owner }}/dwcc-angular:22)" = node
 
       - name: Publicar
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

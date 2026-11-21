@@ -105,6 +105,18 @@ if getent group alumno >/dev/null && ! getent group ad >/dev/null; then
 fi
 [[ -L /home/alumno ]] || ln -s /home/ad /home/alumno
 [[ -L /home/ad/www ]] || ln -s /home/ad/proxectos/daw-dev/www /home/ad/www
+# Angular projects get the same short path as www. A path already in use is kept untouched.
+if [[ ! -e /home/ad/angular && ! -L /home/ad/angular ]]; then
+    [[ -d /home/ad/proxectos/daw-dev/angular ]] || install -d -o ad -g ad /home/ad/proxectos/daw-dev/angular
+    ln -s /home/ad/proxectos/daw-dev/angular /home/ad/angular
+elif [[ ! -L /home/ad/angular || $(readlink /home/ad/angular) != /home/ad/proxectos/daw-dev/angular ]]; then
+    echo '/home/ad/angular xa existe; non se creou a ligazón.' >&2
+fi
+# Account as in the DWCS VM: classroom password and sudo. A password already changed is kept.
+if [[ $(passwd -S ad | cut -d' ' -f2) != P ]]; then
+    chpasswd <<< 'ad:abc123..'
+fi
+id -nG ad | tr ' ' '\n' | grep -qx sudo || usermod -aG sudo ad
 # Preserve every other section/key/comment; change only [user].default.
 temp=$(mktemp /etc/.wsl.conf.daw-XXXXXX)
 trap 'rm -f "$temp"' EXIT
@@ -183,14 +195,15 @@ function Install-DawCodeExtensions {
     }finally{$env:ELECTRON_RUN_AS_NODE=$old}
 }
 function New-DawShortcut {
-    param([string]$Distribution)
+    # www (PHP) ou angular: as ligazóns curtas que crea a migración en /home/ad.
+    param([string]$Distribution,[ValidateSet('www','angular')][string]$Folder='www')
     $desktop=[Environment]::GetFolderPath('Desktop')
     if(-not $desktop -or -not(Test-Path -LiteralPath $desktop)){throw 'Non se atopou o Escritorio do alumno.'}
-    $path=Join-Path $desktop 'DAW - Proxectos (www).lnk'
+    $path=Join-Path $desktop "DAW - Proxectos ($Folder).lnk"
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
-    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\www"
-    $link.Description='Cartafol de proxectos web DAW Dev'
+    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\$Folder"
+    $link.Description=if($Folder -eq 'www'){'Cartafol de proxectos web DAW Dev'}else{'Cartafol de proxectos Angular DAW Dev'}
     $link.Save()
     if(-not(Test-Path -LiteralPath $path)){throw 'Non se confirmou o acceso directo.'}
     return $path
@@ -318,6 +331,10 @@ function Assert-DawPackage {
         $path=Join-Path $Directory $extra.File
         if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 da imaxe Docker non coincide: $($extra.File)"}
     }
+    foreach($extra in @(Get-DawPackageFiles $manifest)){
+        $path=Join-Path $Directory $extra.File
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 do VS Code Server non coincide: $($extra.File)"}
+    }
     return $manifest
 }
 function Get-DawPackageImages {
@@ -334,11 +351,55 @@ function Add-DawPackageImage {
     param([string]$Directory,[string]$Archive,[string]$Name)
     $manifest=Assert-DawPackage $Directory
     $file=Split-Path -Leaf $Archive
+    # daw.ps1 busca a imaxe de Angular co nome fixo dwcc-angular.tar.gz, veña de onde veña.
+    if($Name -match '(^|/)dwcc-angular:'){
+        if($file -notmatch '\.tar\.gz$'){throw 'A imaxe de Angular vai comprimida: docker save ... | gzip > dwcc-angular.tar.gz'}
+        $file='dwcc-angular.tar.gz'
+    }
     $target=Join-Path $Directory $file
     if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
     $entry=[pscustomobject]@{File=$file;Name=$Name;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
     $images=@(Get-DawPackageImages $manifest|Where-Object {$_.File -ne $file -and $_.Name -ne $Name})+$entry
     $manifest|Add-Member NoteProperty Images $images -Force
+    Write-DawState (Join-Path $Directory 'manifest.json') $manifest
+    Assert-DawPackage $Directory|Out-Null
+    return $entry
+}
+function Get-DawPackageFiles {
+    # Outros ficheiros que CopiarModelo leva aos postos: o VS Code Server que daw.ps1 instala
+    # en Debian-DAW antes de abrir VS Code (daw-code-angular), sen descargalo en cada conta.
+    param($Manifest)
+    if(-not $Manifest.PSObject.Properties['Files']){return @()}
+    foreach($extra in @($Manifest.Files)){
+        if([string]$extra.File -cnotmatch '^vscode-server-linux-(x64|arm64)\.tar\.gz$' -or [string]$extra.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or [string]$extra.Commit -cnotmatch '^[0-9a-f]{40}$'){throw 'Ficheiro do manifesto non recoñecido.'}
+        $extra
+    }
+}
+function Get-DawCodeServerInfo {
+    # Arquitectura e commit dun paquete do VS Code Server, lidos do seu product.json.
+    param([string]$Archive)
+    if(-not(Test-Path -LiteralPath $Archive -PathType Leaf)){throw "Non existe $Archive"}
+    $tar=Get-Command tar -CommandType Application -ErrorAction SilentlyContinue|Select-Object -First 1
+    if(-not $tar){throw 'Falta tar para ler o paquete do VS Code Server.'}
+    foreach($arch in 'x64','arm64'){
+        try{$text=(Invoke-DawNative $tar.Source @('-xzOf',$Archive,"vscode-server-linux-$arch/product.json")) -join "`n"}catch{continue}
+        $m=[regex]::Match($text,'"commit"\s*:\s*"([0-9a-f]{40})"')
+        if($m.Success){return [pscustomobject]@{Arch=$arch;Commit=$m.Groups[1].Value}}
+    }
+    throw 'O ficheiro non é un paquete do VS Code Server para Linux.'
+}
+function Add-DawPackageFile {
+    # No profesor: copia o VS Code Server ao paquete co nome que busca daw.ps1, o seu commit e o SHA256.
+    param([string]$Directory,[string]$Archive,[string]$ExpectedCommit)
+    $manifest=Assert-DawPackage $Directory
+    $info=Get-DawCodeServerInfo $Archive
+    if($ExpectedCommit -and $info.Commit -ne $ExpectedCommit.ToLowerInvariant()){throw "O paquete é do commit $($info.Commit), non de $ExpectedCommit."}
+    $file="vscode-server-linux-$($info.Arch).tar.gz"
+    $target=Join-Path $Directory $file
+    if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
+    $entry=[pscustomobject]@{File=$file;Commit=$info.Commit;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
+    $files=@(Get-DawPackageFiles $manifest|Where-Object {$_.File -ne $file})+$entry
+    $manifest|Add-Member NoteProperty Files $files -Force
     Write-DawState (Join-Path $Directory 'manifest.json') $manifest
     Assert-DawPackage $Directory|Out-Null
     return $entry

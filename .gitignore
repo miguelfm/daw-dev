@@ -4,4 +4,3 @@ www/*
 !www/info.php
 angular/*
 !angular/LEME.txt
-docker/angular/chave.pub
