@@ -426,7 +426,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 - **Imaxe:** `php:8.6-apache` en Debian 13. As extensións instálanse con
   [`install-php-extensions`](https://github.com/mlocati/docker-php-extension-installer), que limpa as dependencias de compilación.
-  Hai `bcmath`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e Xdebug `3.6.0alpha1`, ademais de Composer 2. Xdebug compílase desde a etiqueta da versión preliminar en GitHub.
+  Hai `bcmath`, `mbstring`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e Xdebug `3.6.0alpha1`, ademais de Composer 2. Xdebug compílase desde a etiqueta da versión preliminar en GitHub. `mbstring` instálase á parte porque a imaxe oficial de PHP 8.6 xa non a compila, como facía a 8.5.
 - **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
   e para o que se ve no módulo o comportamento é o mesmo: o DSN segue sendo `mysql:`, e `mysqli`, PDO e phpMyAdmin funcionan igual.
   A etiqueta `lts` colle a última versión de soporte longo. Cando saia unha LTS nova, `docker compose pull` actualiza a imaxe e MariaDB

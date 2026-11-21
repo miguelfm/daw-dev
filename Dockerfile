@@ -40,8 +40,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Extensións de PHP habituais no módulo + Xdebug + Composer
 # Xdebug 3.6.0alpha1 publica o código en GitHub.
+# mbstring (mb_strlen() e as demais funcións mb_) viña compilada na
+# imaxe oficial de PHP 8.5, pero a de PHP 8.6 xa non a trae.
 RUN install-php-extensions \
         bcmath \
+        mbstring \
         pdo_mysql \
         mysqli \
         intl \

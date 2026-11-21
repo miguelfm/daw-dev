@@ -35,6 +35,7 @@ jobs:
           docker compose exec -T web php --version
           test "$(docker compose exec -T web php -r 'echo PHP_MAJOR_VERSION, ".", PHP_MINOR_VERSION;')" = "$PHP_VERSION"
           docker compose exec -T web php -r 'exit(str_starts_with((string) phpversion("xdebug"), "3.6.") ? 0 : 1);'
+          docker compose exec -T web php -r 'exit(mb_strlen("ñá") === 2 ? 0 : 1);'
 
       - name: Logs se algo falla
         if: failure()
