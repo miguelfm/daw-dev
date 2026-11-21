@@ -120,7 +120,7 @@ do profesor. O usuario Linux é `alumno`, UID/GID 1000, con contrasinal bloquead
 Para administración Linux posterior, o propietario da distribución pode usar `wsl -d Debian-DAW -u root`.
 Isto non lle concede permisos de administrador de Windows.
 
-O modelo usa o Compose do proxecto, incluída a ruta pública histórica `ghcr.io/miguelfm/dwcs-php:8.5`,
+O modelo usa o Compose do proxecto, incluída a ruta pública histórica `ghcr.io/miguelfm/dwcs-php:8.6`,
 e conserva `/home/alumno/proxectos/daw-dev/www` e o volume `daw-dev_db_data` para os datos de cada conta.
 Configura `WEB_PORT=127.0.0.1:80`, `PMA_PORT=127.0.0.1:8081` e `DB_PORT=127.0.0.1:3306`.
 Non se abre o socket Docker pola rede. VS Code debe conectarse a WSL para usar Xdebug.
@@ -136,7 +136,7 @@ Se falla só a descarga das imaxes, `-Resume` continúa o mesmo modelo a partir 
 sen reinstalar Debian. Tamén podes aproveitar imaxes xa descargadas nunha Debian do profesor:
 
 ```powershell
-wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.5 mariadb:lts phpmyadmin:latest
+wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.6 mariadb:lts phpmyadmin:latest
 .\wsl\aula\preparar-modelo.ps1 -OutputDirectory C:\DAW-Paquete-2026 -Resume -DockerImagesArchive C:\DAW-images.tar
 ```
 
@@ -218,6 +218,46 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
   o contedor web se está en marcha; pecha unha sesión aberta de Dev Containers e as sesións de PHP.
 - Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian-DAW despois
   necesita outra vez `ActualizarProxecto`.
+
+#### Actualizar a PHP 8.6 nos equipos da aula
+
+Nas contas xa instaladas, `ActualizarProxecto` retira o valor `PHP_VERSION=8.5`
+que gardaba o modelo no `.env` e deixa unha copia en `.daw-backup`. A actualización
+comproba que a imaxe PHP 8.6 estea na Debian do alumno antes de cambiar o proxecto.
+Se falta, carga a imaxe rexistrada no paquete da aula ou descárgaa de GHCR cando
+haxa acceso á rede. O contedor web usa a nova imaxe no seguinte `daw-start`.
+
+O 21/11/2026 publicouse a imaxe `linux/amd64` con PHP `8.6.0` e Xdebug `3.6.0alpha1`
+como `ghcr.io/miguelfm/dwcs-php:8.6` e `ghcr.io/miguelfm/daw-dev:8.6`. Ambas as
+etiquetas apuntaban a `sha256:d65fabc7719ed91cd5d232c561cc87e91e717f24edf0b68f4d20fc95981fc64a`.
+Confirmouse a descarga pública. Nunha proba local en Linux coa configuración Apache
+da aula, Xdebug conectou con `XDEBUG_TRIGGER=1`. A primeira proba nun
+posto Windows/WSL2 da aula está pendente e poderá facerse a partir do luns 23/11/2026.
+[Execución de publicación](https://github.com/miguelfm/daw-dev/actions/runs/44934087884).
+
+Para preparar a copia sen Internet, descarga e exporta a imaxe desde o equipo do
+profesor en Linux ou WSL:
+
+```bash
+docker pull --platform linux/amd64 ghcr.io/miguelfm/dwcs-php:8.6
+docker image save ghcr.io/miguelfm/dwcs-php:8.6 | gzip > daw-dev-php86.tar.gz
+```
+
+En PowerShell, rexistra o arquivo no mesmo paquete de aula que xa se usa nos postos:
+
+```powershell
+$paquete = 'C:\DAW-Paquete-2026'
+.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
+.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\daw-dev-php86.tar.gz -Name ghcr.io/miguelfm/dwcs-php:8.6
+.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
+.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+```
+
+No posto de proba, a conta do alumno pode usar tamén **Activar DAW Dev** para aplicar
+a actualización. Despois de `daw-start`, comproba as versións con
+`wsl -d Debian-DAW --exec docker exec daw-dev-web php -v`. Abre un exercicio xa
+existente no navegador e comproba en VS Code que un punto de interrupción se
+activa ao engadir `?XDEBUG_TRIGGER=1` ao enderezo. Valida ese posto antes de actualizar os demais.
 
 ### Activación manual desde o menú Inicio
 
@@ -342,7 +382,7 @@ O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do
   ```powershell
   daw-code
   ```
-  Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). Grazas á imaxe precompilada local, a contorna ábrese de xeito instantáneo coas ferramentas (PHP 8.5, Composer, Xdebug, MariaDB client) listas para traballar.
+  Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). A imaxe precompilada inclúe PHP 8.6, Composer, Xdebug e o cliente MariaDB.
 - **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code estándar:
   ```powershell
   wsl -d Debian-DAW --cd /home/ad/www

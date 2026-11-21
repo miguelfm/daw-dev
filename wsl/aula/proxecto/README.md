@@ -21,7 +21,8 @@ permisos e as directivas coincidan cos enunciados:
 
 `daw-start` le `compose.override.yaml` porque está ao lado de `compose.yaml`. Os
 cambios aplícanse ao recrear o contedor web: no seguinte `daw-start`, ou co
-`-Reiniciar` da acción. A imaxe e o paquete da aula non cambian.
+`-Reiniciar` da acción. A [actualización a PHP 8.6](../../../docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula)
+precarga a imaxe nova e retira do `.env` a versión 8.5 que fixaba o modelo anterior.
 
 ## Regras da copia
 

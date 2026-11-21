@@ -46,8 +46,8 @@ DB_VOLUME_EXTERNAL=true
 
 A montaxe reutiliza ese volume. Ao ser externo, Compose non o crea se falta nin o elimina con `down -v`.
 Se tiñas `DWCS_IMAGE` no `.env`, cambia o nome da variable a `DAW_DEV_IMAGE`; a imaxe publicada
-segue dispoñible na ruta pública `ghcr.io/miguelfm/dwcs-php:8.5`, usada por defecto para
-permitir descargas sen login. O CI publica tamén `ghcr.io/miguelfm/daw-dev:8.5`; este paquete novo
+segue dispoñible na ruta pública `ghcr.io/miguelfm/dwcs-php`, usada por defecto para
+permitir descargas sen login. O CI publica tamén en `ghcr.io/miguelfm/daw-dev`; este paquete novo
 debe facerse público antes de usalo para instalacións sen autenticación. Se `WWW_DIR` era unha ruta absoluta dentro do cartafol
 antigo, actualízaa tamén. As rutas relativas como `./www` seguen funcionando.
 

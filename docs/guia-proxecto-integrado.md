@@ -5,7 +5,7 @@ por exemplo), DAW Dev xunta os tres contedores nunha mesma rede:
 
 | Contedor | Que ten | Os teus ficheiros |
 |---|---|---|
-| `daw-dev-web` | Apache, PHP 8.5, Composer | `www`, en `http://localhost` |
+| `daw-dev-web` | Apache, PHP 8.6, Composer | `www`, en `http://localhost` |
 | `daw-dev-db` | MariaDB | base de datos `dwcs` |
 | `daw-dev-angular` | Node.js 26, npm, Angular CLI 22 | `angular` e tamén `www`, en `~/www` |
 

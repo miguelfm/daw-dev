@@ -3,13 +3,13 @@
 [![CI](https://github.com/miguelfm/daw-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/miguelfm/daw-dev/actions/workflows/ci.yml)
 
 Contorna Docker de desenvolvemento para **Desenvolvemento de Aplicacións Web (DAW)**.
-Actualmente inclúe PHP e as ferramentas usadas no módulo **Desenvolvemento Web en Contorna Servidor (DWCS)**. Un só comando arranca PHP 8.5, servidor web, base de datos,
+Actualmente inclúe PHP e as ferramentas usadas no módulo **Desenvolvemento Web en Contorna Servidor (DWCS)**. Un só comando arranca PHP 8.6, servidor web, base de datos,
 depurador e ferramentas, igual en Linux e en Windows 11 (WSL2). Fóra de Docker non hai que instalar PHP,
 servidores nin bases de datos no equipo.
 
 | Servizo      | Que é                                                  | URL / acceso                     |
 |--------------|--------------------------------------------------------|----------------------------------|
-| `web`        | PHP 8.5 + Apache, Xdebug 3, Composer, cliente MariaDB, git | <http://localhost> |
+| `web`        | PHP 8.6 + Apache, Xdebug 3.6.0alpha1, Composer, cliente MariaDB, git | <http://localhost> |
 | `db`         | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
 | `phpmyadmin` | Xestión web da base de datos                           | <http://localhost:8081>          |
 | `angular`    | Node.js 26 + Angular CLI 22 (DWCC); só co perfil `angular` | <http://localhost:4200> con `ng serve --host 0.0.0.0`; Vite en `5173` |
@@ -61,6 +61,22 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 > **Linux:** a imaxe publicada usa o UID 1000, o do primeiro usuario de case todas as distribucións. Se o teu é
 > outro (comproba con `id`), pon `USER_UID` e `USER_GID` no `.env` e constrúe a túa con `docker compose build`.
 > Así os ficheiros que crea PHP son teus e non doutro usuario.
+
+### Actualizar a PHP 8.6
+
+Se no teu `.env` figura `PHP_VERSION=8.5`, comenta a liña para seguir a versión do
+proxecto. Desde a raíz, descarga a imaxe pública e actualiza o contedor web:
+
+```bash
+docker compose pull web
+docker compose up -d --no-deps web
+docker compose exec web php -v
+```
+
+`php -v` debe amosar PHP `8.6.0` e Xdebug `3.6.0alpha1` coa imaxe inicial. Se tes un
+UID/GID personalizado, usa `docker compose build --pull web` no canto de `pull`.
+O código e a base de datos consérvanse. Para os equipos da aula, segue o
+[procedemento de actualización e carga sen Internet](docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula).
 
 ## Comandos do día a día
 
@@ -345,7 +361,7 @@ Para alternar entre Programación con Java e DWCS con PHP, consulta a
 Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
 VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
-A directiva `build: !reset null` fai que se use de forma inmediata a imaxe precompilada `ghcr.io/miguelfm/dwcs-php:8.5` (descargándoa de GHCR se non está na caché local), evitando calquera intento de construción ou descarga desde Docker Hub.
+A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6` de GHCR.
 
 Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → Dev Containers: Rebuild Container** para aplicar tamén as montaxes de `.devcontainer/compose.devcontainer.yaml`. Reabrir a xanela pode reutilizar o contedor anterior sen `/workspace` nin os axustes de Xdebug. A reconstrución conserva os ficheiros montados e o volume da base de datos. Se aparece `unable to find user dev`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
 
@@ -408,9 +424,9 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 ## Notas para o profesorado
 
-- **Imaxe:** `php:8.5-apache` en Debian 13. As extensións instálanse con
+- **Imaxe:** `php:8.6-apache` en Debian 13. As extensións instálanse con
   [`install-php-extensions`](https://github.com/mlocati/docker-php-extension-installer), que limpa as dependencias de compilación.
-  Hai `bcmath`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e `xdebug`, ademais de Composer 2. Para engadir máis, pon o nome na lista do `Dockerfile`.
+  Hai `bcmath`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e Xdebug `3.6.0alpha1`, ademais de Composer 2. Xdebug compílase desde a etiqueta da versión preliminar en GitHub.
 - **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
   e para o que se ve no módulo o comportamento é o mesmo: o DSN segue sendo `mysql:`, e `mysqli`, PDO e phpMyAdmin funcionan igual.
   A etiqueta `lts` colle a última versión de soporte longo. Cando saia unha LTS nova, `docker compose pull` actualiza a imaxe e MariaDB
@@ -418,10 +434,10 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **Outra versión de PHP:** `PHP_VERSION=8.4` no `.env` e `docker compose up -d`. Como esa versión non está publicada,
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
 - **PHP execútase co usuario `dev`**, co UID do anfitrión vía `APACHE_RUN_USER`. Así se evitan os problemas de permisos con subidas de ficheiros, `vendor/`, logs…
-- **OPcache** está activo en PHP 8.5, pero con `revalidate_freq=0` e os cambios vense ao momento.
+- **OPcache** está activo con `revalidate_freq=0` para que os cambios se vexan ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/daw-dev:8.5` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.5`,
+  `ghcr.io/miguelfm/daw-dev:8.6` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.6`,
   e tamén a imaxe de Angular, `ghcr.io/miguelfm/dwcc-angular:22`.
   Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
   ata que o propietario cambia a súa visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
