@@ -33,7 +33,7 @@ Estado dos postos da Aula 31 ao rematar a intervención do 19/11/2026, problemas
   172.21.31.2 A31EQ02.iesrodolfoucha.es A31EQ02
   ```
   Con isto, a autenticación Kerberos e WinRM acadaron o 100% de éxito.
-- **Auditoría DNS da aula:** Auditáronse os outros 28 equipos encendidos; ningún outro posto da Aula 31 presentaba desfasamento entre o seu rexistro DNS e a IP activa.
+- **Auditoría DNS da aula:** Auditáronse os outros 28 equipos acendidos; ningún outro posto da Aula 31 presentaba desfasamento entre o seu rexistro DNS e a IP activa.
 
 ### 2. Porto WinRM pechado nos postos 05 e 29
 - **Problema:** Os postos `A31EQ05` e `A31EQ29` respondían a ICMP pero tiñan o porto 5985 pechado.
@@ -54,7 +54,7 @@ Estado dos postos da Aula 31 ao rematar a intervención do 19/11/2026, problemas
   2. Xenerouse o ficheiro de inventario `wsl/aula/a31-macs.csv` cos 30 postos (do 01 ao 16 e do 18 ao 30 coa súa MAC; o 17 sen MAC por estar en reparación).
   3. Importouse a configuración mediante `veyon-cli networkobjects import` e elimináronse os postos sobrantes (31 e 32).
   4. Saneáronse os 30 rexistros duplicados antigos sen MAC mediante `veyon-cli networkobjects remove <UID>`, deixando a aula cunha única entrada limpa por equipo.
-  5. Creouse o script `wsl/aula/encender-aula.ps1` que automatiza o acendido por difusión UDP e Veyon CLI con monitorización en tempo real do tempo de resposta.
+  5. Creouse o script `wsl/aula/acender-aula.ps1` que automatiza o acendido por difusión UDP e Veyon CLI con monitorización en tempo real do tempo de resposta.
 
 ### 5. Validación experimental do ciclo completo de enerxía en `A31EQ01`
 - **Apagado remoto:** Enviouse a orde por WinRM desde o equipo do profesor:
@@ -149,4 +149,4 @@ Unha vez que os alumnos desconecten dos 11 equipos ocupados (`02, 09, 11, 13, 15
    ```
 3. **Desactivar AutoInicio e engadir `iniciar-daw.cmd`:**
    Executar o script `scratch/despregar_iniciar_daw.ps1` adaptado para eses 11 postos.
-4. **Equipo 17:** Encender fisicamente e executar o fluxo completo.
+4. **Equipo 17:** Acender fisicamente e executar o fluxo completo.
