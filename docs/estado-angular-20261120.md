@@ -39,7 +39,7 @@ tomadas, en que estado queda o paquete da aula e que falta.
     `curl.exe`;
   - `wsl/aula/engadir-vscode-server.ps1` engádeo ao paquete (`Files` do
     manifesto), e `CopiarModelo` cópiao aos postos.
-- **Conta da aula como na VM de DWCS:**
+- **Conta da aula como na MV de DWCS:**
   - `ad`, co contrasinal `abc123..`, só se a conta aínda non ten un propio;
   - `ad` no grupo `sudo`;
   - ligazón `~/angular` e acceso directo «DAW - Proxectos (angular)».

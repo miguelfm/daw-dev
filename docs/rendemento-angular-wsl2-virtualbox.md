@@ -10,7 +10,7 @@ equipo, das montaxes e do estado das cachés.
 - Usa o mesmo equipo físico se é posible e executa un contorno de cada vez. Anota
   o disco físico, a RAM, as CPU dispoñibles, os límites de Docker e se hai outros
   servizos en marcha. As opcións `memory`, `processors` e `swap` de `.wslconfig`
-  afectan á VM de WSL2. [Configuración de WSL](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+  afectan á MV de WSL2. [Configuración de WSL](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 - Usa a mesma revisión de `daw-dev` e da aplicación, o mesmo `package-lock.json`, a
   mesma imaxe Docker e a mesma configuración Angular. Se VirtualBox executa Node
   directamente en Debian, rexistra ese caso por separado, xa que tamén cambia o modo
@@ -39,7 +39,7 @@ docker inspect daw-dev-angular --format 'imaxe={{.Image}} cpu={{.HostConfig.Nano
 Comproba a orixe da montaxe `/home/node/proxectos` e calquera montaxe específica
 para `node_modules`, e compara o identificador da imaxe nos dous contornos. Para
 illar o custo do sistema de ficheiros, compara primeiro
-WSL2 co proxecto en disco Linux (`/home/...`) coa VM co proxecto no seu disco Linux.
+WSL2 co proxecto en disco Linux (`/home/...`) coa MV co proxecto no seu disco Linux.
 Se no uso habitual traballades en `/mnt/c` ou `/mnt/d`, repite en WSL2 cunha copia baixo
 esa ruta e coa mesma imaxe, os mesmos recursos e o mesmo estado das cachés. En
 VirtualBox, anota se o proxecto está nun cartafol compartido co anfitrión. npm e
@@ -58,7 +58,7 @@ contedor**. A primeira vez pode instalar o servidor de VS Code en Debian.
 
 Para comparar só o arranque do mesmo servizo, executa o seguinte desde a raíz de
 `daw-dev` nos dous Debian. Prepara o servizo segundo a [guía de Angular](guia-angular-alumnado.md)
-en WSL. Na VM abonda co `compose.yaml` do repositorio, sen ficheiros adicionais. Parte coa mesma
+en WSL. Na MV abonda co `compose.yaml` do repositorio, sen ficheiros adicionais. Parte coa mesma
 imaxe xa dispoñible nos dous e, se mediches a carga co paquete da aula, apunta ese tempo
 separado da descarga por rede.
 

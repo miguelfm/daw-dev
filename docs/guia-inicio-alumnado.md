@@ -5,7 +5,7 @@ Windows sen permisos de administración. Está formado por unha distribución
 Linux de WSL2, `Debian-DAW`, con Docker, e tres contedores: `web` (Apache e
 PHP 8.6 con Xdebug 3.6), `db` (MariaDB) e `phpmyadmin`.
 
-O contedor `web` compórtase como a máquina virtual (VM) da aula: a raíz web
+O contedor `web` compórtase como a máquina virtual (MV) da aula: a raíz web
 é `/home/ad/html`, Apache executa PHP como `www-data` e as directivas de PHP
 son as mesmas.
 
@@ -23,7 +23,7 @@ as ordes `daw-*` estean dispoñibles.
 Repetir a activación é seguro: conserva os teus ficheiros e as bases de
 datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 
-O usuario de Linux é `ad`, co contrasinal `abc123..`, como na VM. Pídeo
+O usuario de Linux é `ad`, co contrasinal `abc123..`, como na MV. Pídeo
 `sudo` en Debian. Se o cambias con `passwd`, a activación consérvao.
 
 ## Onde están os ficheiros
@@ -34,7 +34,7 @@ O usuario de Linux é `ad`, co contrasinal `abc123..`, como na VM. Pídeo
   `http://localhost/u3/t1/index.php`.
 - **`angular`** garda os proxectos de Angular. O acceso directo «DAW -
   Proxectos (angular)» abre `\\wsl.localhost\Debian-DAW\home\ad\angular`.
-- **`datos`** garda, como na VM, os ficheiros que unha aplicación le ou
+- **`datos`** garda, como na MV, os ficheiros que unha aplicación le ou
   escribe fóra da raíz web. En Windows está en
   `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\datos`, e no
   contedor, en `/home/ad/datos`.
@@ -42,7 +42,7 @@ O usuario de Linux é `ad`, co contrasinal `abc123..`, como na VM. Pídeo
 Apache executa PHP como `www-data`, que non pode escribir en `www` nin en
 `datos`. Se unha tarefa necesita que PHP cree ficheiros nun directorio,
 executa as ordes de permisos do enunciado no terminal do contedor, onde as
-rutas son as mesmas ca na VM (véxase *Abrir un terminal de Linux*).
+rutas son as mesmas ca na MV (véxase *Abrir un terminal de Linux*).
 
 ## Ordes diarias
 
@@ -113,7 +113,7 @@ docker compose exec -u dev web bash
 
 Entras como `dev` en `/var/www/html`, que é o mesmo directorio ca
 `/home/ad/html`. Tes `php`, `composer`, `git`, o cliente `mariadb` e `nano`,
-coas mesmas directivas de PHP ca Apache, e as rutas da VM: por exemplo,
+coas mesmas directivas de PHP ca Apache, e as rutas da MV: por exemplo,
 `cd /home/ad/html/u3/t1`. Un `exit` sae do contedor e outro, de `Debian-DAW`.
 
 ::: warning
@@ -137,7 +137,7 @@ Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
 Ao abrir o proxecto no contedor arrancan tamén MariaDB e phpMyAdmin, e ao
 pechar VS Code páranse os contedores.
 
-Xdebug só depura as peticións que o piden, como na VM:
+Xdebug só depura as peticións que o piden, como na MV:
 
 1. Pon un punto de interrupción e preme `F5` coa configuración
    **Escoitar Xdebug**.

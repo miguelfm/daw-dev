@@ -52,7 +52,7 @@ A aplicación está en `http://localhost/proxecto/public/`.
 
 ### Permisos na aula
 
-Na aula, Apache executa PHP como `www-data`, igual ca na VM de DWCS, e
+Na aula, Apache executa PHP como `www-data`, igual ca na MV de DWCS, e
 Laravel ten que escribir en `storage` e `bootstrap/cache`. Sen este paso,
 a páxina dá o erro 500:
 
