@@ -442,10 +442,10 @@ Para acender os equipos dos alumnos ao inicio da xornada sen desprazarse posto p
 
 ```powershell
 # Acender todos os equipos da Aula 31:
-.\wsl\aula\encender-aula.ps1 -Aula 31
+.\wsl\aula\acender-aula.ps1 -Aula 31
 
 # Acender un posto específico (ex. equipo 01) con monitorización:
-.\wsl\aula\encender-aula.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
+.\wsl\aula\acender-aula.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
 ```
 
 Tamén pode empregarse a interface gráfica de **Veyon Master** seleccionando os equipos e premendo no botón **«Encender»**, grazas ao saneamento e rexistro previo das MACs en `BuiltinDirectory/NetworkObjects` (rexistradas no ficheiro de apoio `wsl/aula/a31-macs.csv`).
