@@ -108,7 +108,7 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 
 ### Consola do contedor web
 
-O contedor `daw-dev-web` debe estar en marcha e o teu usuario debe poder executar Docker.
+O contedor `daw-web` debe estar en marcha e o teu usuario debe poder executar Docker.
 Se está parado, arráncao con `daw-start` se tes os atallos configurados, ou con
 `docker compose up -d --no-deps web` desde o cartafol do proxecto.
 
@@ -121,7 +121,7 @@ docker compose exec -u dev web bash
 Tamén podes entrar **desde calquera cartafol**, usando o nome fixo do contedor:
 
 ```bash
-docker exec -it -u dev daw-dev-web bash
+docker exec -it -u dev daw-web bash
 ```
 
 [`docker exec`](https://docs.docker.com/reference/cli/docker/container/exec/) usa `-it` para abrir
@@ -135,7 +135,7 @@ ademais de `nano`, `vi` e `vis` para editar ficheiros.
 Para abrir a consola **como root**:
 
 ```bash
-docker exec -it -u root daw-dev-web bash
+docker exec -it -u root daw-web bash
 ```
 
 Desde o proxecto tamén podes usar `docker compose exec -u root web bash`.
@@ -148,7 +148,7 @@ conta pode executar Docker, conéctate a ese equipo e abre a consola do contedor
 
 ```bash
 ssh usuario@equipo
-docker exec -it -u dev daw-dev-web bash
+docker exec -it -u dev daw-web bash
 ```
 
 Substitúe `usuario@equipo` polo usuario e o nome ou IP do anfitrión. O segundo comando execútase
@@ -169,7 +169,7 @@ terminal para cargar os nomes actualizados.
 
 | Atallo | Que fai |
 |--------|---------|
-| `daw-start` | Arranca só `daw-dev-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
+| `daw-start` | Arranca só `daw-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
 | `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
 | `daw-start-db` | Arranca a base de datos e o web. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
@@ -349,7 +349,7 @@ Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → D
 - **En Windows 11 con WSL2 (sen Docker Desktop):**
   - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`, adaptado automaticamente a `Debian-DAW` na aula).
   - No despregamento de aula, as extensións de VS Code (`ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl`) instálanse automaticamente e disponse da orde `daw-code` para abrir o proxecto directamente e facer clic en *«Reopen in Container»*.
-  - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-dev-web`.
+  - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-web`.
   - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11) e a [guía de aula Windows 11](docs/aula-windows11.md).
 
 

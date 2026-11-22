@@ -32,8 +32,8 @@ Desde a raíz de `daw-dev`, en Debian, co contedor arrancado:
 
 ```bash
 findmnt -T "$(realpath angular)" -o TARGET,SOURCE,FSTYPE
-docker inspect daw-dev-angular --format '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}'
-docker inspect daw-dev-angular --format 'imaxe={{.Image}} cpu={{.HostConfig.NanoCpus}} memoria={{.HostConfig.Memory}}'
+docker inspect daw-angular --format '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}'
+docker inspect daw-angular --format 'imaxe={{.Image}} cpu={{.HostConfig.NanoCpus}} memoria={{.HostConfig.Memory}}'
 ```
 
 Comproba a orixe da montaxe `/home/node/proxectos` e calquera montaxe específica
@@ -114,7 +114,7 @@ compílase sobre a montaxe dos proxectos. [Caché de compilación de Docker](htt
 | --- | --- |
 | `npm ci` e a recompilación melloran ao pasar de `/mnt/c` a `/home` | Revisa as montaxes do código, `node_modules` e a caché de Angular. Para recompilacións, comproba tamén se está activo `--poll`. |
 | Só tarda a primeira instalación ou a carga da imaxe | Separa `docker load` de `docker pull` e compara `npm ci` con caché baleira e quente. Revisa o rexistro npm, DNS ou proxy se o atraso aparece nas descargas. |
-| A compilación segue lenta en disco Linux e coa caché quente | Durante a compilación, comproba `docker stats daw-dev-angular` e `vmstat 1` no Debian correspondente. Compara CPU, RAM, actividade de *swap* e espera de disco. |
+| A compilación segue lenta en disco Linux e coa caché quente | Durante a compilación, comproba `docker stats daw-angular` e `vmstat 1` no Debian correspondente. Compara CPU, RAM, actividade de *swap* e espera de disco. |
 | O contedor arranca axiña, pero tarda VS Code ou o navegador | Separa a instalación remota de VS Code do tempo de `ng serve`. Compara o acceso HTTP desde Debian co acceso desde Windows. Se usas Apache, mide tamén a espera de MariaDB. |
 
 Rexistra os tempos en segundos por fase. Usa unha fila por fase e estado da caché,

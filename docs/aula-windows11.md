@@ -259,7 +259,7 @@ $paquete = 'C:\DAW-Paquete-2026'
 
 No posto de proba, a conta do alumno pode usar tamén **Activar DAW Dev** para aplicar
 a actualización. Despois de `daw-start`, comproba as versións con
-`wsl -d Debian-DAW --exec docker exec daw-dev-web php -v`. Abre un exercicio xa
+`wsl -d Debian-DAW --exec docker exec daw-web php -v`. Abre un exercicio xa
 existente no navegador e comproba en VS Code que un punto de interrupción se
 activa ao engadir `?XDEBUG_TRIGGER=1` ao enderezo. Valida ese posto antes de actualizar os demais.
 

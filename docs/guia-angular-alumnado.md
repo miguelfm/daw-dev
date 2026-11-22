@@ -79,14 +79,14 @@ contedor, e o navegador de Windows non chega á aplicación.
 
 Outro día: `daw-start-angular`, conecta VS Code a `dwcc-angular`, abre
 `/home/node/proxectos/primeira-app` e executa `ng serve --host 0.0.0.0`.
-`daw-status` amosa se o contedor `daw-dev-angular` está en marcha.
+`daw-status` amosa se o contedor `daw-angular` está en marcha.
 
 ## Problemas habituais
 
 - **Windows non recoñece `daw-start-angular`.** Volve executar **Activar
   DAW Dev** e abre un terminal novo.
 - **VS Code non conecta con `dwcc-angular`.** Comproba con `daw-status`
-  que `daw-dev-angular` está `Up`; se non, executa `daw-start-angular`.
+  que `daw-angular` está `Up`; se non, executa `daw-start-angular`.
 - **O navegador non abre `http://localhost:4200/`.** `ng serve` ten que
   estar en marcha no terminal do contedor, con `--host 0.0.0.0`.
 - **O porto 2222 ou o 4200 xa está ocupado.** Se tamén usas o contedor

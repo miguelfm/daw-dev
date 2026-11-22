@@ -184,7 +184,7 @@ Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [RE
 Co contedor en marcha, executa **dentro de Debian**, desde calquera cartafol:
 
 ```bash
-docker exec -it -u dev daw-dev-web bash
+docker exec -it -u dev daw-web bash
 ```
 
 Entrarás como `dev` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
@@ -269,7 +269,7 @@ Completa a configuración nos primeiros cinco minutos. Se caduca, executa `docke
 consulta de novo os logs e recarga. Véxase a [guía oficial do token](https://docs.portainer.io/faqs/installing/setup-token).
 
 Selecciona o contorno local (ou engádeo como Docker Standalone mediante Socket, usando
-`/var/run/docker.sock`). En **Containers** deben aparecer `daw-dev-web`, `daw-dev-db` e `daw-dev-phpmyadmin`.
+`/var/run/docker.sock`). En **Containers** deben aparecer `daw-web`, `daw-db` e `daw-phpmyadmin`.
 Portainer ten acceso administrativo ao motor Docker a través dese socket.
 
 O proxecto DAW Dev segue xestionándose co seu `compose.yaml` e `docker compose up -d` desde o terminal.

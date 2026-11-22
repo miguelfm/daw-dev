@@ -140,7 +140,7 @@ aberto en Windows, fóra del, podes editar os ficheiros, pero non depurar.
 
 ## Problemas habituais
 
-- **`http://localhost/` non responde.** Mira `daw-status`: se `daw-dev-web`
+- **`http://localhost/` non responde.** Mira `daw-status`: se `daw-web`
   non está `Up`, executa `daw-start`.
 - **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
 - **Windows non recoñece `daw-start`.** Abre un terminal novo. Se segue sen

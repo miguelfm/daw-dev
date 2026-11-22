@@ -1,7 +1,7 @@
 # Migrar de dwcs-php a daw-dev
 
-O proxecto, o repositorio e os contedores pasan a usar o nome `daw-dev`. Os comandos usan
-o prefixo `daw-`, por exemplo `daw-start` e `daw-stop`.
+O proxecto e o repositorio pasan a usar o nome `daw-dev`. Os contedores e os comandos usan
+o prefixo `daw-`, por exemplo `daw-web`, `daw-start` e `daw-stop`.
 O código de `www/` e os datos de MariaDB consérvanse. A base de datos e o usuario de exemplo
 seguen chamándose `dwcs`; non é necesario renomealos para migrar a contorna.
 
@@ -62,7 +62,7 @@ daw-start-all
 ./scripts/comprobar.sh
 ```
 
-Os novos contedores chámanse `daw-dev-web`, `daw-dev-db` e `daw-dev-phpmyadmin`.
+Os novos contedores chámanse `daw-web`, `daw-db` e `daw-phpmyadmin`.
 As instalacións novas usan por defecto o volume `daw-dev_db_data`; as migradas poden conservar
 o nome antigo mediante as variables anteriores.
 

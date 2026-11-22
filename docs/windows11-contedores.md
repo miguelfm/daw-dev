@@ -59,7 +59,7 @@ de ter Debian aberto para localizar o script. Para a instalación completa nunha
 
 | Comando | Resultado |
 |---|---|
-| `daw-start` | Arranca só `daw-dev-web`, sen arrancar dependencias; agarda ata que estea preparado. |
+| `daw-start` | Arranca só `daw-web`, sen arrancar dependencias; agarda ata que estea preparado. |
 | `daw-start-db` | Arranca MariaDB e o web xuntos; agarda ata que estean preparados. |
 | `daw-start-all` | Arranca o web, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
 | `daw-stop` | Para os contedores DAW Dev. Conserva contedores e datos. |
@@ -101,20 +101,20 @@ Co contedor en marcha, podes abrir unha consola desde calquera cartafol de Power
 Como Docker está dentro de Debian, chama ao comando a través de WSL2:
 
 ```powershell
-wsl -d Debian -- docker exec -it -u dev daw-dev-web bash
+wsl -d Debian -- docker exec -it -u dev daw-web bash
 ```
 
 Entrarás como `dev` en `/var/www/html`. Se precisas unha consola como root:
 
 ```powershell
-wsl -d Debian -- docker exec -it -u root daw-dev-web bash
+wsl -d Debian -- docker exec -it -u root daw-web bash
 ```
 
 Escribe `exit` para pechar a consola; o contedor segue funcionando. Se está parado,
 arráncao antes con `daw-start`. Substitúe `Debian` se usas outra distribución de WSL.
 
 Se tes Docker dispoñible directamente en Windows, podes executar
-`docker exec -it -u dev daw-dev-web bash` sen o prefixo `wsl -d Debian --`.
+`docker exec -it -u dev daw-web bash` sen o prefixo `wsl -d Debian --`.
 O [README](../README.md#consola-do-contedor-web) explica tamén a alternativa con Docker Compose
 e o acceso desde outro equipo por SSH ao anfitrión.
 
@@ -124,7 +124,7 @@ Hai dúas formas de integrar o editor cos contedores Docker que se executan en W
 
 ### Opción A: Executar todo dentro do contedor (Dev Containers - Recomendada)
 
-Esta opción executa VS Code e todas as súas ferramentas directamente **dentro do contedor `daw-dev-web`**, sen precisar Docker Desktop nin instalar PHP en Windows:
+Esta opción executa VS Code e todas as súas ferramentas directamente **dentro do contedor `daw-web`**, sen precisar Docker Desktop nin instalar PHP en Windows:
 
 1. **Requisitos:**
    - Extensión **Dev Containers** (`ms-vscode-remote.remote-containers`) en VS Code.
@@ -153,13 +153,13 @@ Se prefires manter a interface e extensións de VS Code executándose localmente
   "terminal.integrated.profiles.windows": {
       "Contedor DAW Dev": {
           "path": "wsl.exe",
-          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "dev", "daw-dev-web", "bash"],
+          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "dev", "daw-web", "bash"],
           "icon": "server-process"
       }
   },
   "terminal.integrated.defaultProfile.windows": "Contedor DAW Dev"
   ```
-- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `dev` no contedor `daw-dev-web`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
+- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `dev` no contedor `daw-web`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
 
 ## Acceso aos servizos
 
