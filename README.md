@@ -160,6 +160,20 @@ o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-conte
 
 ### Atallos daw para a terminal
 
+En Linux podes instalar os lanzadores para Bash, Zsh e Fish desde a raíz do proxecto
+(require Bash, Python 3 e, para Angular, o cliente OpenSSH):
+
+```bash
+bash scripts/install-daw-commands.sh
+```
+
+Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o contedor web;
+`daw-shell` abre a súa terminal. `daw-start-angular` prepara a chave SSH persoal
+e a conexión `dwcc-angular`, e inicia só Angular. `daw-stop` para tamén Angular.
+`daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code; para traballar dentro
+do contedor, usa **Dev Containers: Reopen in Container**.
+Se xa tes un publicador persoal `daw-publicar`, o instalador consérvao.
+
 Estes atallos permiten controlar a contorna desde calquera cartafol. Escolle o bloque correspondente
 á túa shell e axusta a ruta ao lugar onde descargaches o proxecto. Os nomes usan guións en
 todos os sistemas, tamén en PowerShell e CMD. O prefixo anterior `dwcs-` pasa a ser `daw-`;
