@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 chmod +x "$SCRIPT_DIR/daw.sh" "$SCRIPT_DIR/preparar-angular.sh"
-for cmd in daw daw-start daw-start-all daw-start-db daw-start-angular daw-start-doc daw-code daw-stop daw-status daw-logs daw-shell daw-help; do
+for cmd in daw daw-start daw-start-all daw-start-db daw-start-angular daw-start-doc daw-code daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-shell daw-help; do
     target="$BIN_DIR/$cmd"
     if [[ -e "$target" && ! -L "$target" ]]; then
         printf 'Non se substitúe o ficheiro existente: %s\n' "$target" >&2
@@ -17,7 +17,7 @@ python3 - <<'CONFIG'
 from pathlib import Path
 import re
 home = Path.home()
-names = 'daw-start daw-start-all daw-start-db daw-start-angular daw-start-doc daw-code daw-stop daw-status daw-logs daw-shell daw-help'.split()
+names = 'daw-start daw-start-all daw-start-db daw-start-angular daw-start-doc daw-code daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-shell daw-help'.split()
 for name in ['.bashrc', '.zshrc']:
     p = home / name
     if not p.exists():

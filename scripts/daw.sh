@@ -39,7 +39,7 @@ migrar_env() {
 show_help() {
     cat << 'EOF'
 Uso: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc
-     daw-stop | daw-status | daw-logs | daw-shell | daw-help
+     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-help
 
 Comandos dispoñibles:
   daw-start      Arranca só daw-web: PHP 8.6, Apache, Xdebug e acceso con daw-shell.
@@ -51,6 +51,8 @@ Comandos dispoñibles:
                  DevDocs (5042) e Laravel (8088).
   daw-code       Abre o proxecto no perfil DWCS - PHP de VS Code.
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
+  daw-stop-all   Para todos os contedores: desenvolvemento, documentación e Angular.
+  daw-stop-doc   Para só os contedores da documentación sen conexión.
   daw-status     Mostra o estado e portos dos contedores da contorna.
   daw-logs       Mostra e segue as últimas liñas de logs dos contedores (Ctrl+C para saír).
   daw-shell      Abre unha terminal interactiva bash no contedor web co usuario ad.
@@ -58,7 +60,7 @@ Comandos dispoñibles:
   daw-help       Mostra esta axuda.
 
 Tamén podes invocar:
-  daw <start|start-all|start-db|start-angular|start-doc|code|stop|status|logs|shell|check|publicar|help> [argumentos...]
+  daw <start|start-all|start-db|start-angular|start-doc|code|stop|stop-all|stop-doc|status|logs|shell|check|publicar|help> [argumentos...]
 EOF
 }
 
@@ -73,6 +75,8 @@ case "$PROG_NAME" in
     daw-start-doc)      ACTION="start-doc" ;;
     daw-code)           ACTION="code" ;;
     daw-stop)           ACTION="stop" ;;
+    daw-stop-all)       ACTION="stop-all" ;;
+    daw-stop-doc)       ACTION="stop-doc" ;;
     daw-status)         ACTION="status" ;;
     daw-logs)           ACTION="logs" ;;
     daw-shell|daw-bash) ACTION="shell" ;;
@@ -105,8 +109,11 @@ case "$ACTION" in
     migrar-env)
         # Para daw.ps1, que arranca os contedores desde Windows
         ;;
-    stop)
+    stop|stop-all)
         docker compose "${COMPOSE_ARGS[@]}" --profile angular --profile doc stop "$@"
+        ;;
+    stop-doc)
+        docker compose "${COMPOSE_ARGS[@]}" --profile doc stop doc-php doc-devdocs doc-laravel "$@"
         ;;
     status)
         docker compose "${COMPOSE_ARGS[@]}" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" "$@"

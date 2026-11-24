@@ -189,6 +189,8 @@ terminal para cargar os nomes actualizados.
 | `daw-start-db` | Arranca a base de datos e o web. |
 | `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, DevDocs en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
+| `daw-stop-all` | Para todos os contedores: desenvolvemento, documentación sen conexión e Angular. |
+| `daw-stop-doc` | Para só os servizos da documentación sen conexión (`daw-doc`). |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
 | `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
@@ -213,9 +215,11 @@ alias daw-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up 
 alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
 alias daw-start-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
 alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
+alias daw-stop-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
+alias daw-stop-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-devdocs doc-laravel'
 alias daw-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
 alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
-alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-status daw-logs daw-help'
+alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -232,9 +236,11 @@ alias daw-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up 
 alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
 alias daw-start-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
 alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
+alias daw-stop-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
+alias daw-stop-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-devdocs doc-laravel'
 alias daw-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
 alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
-alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-status daw-logs daw-help'
+alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -253,9 +259,11 @@ function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompos
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
 function daw-start-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
 function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
+function daw-stop-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
+function daw-stop-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc stop doc-php doc-devdocs doc-laravel @args }
 function daw-status { wsl.exe -d Debian -- docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
 function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-stop-all', 'daw-stop-doc', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -283,9 +291,11 @@ function daw-start-db { docker compose -f $script:DawCompose up -d db web @args 
 function daw-start-all { docker compose -f $script:DawCompose up -d @args }
 function daw-start-doc { docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
 function daw-stop { docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
+function daw-stop-all { docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
+function daw-stop-doc { docker compose -f $script:DawCompose --profile doc stop doc-php doc-devdocs doc-laravel @args }
 function daw-status { docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
 function daw-logs { docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-stop-all', 'daw-stop-doc', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Unha vez cargado o bloque da túa shell, podes executar `daw-start`, `daw-start-all`, `daw-status`
