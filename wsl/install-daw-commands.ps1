@@ -32,6 +32,7 @@ $commands = [ordered]@{
     'daw-stop-doc' = 'stop-doc'
     'daw-status' = 'status'
     'daw-logs' = 'logs'
+    'daw-shell' = 'shell'
     'daw-code' = 'code'
     'daw-help' = 'help'
 }

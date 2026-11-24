@@ -51,7 +51,7 @@ function Initialize-AngularKey {
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
-        Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code | daw-help'
+        Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-code | daw-help'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
@@ -64,6 +64,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-stop-doc: stop only the offline documentation containers.'
         Write-Output '  daw-status: show names, status and ports, including stopped containers.'
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
+        Write-Output '  daw-shell: open an interactive bash shell in the web container as user ad.'
         Write-Output '  daw-code: open the project in VS Code (ready for Dev Containers).'
         exit 0
     }
@@ -98,6 +99,7 @@ switch ($Action.ToLowerInvariant()) {
     'stop-doc' { $composeArgs = @('--profile', 'doc', 'stop', 'doc-php', 'doc-devdocs', 'doc-laravel') }
     'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
     'logs' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'logs', '--tail', '100', '-f') }
+    'shell' { $composeArgs = @('exec', '-u', 'ad', 'web', 'bash') }
     default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
 }
 
