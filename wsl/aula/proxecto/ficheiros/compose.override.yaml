@@ -19,5 +19,8 @@ services:
       - |
         # www-data fóra do grupo dev, e o directorio de sesións de Debian
         gpasswd -d www-data dev >/dev/null 2>&1 || true
+        # A máscara de Apache na MV, a de Debian: o que crea www-data
+        # pódeno ler os demais, pero só el o cambia (a imaxe pon 002)
+        sed -i 's/^umask 002$$/umask 022/' /etc/apache2/envvars
         install -d -m 1733 /var/lib/php/sessions
         exec apache2-foreground
