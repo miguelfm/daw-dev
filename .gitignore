@@ -6,3 +6,5 @@ www/*
 angular/*
 !angular/LEME.txt
 docker/angular/chave.pub
+__pycache__/
+*.pyc
