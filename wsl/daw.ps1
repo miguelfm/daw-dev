@@ -18,7 +18,7 @@ $angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } els
 $docImages = [ordered]@{
     'ghcr.io/miguelfm/daw-doc-php:en' = 'daw-doc-php.tar.gz'
     'ghcr.io/miguelfm/daw-doc-devdocs:latest' = 'daw-doc-devdocs.tar.gz'
-    'ghcr.io/miguelfm/daw-doc-laravel:12.x' = 'daw-doc-laravel.tar.gz'
+    'ghcr.io/miguelfm/daw-doc-laravel:13.x' = 'daw-doc-laravel.tar.gz'
 }
 $docArchiveDirectory = if ($env:DAW_DOC_ARCHIVES) { $env:DAW_DOC_ARCHIVES } else { 'C:\ProgramData\DAW-Aula' }
 

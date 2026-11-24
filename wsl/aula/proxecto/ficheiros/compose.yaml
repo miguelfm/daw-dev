@@ -119,7 +119,7 @@ services:
   doc-laravel:
     profiles: ["doc"]
     container_name: daw-doc-laravel
-    image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-laravel:12.x
+    image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-laravel:13.x
     ports:
       - "${DOC_LARAVEL_PORT:-127.0.0.1:8088}:80"
 

@@ -321,7 +321,7 @@ na Debian está bloqueada e sen `sudo`. A guía do alumnado recólleo.
 ### Documentación sen conexión (daw-doc)
 
 O perfil `doc` de `compose.yaml` arranca o manual de PHP (<http://localhost:8080/>),
-DevDocs con HTML e CSS (<http://localhost:5042/>) e a documentación de Laravel 12.x
+DevDocs con HTML e CSS (<http://localhost:5042/>) e a documentación de Laravel 13.x
 (<http://localhost:8088/>), coas imaxes do proxecto
 [daw-doc](https://github.com/miguelfm/daw-doc). Serven para os exames e as clases sen
 Internet. As imaxes constrúense no profesor, en Linux ou WSL, e cada unha vai ao
@@ -338,7 +338,7 @@ $paquete = 'C:\DAW-Paquete-2026'
 foreach ($p in @(
     @('daw-doc-php.tar.gz', 'ghcr.io/miguelfm/daw-doc-php:en'),
     @('daw-doc-devdocs.tar.gz', 'ghcr.io/miguelfm/daw-doc-devdocs:latest'),
-    @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:12.x'))) {
+    @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'))) {
     .\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
 }
 .\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
