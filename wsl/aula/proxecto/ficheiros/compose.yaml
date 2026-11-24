@@ -53,9 +53,11 @@ services:
       - db_data:/var/lib/mysql
       # Os .sql desta carpeta execútanse SÓ a primeira vez (volume baleiro)
       - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/mariadb/saude.sh:/usr/local/bin/daw-saude.sh:ro
     healthcheck:
-      # Script incluído na imaxe oficial: só dá "ok" cando rematou a inicialización
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      # O healthcheck.sh da imaxe oficial; nun volume anterior ao 24-11-2026,
+      # cambia tamén o contrasinal por defecto anterior polo do .env
+      test: ["CMD", "sh", "/usr/local/bin/daw-saude.sh"]
       interval: 5s
       timeout: 5s
       retries: 30

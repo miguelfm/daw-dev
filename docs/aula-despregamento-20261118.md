@@ -52,7 +52,8 @@ Executado como o alumno conectado no posto A34EQ16, cunha tarefa sen xanela:
   200.
 - No contedor: `DocumentRoot /home/ad/html`, Apache como `www-data`, as
   directivas de `zz-aula.ini` e PHP 8.5.12. MariaDB 12.3.3 acepta
-  `dwcs`/`abc123.` e `root`/`abc123.`; as variables `DB_*` están definidas.
+  `dwcs` e `root` co contrasinal por defecto de entón, que desde o 24-11-2026 é
+  `abc123..`, o da MV; as variables `DB_*` están definidas.
 - `wsl -d Debian` entra como `ad`; `docker compose exec -u dev web`,
   como `dev`, con `php`, `composer`, `git`, `mariadb` e `nano`.
 

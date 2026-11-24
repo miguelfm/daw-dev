@@ -106,6 +106,11 @@ if ($ProjectPath.StartsWith('/')) {
 # systemd pode estar rematando o arranque de Docker cando WSL acaba de abrir.
 & wsl.exe @wslArgs --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
 if ($LASTEXITCODE -ne 0) { throw 'Docker did not start in WSL. Ask the teacher to check the Docker service.' }
+if ($Action.ToLowerInvariant().StartsWith('start')) {
+    # Un .env anterior ao 24-11-2026 leva o contrasinal por defecto anterior de MariaDB.
+    & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB password in .env.' }
+}
 if ($Action.ToLowerInvariant() -eq 'start-angular') {
     # A chave pública vai ao proxecto (docker/angular/chave.pub); os proxectos, a angular/.
     $pub = Initialize-AngularKey
@@ -142,11 +147,6 @@ if ($Action.ToLowerInvariant() -eq 'start-doc') {
 }
 & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose @composeArgs
 $composeExitCode = $LASTEXITCODE
-if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start-db', 'start-all')) {
-    # Os volumes de MariaDB anteriores ao 24-11-2026 teñen o contrasinal vello por defecto.
-    & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh sincronizar-bd
-    if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB passwords.' }
-}
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') {
     Write-Output 'Angular is running. In VS Code: F1 > Remote-SSH: Connect to Host... > dwcc-angular,'
     Write-Output 'open /home/node/proxectos and run: ng serve --host 0.0.0.0  (http://localhost:4200)'

@@ -267,6 +267,15 @@ try{
         foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc'"){Assert ($daw.Contains($s)) "Missing: $s"}
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-start-angular' = 'start-angular'"))
     }
+    Test 'the MariaDB health check changes the previous default password and reaches the classroom' {
+        foreach($f in 'compose.yaml','wsl/aula/proxecto/ficheiros/compose.yaml'){
+            $compose=[IO.File]::ReadAllText((Join-Path $script:Repo $f))
+            Assert ($compose.Contains('./docker/mariadb/saude.sh:/usr/local/bin/daw-saude.sh:ro') -and $compose.Contains('test: ["CMD", "sh", "/usr/local/bin/daw-saude.sh"]')) "Missing health check in $f"
+            Assert (-not $compose.Contains('abc123.}')) "Previous default password in $f"
+        }
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/daw-aula.psm1')).Contains("'docker/mariadb/saude.sh'"))
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1')).Contains('scripts/daw.sh migrar-env'))
+    }
     Test 'offline docs are a profiled service loaded from the package and started by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         foreach($s in 'profiles: ["doc"]','127.0.0.1:8080}:80','127.0.0.1:5042}:9292','127.0.0.1:8088}:80'){Assert ($compose.Contains($s)) "Missing: $s"}

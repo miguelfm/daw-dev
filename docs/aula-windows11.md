@@ -309,6 +309,15 @@ O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compr�
 conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
 Compose non para os servizos dun perfil.
 
+### Contrasinais desde o 24-11-2026
+
+MariaDB usa `abc123..`, o contrasinal da MV da aula, para `dwcs` e `root`. Nas contas
+xa activadas, `ActualizarProxecto` cambia no `.env` o contrasinal por defecto anterior,
+e MariaDB cambia o dos usuarios do volume a primeira vez que arranca co
+`compose.yaml` novo (`docker/mariadb/saude.sh`). As contas de Linux non teñen
+contrasinal, ao contrario ca na MV: `ad` usa `sudo` sen contrasinal no contedor, e
+na Debian está bloqueada e sen `sudo`. A guía do alumnado recólleo.
+
 ### Documentación sen conexión (daw-doc)
 
 O perfil `doc` de `compose.yaml` arranca o manual de PHP (<http://localhost:8080/>),

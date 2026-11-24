@@ -23,38 +23,17 @@ if [[ -f $PROJECT_DIR/compose.override.yaml ]]; then
     COMPOSE_ARGS+=(-f "$PROJECT_DIR/compose.override.yaml")
 fi
 
-# Ata o 24-11-2026 o contrasinal por defecto de MariaDB era abc123.; agora é
-# abc123.., o da MV da aula. MariaDB só le os do .env ao crear o volume: nun
-# volume anterior, root e o usuario da BD que conserven o valor vello cámbianse
-# aos do .env. Un contrasinal cambiado a man non se toca.
-sincronizar_bd() {
-    docker compose "${COMPOSE_ARGS[@]}" exec -T db sh -s <<'SQL'
-vello='abc123.'
-# Por TCP: polo socket, root entra sen contrasinal (unix_socket)
-entra() { MYSQL_PWD=$2 mariadb --protocol=TCP -h 127.0.0.1 -u "$1" -e 'SELECT 1' >/dev/null 2>&1; }
-literal() { printf "'%s'" "$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e "s/'/''/g")"; }
-if entra root "$MARIADB_ROOT_PASSWORD"; then
-    root=$MARIADB_ROOT_PASSWORD
-elif entra root "$vello"; then
-    root=$vello
-else
-    echo 'Aviso: o contrasinal de root de MariaDB non é o do .env; non se cambiou nada.' >&2
-    exit 0
-fi
-ordes=''
-if [ "$root" != "$MARIADB_ROOT_PASSWORD" ]; then
-    novo=$(literal "$MARIADB_ROOT_PASSWORD")
-    ordes="ALTER USER IF EXISTS 'root'@'%' IDENTIFIED BY $novo;"
-    ordes="$ordes ALTER USER IF EXISTS 'root'@'localhost' IDENTIFIED BY $novo;"
-fi
-if [ -n "$MARIADB_USER" ] && ! entra "$MARIADB_USER" "$MARIADB_PASSWORD" \
-        && entra "$MARIADB_USER" "$vello"; then
-    ordes="$ordes ALTER USER $(literal "$MARIADB_USER")@'%' IDENTIFIED BY $(literal "$MARIADB_PASSWORD");"
-fi
-[ -n "$ordes" ] || exit 0
-MYSQL_PWD=$root mariadb --protocol=TCP -h 127.0.0.1 --skip-ssl-verify-server-cert -u root -e "$ordes"
-echo 'Contrasinais de MariaDB cambiados aos do .env (abc123.. por defecto).'
-SQL
+# O contrasinal de MariaDB é abc123.., o da MV da aula. Un .env copiado do
+# .env.example antes do 24-11-2026 leva o contrasinal por defecto anterior:
+# cámbiase antes de arrancar, cunha copia do .env. Outros valores consérvanse.
+migrar_env() {
+    local env=$PROJECT_DIR/.env copia
+    [[ -f $env && ! -L $env ]] || return 0
+    grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env" || return 0
+    copia="$env.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
+    cp -p "$env" "$copia"
+    sed -i -E 's/^(DB_(ROOT_)?PASSWORD)=abc123\.$/\1=abc123../' "$env"
+    echo "O contrasinal de MariaDB do .env é agora abc123.. (copia do anterior en $copia)."
 }
 
 show_help() {
@@ -110,20 +89,21 @@ case "$PROG_NAME" in
 esac
 
 case "$ACTION" in
+    start|start-all|start-db|start-doc|start-angular|migrar-env) migrar_env ;;
+esac
+
+case "$ACTION" in
     start)
         docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps web "$@"
         ;;
     start-all)
         docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "$@"
-        sincronizar_bd
         ;;
     start-db)
         docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 db web "$@"
-        sincronizar_bd
         ;;
-    sincronizar-bd)
+    migrar-env)
         # Para daw.ps1, que arranca os contedores desde Windows
-        sincronizar_bd
         ;;
     stop)
         docker compose "${COMPOSE_ARGS[@]}" --profile angular --profile doc stop "$@"

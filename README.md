@@ -130,7 +130,7 @@ unha consola interactiva. [`docker compose exec`](https://docs.docker.com/refere
 xa activa ese modo por defecto e usa o nome do servizo (`web`).
 
 Dentro da shell estás en `/var/www/html`, o cartafol local definido por `WWW_DIR` (`www/` por defecto),
-co usuario `ad`, que ten `sudo` sen contrasinal. Tes `php`, `composer` e `mysql` dispoñibles,
+co usuario `ad`, que non ten contrasinal: `sudo` non o pide. Tes `php`, `composer` e `mysql` dispoñibles,
 ademais de `nano`, `vi` e `vis` para editar ficheiros.
 
 Para abrir a consola **como root**:
@@ -300,6 +300,15 @@ contorna orixinal para manter compatibles os exercicios e as bases de datos exis
 | Base de datos | Usuario | Contrasinal | Root       |
 |---------------|---------|-------------|------------|
 | `dwcs`        | `dwcs`  | `abc123..`  | `abc123..` |
+
+O contrasinal é o mesmo da MV da aula. Un `.env` ou un volume de MariaDB anteriores
+ao 24-11-2026 levan o contrasinal por defecto anterior: as ordes `daw-start` cambian
+o do `.env`, e MariaDB, ao arrancar, o dos usuarios `root` e `dwcs` que aínda o teñan
+(`docker/mariadb/saude.sh`). Un contrasinal posto a man non se toca.
+
+As contas de Linux non teñen contrasinal, ao contrario ca na MV da aula, onde `ad`
+ten `abc123..`: no contedor, `ad` usa `sudo` sen contrasinal; na Debian da aula,
+a conta `ad` está bloqueada e non ten `sudo`.
 
 - **Dende PHP o servidor é `db`, non `localhost`.** As credenciais están tamén en variables de contorna:
 

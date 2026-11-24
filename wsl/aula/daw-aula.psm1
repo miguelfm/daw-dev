@@ -135,17 +135,13 @@ fi
 if [[ -f $launcher ]] && grep -Fxq 'cd /home/alumno/proxectos/daw-dev' "$launcher"; then
     sed -i 's|^cd /home/alumno/proxectos/daw-dev$|cd /home/ad/proxectos/daw-dev|' "$launcher"
 fi
-# daw-start-db e daw-start-all, por daw.sh: tras arrancar, cambia o contrasinal vello de MariaDB.
-if [[ -f $launcher ]] && grep -Eq '^  daw-start-(all|db)\) exec docker compose up ' "$launcher"; then
-    sed -i -E 's/^  daw-start-(all|db)\) exec docker compose up .*$/  daw-start-\1) exec bash scripts\/daw.sh start-\1 "$@" ;;/' "$launcher"
-fi
 # Só se retira a ligazón exacta creada por unha instalación DAW anterior.
 if [[ -L /home/alumno && $(readlink /home/alumno) == /home/ad ]]; then
     rm -- /home/alumno
 fi
-# Ata o 24-11-2026 o modelo copiaba no .env o contrasinal abc123. de MariaDB; o
-# actual é abc123.., o da MV. Só se cambia o valor vello exacto; daw-start-db
-# cambia despois o do volume.
+# O contrasinal de MariaDB é abc123.., o da MV. Ata o 24-11-2026 o modelo
+# copiaba no .env o por defecto anterior: só se cambia ese valor exacto. O do
+# volume cámbiao a comprobación de saúde de MariaDB (docker/mariadb/saude.sh).
 env=/home/ad/proxectos/daw-dev/.env
 if [[ -f $env && ! -L $env ]] && grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env"; then
     cp -p "$env" "$env.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
@@ -434,7 +430,8 @@ function New-DawProjectStage {
     $sharedPaths=@(
         '.gitignore','.vscode/settings.json','Dockerfile','README.md',
         'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
-        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/comprobar.sh'
+        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/comprobar.sh',
+        'docker/mariadb/saude.sh'
     )
     foreach($relative in $sharedPaths){
         $file=Get-Item -LiteralPath (Join-Path $repo $relative) -Force

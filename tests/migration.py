@@ -59,14 +59,9 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
         return subprocess.run(['bash',str(script)],env=dict(os.environ,PATH=str(root/'bin')+os.pathsep+os.environ['PATH'],DAW_MIGRATION_FIXTURE=str(root)),capture_output=True,text=True)
     root,script,project=fixture('migrate')
     launcher=root/'usr/local/bin/daw-aula-command'
-    launcher.write_text(f'#!/usr/bin/env bash\ncd {root}/home/alumno/proxectos/daw-dev\ncase "${{0##*/}}" in\n'
-        '  daw-start-all) exec docker compose up -d --wait --wait-timeout 300 "$@" ;;\n'
-        '  daw-start-db) exec docker compose up -d --wait --wait-timeout 300 db web "$@" ;;\n'
-        '  daw-stop) exec docker compose stop "$@" ;;\nesac\n')
+    launcher.write_text(f'#!/usr/bin/env bash\ncd {root}/home/alumno/proxectos/daw-dev\n')
     r=run(root,script);assert r.returncode==0,r.stderr
-    lines=launcher.read_text().splitlines()
-    assert lines[1] == f'cd {root}/home/ad/proxectos/daw-dev'
-    assert lines[3:6]==['  daw-start-all) exec bash scripts/daw.sh start-all "$@" ;;','  daw-start-db) exec bash scripts/daw.sh start-db "$@" ;;','  daw-stop) exec docker compose stop "$@" ;;'],lines
+    assert launcher.read_text().splitlines()[-1] == f'cd {root}/home/ad/proxectos/daw-dev'
     config=(root/'etc/wsl.conf').read_text()
     assert 'default=ad\n' in config and 'default=preserve' in config and 'default=also-preserve' in config
     assert (root/'home/ad/proxectos/daw-dev/www/work.php').read_text()=='student work'

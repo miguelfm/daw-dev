@@ -117,6 +117,21 @@ Sen `-u ad` entras como `root`, e os ficheiros que crees así quedan de
 
 :::
 
+## Contrasinais
+
+Ningunha das contas de Linux de DAW Dev ten contrasinal. É un cambio
+respecto da MV da aula, onde `ad` ten o contrasinal `abc123..` e `sudo`
+pídeo:
+
+| Onde | Conta | Contrasinal |
+|---|---|---|
+| Contedor `web` | `ad` | Ningún: `sudo` non o pide |
+| Debian de WSL | `ad` | Ningún, e a conta non ten `sudo` |
+| MariaDB | `dwcs` e `root` | `abc123..`, o mesmo da MV |
+
+O traballo diario na Debian non precisa `sudo`, e as ordes `daw-*` non
+piden ningún contrasinal, nin de Linux nin de Windows.
+
 ## Traballar con Visual Studio Code
 
 Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
