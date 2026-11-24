@@ -42,7 +42,7 @@ Co perfil de DWCS seleccionado:
    se fose necesario. A carpeta local e a do contedor teñen identidades distintas.
 
 A [configuración do devcontainer](../.devcontainer/devcontainer.json) abre
-o servizo `web`, co usuario `dev` e o proxecto en `/workspace`.
+o servizo `web`, co usuario `ad` e o proxecto en `/workspace`.
 Declara **PHP Debug** (`xdebug.php-debug`) e **Intelephense**
 (`bmewburn.vscode-intelephense-client`) para a contorna do contedor.
 O código web segue en `www/`, servido tamén desde `/var/www/html`.

@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 <#
 .SYNOPSIS
-Copia na Debian-DAW do alumno os ficheiros do proxecto preparados polo profesor.
+Copia na Debian do alumno os ficheiros do proxecto preparados polo profesor.
 .DESCRIPTION
 Comproba os SHA256 do paquete e a orixe do modelo antes de cambiar nada. Non toca www,
 non borra ficheiros, non substitúe os de datos e garda unha copia dos que substitúe.
@@ -11,7 +11,7 @@ contedor web se está en marcha, o que pecha unha sesión aberta de Dev Containe
 [CmdletBinding()]
 param(
     [string]$PackageDirectory=$PSScriptRoot,
-    [ValidatePattern('^[a-zA-Z0-9._-]+$')][string]$Distribution='Debian-DAW',
+    [ValidatePattern('^[a-zA-Z0-9._-]+$')][string]$Distribution='Debian',
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
     [switch]$Reiniciar
@@ -37,7 +37,7 @@ try{
     $manifest=Assert-DawProjectOverlay $PackageDirectory
     $status.Revision=$manifest.Revision
     $installed=@(Get-DawDistributions)
-    if($Distribution -notin $installed){throw 'Esta conta aínda non ten Debian-DAW: executar antes InstalarUsuario.'}
+    if($Distribution -notin $installed){throw 'Esta conta aínda non ten Debian: executar antes InstalarUsuario.'}
     $originPath=Join-Path $stateDir ($Distribution+'.sha256')
     $origin=''
     if(Test-Path -LiteralPath $originPath){
@@ -46,6 +46,7 @@ try{
     }
     # Só o modelo DAW instalado por instalar-alumno.ps1, co seu rexistro de orixe.
     Assert-DawOrigin $Distribution $manifest.Marker $origin $originPath $false
+    Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawMigration))|Out-Null
     $result=Invoke-DawProjectOverlay $Distribution $PackageDirectory $manifest
     foreach($name in @('Created','Replaced','Unchanged','Kept','Backup')){$status[$name]=$result.$name}
     if($Reiniciar){$status.Restarted=Restart-DawProjectWeb $Distribution}

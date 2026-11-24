@@ -6,7 +6,7 @@
     "service": "web",
     "runServices": ["web", "db", "phpmyadmin"],
     "workspaceFolder": "/workspace",
-    "remoteUser": "dev",
+    "remoteUser": "ad",
     "shutdownAction": "stopCompose",
     "customizations": {
         "vscode": {

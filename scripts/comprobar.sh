@@ -66,12 +66,17 @@ if [ "$(grep -c '✔' <<< "$E")" -ge 10 ] && ! grep -q '✘' <<< "$E"; then ok "
 SERVIDOR=$(grep -o 'Servidor web.*' <<< "$E" | awk -F'\t' '{print $2}' | sed 's/^ *//')
 
 seccion "Ferramentas no contedor"
-if docker compose exec -T -u dev web mysql -udwcs -pabc123. dwcs -e 'SELECT nome FROM alumnado' 2>/dev/null | grep -q 'Uxía'; then
+if docker compose exec -T -u ad web sh -ec 'test "$HOME" = /home/ad && test -d /home/ad/html && ! id dev >/dev/null 2>&1 && ! getent group dev && test ! -e /home/dev && test ! -L /home/dev'; then
+    ok "conta ad e directorio /home/ad"
+else
+    fallo "a imaxe web non ten a conta ad limpa"
+fi
+if docker compose exec -T -u ad web mysql -udwcs -pabc123. dwcs -e 'SELECT nome FROM alumnado' 2>/dev/null | grep -q 'Uxía'; then
     ok "cliente mysql e acentos (utf8mb4)"
 else
     fallo "cliente mysql (credenciais cambiadas no .env? BD sen os datos de exemplo?)"
 fi
-if docker compose exec -T -u dev web bash -c 'd=$(mktemp -d) && cd "$d" && composer require -q psr/log >/dev/null 2>&1 && test -f vendor/autoload.php; r=$?; rm -rf "$d"; exit $r'; then
+if docker compose exec -T -u ad web bash -c 'd=$(mktemp -d) && cd "$d" && composer require -q psr/log >/dev/null 2>&1 && test -f vendor/autoload.php; r=$?; rm -rf "$d"; exit $r'; then
     ok "composer require"
 else
     fallo "composer require (sen acceso a packagist.org?)"

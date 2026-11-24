@@ -18,6 +18,11 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
+COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+if [[ -f $PROJECT_DIR/compose.override.yaml ]]; then
+    COMPOSE_ARGS+=(-f "$PROJECT_DIR/compose.override.yaml")
+fi
+
 show_help() {
     cat << 'EOF'
 Uso: daw-start | daw-start-all | daw-start-db | daw-start-angular
@@ -33,7 +38,7 @@ Comandos dispoñibles:
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
   daw-status     Mostra o estado e portos dos contedores da contorna.
   daw-logs       Mostra e segue as últimas liñas de logs dos contedores (Ctrl+C para saír).
-  daw-shell      Abre unha terminal interactiva bash no contedor web co usuario dev.
+  daw-shell      Abre unha terminal interactiva bash no contedor web co usuario ad.
   daw-publicar   Sincroniza o código e as solucións de DWCS cara a daw-dev/www/dwcs.
   daw-help       Mostra esta axuda.
 
@@ -69,33 +74,33 @@ esac
 
 case "$ACTION" in
     start)
-        docker compose -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 --no-deps web "$@"
+        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps web "$@"
         ;;
     start-all)
-        docker compose -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 "$@"
+        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "$@"
         ;;
     start-db)
-        docker compose -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 db web "$@"
+        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 db web "$@"
         ;;
     stop)
-        docker compose -f "$COMPOSE_FILE" --profile angular stop "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile angular stop "$@"
         ;;
     status)
-        docker compose -f "$COMPOSE_FILE" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" "$@"
+        docker compose "${COMPOSE_ARGS[@]}" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" "$@"
         ;;
     logs)
-        docker compose -f "$COMPOSE_FILE" --profile angular logs --tail 100 -f "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile angular logs --tail 100 -f "$@"
         ;;
     start-angular)
         "$SCRIPT_DIR/preparar-angular.sh"
-        docker compose -f "$COMPOSE_FILE" --profile angular up -d --wait --wait-timeout 300 angular "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile angular up -d --wait --wait-timeout 300 angular "$@"
         printf '%s\n' 'Angular dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
         ;;
     code)
         code --new-window --profile 'DWCS - PHP' "$PROJECT_DIR" "$@"
         ;;
     shell|bash)
-        docker compose -f "$COMPOSE_FILE" exec -u dev web bash "$@"
+        docker compose "${COMPOSE_ARGS[@]}" exec -u ad web bash "$@"
         ;;
     check|comprobar)
         "$PROJECT_DIR/scripts/comprobar.sh" "$@"

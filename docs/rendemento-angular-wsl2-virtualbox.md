@@ -24,7 +24,7 @@ equipo, das montaxes e do estado das cachés.
 
 Na instalación da aula, `daw-dev` está en `/home/ad/proxectos/daw-dev` e Compose
 monta `./angular` do Debian en `/home/node/proxectos` do contedor. A ruta
-`\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\angular` permite abrir eses
+`\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\angular` permite abrir eses
 mesmos ficheiros desde Windows. Se Compose se lanza apuntando a unha copia do
 repositorio en `C:`, a montaxe pode proceder de `/mnt/c`.
 

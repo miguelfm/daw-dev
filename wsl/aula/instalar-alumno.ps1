@@ -9,7 +9,7 @@ un modelo recoñecido que perdeu o rexistro de orixe. SenVSCode omite o IDE expr
 [CmdletBinding()]
 param(
     [string]$PackageDirectory=$PSScriptRoot,
-    [ValidatePattern('^[a-zA-Z0-9._-]+$')][string]$Distribution='Debian-DAW',
+    [ValidatePattern('^[a-zA-Z0-9._-]+$')][string]$Distribution='Debian',
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
     [switch]$AdoptarExistente,

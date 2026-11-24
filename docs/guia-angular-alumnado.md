@@ -1,7 +1,7 @@
 # Angular con DAW Dev (DWCC)
 
 O contedor `angular` de DAW Dev trae Node.js 26, npm e Angular CLI 22.
-Funciona dentro de `Debian-DAW`, sen Docker Desktop, e entras nel desde
+Funciona dentro de `Debian`, sen Docker Desktop, e entras nel desde
 Visual Studio Code por SSH, coa conexión `dwcc-angular`. Os proxectos
 gárdanse na túa conta deste computador e vense tamén desde o Explorador de
 Windows.
@@ -47,7 +47,7 @@ conectar e o enderezo da aplicación.
    usuario `node`.
 
 Desde Windows, os mesmos proxectos están no cartafol
-`\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\angular`.
+`\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\angular`.
 
 ## Crear e executar unha aplicación
 

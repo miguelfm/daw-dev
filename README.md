@@ -55,7 +55,7 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 > outro (comproba con `id`), pon `USER_UID` e `USER_GID` no `.env` e constrúe a túa con `docker compose build`.
 > Así os ficheiros que crea PHP son teus e non doutro usuario.
 
-### Actualizar a PHP 8.6
+### Actualizar a PHP 8.6 e á conta `ad`
 
 Se no teu `.env` figura `PHP_VERSION=8.5`, comenta a liña para seguir a versión do
 proxecto. Desde a raíz, descarga a imaxe pública e actualiza o contedor web:
@@ -63,12 +63,13 @@ proxecto. Desde a raíz, descarga a imaxe pública e actualiza o contedor web:
 ```bash
 docker compose pull web
 docker compose up -d --no-deps web
-docker compose exec web php -v
+docker compose exec -u ad web php -v
 ```
 
-`php -v` debe amosar PHP `8.6.0` e Xdebug `3.6.0alpha1` coa imaxe inicial. Se tes un
-UID/GID personalizado, usa `docker compose build --pull web` no canto de `pull`.
-O código e a base de datos consérvanse. Para os equipos da aula, segue o
+A etiqueta `8.6-ad` identifica a imaxe coa conta `ad`. Se traballas cos cambios locais
+ou tes un UID/GID personalizado, constrúe a imaxe con `docker compose build web`.
+Ao recrear `web`, consérvanse `www/` e o volume de MariaDB. Se gardaches traballo
+dentro do contedor fóra de `www/` ou de `/workspace`, cópiao ao proxecto antes de recrealo. Para os equipos da aula, segue o
 [procedemento de actualización e carga sen Internet](docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula).
 
 ## Comandos do día a día
@@ -96,11 +97,11 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Arrancar a contorna completa / parar    | `docker compose up -d` / `docker compose stop`  |
 | Ver estado, incluídos os parados        | `docker compose ps --all`                        |
 | Ver erros de PHP e do servidor web      | `docker compose logs -f web`                    |
-| Abrir unha shell no contedor            | `docker compose exec -u dev web bash`           |
-| Consola de MariaDB                      | `docker compose exec -u dev web mysql -u dwcs -p dwcs` |
+| Abrir unha shell no contedor            | `docker compose exec -u ad web bash`           |
+| Consola de MariaDB                      | `docker compose exec -u ad web mysql -u dwcs -p dwcs` |
 | Consola de MariaDB como root            | `docker compose exec db mariadb -u root -p`     |
-| Composer                                | `docker compose exec -u dev web composer require monolog/monolog` |
-| Executar un script PHP por consola      | `docker compose exec -u dev web php script.php` |
+| Composer                                | `docker compose exec -u ad web composer require monolog/monolog` |
+| Executar un script PHP por consola      | `docker compose exec -u ad web php script.php` |
 | Reconstruír tras cambiar Dockerfile/ini | `docker compose up -d --build`                  |
 | Actualizar as imaxes publicadas         | `docker compose pull && docker compose up -d`   |
 | Comprobar que todo funciona             | `./scripts/comprobar.sh`                        |
@@ -112,16 +113,16 @@ O contedor `daw-web` debe estar en marcha e o teu usuario debe poder executar Do
 Se está parado, arráncao con `daw-start` se tes os atallos configurados, ou con
 `docker compose up -d --no-deps web` desde o cartafol do proxecto.
 
-Desde ese cartafol, abre unha consola co usuario `dev`:
+Desde ese cartafol, abre unha consola co usuario `ad`:
 
 ```bash
-docker compose exec -u dev web bash
+docker compose exec -u ad web bash
 ```
 
 Tamén podes entrar **desde calquera cartafol**, usando o nome fixo do contedor:
 
 ```bash
-docker exec -it -u dev daw-web bash
+docker exec -it -u ad daw-web bash
 ```
 
 [`docker exec`](https://docs.docker.com/reference/cli/docker/container/exec/) usa `-it` para abrir
@@ -129,7 +130,7 @@ unha consola interactiva. [`docker compose exec`](https://docs.docker.com/refere
 xa activa ese modo por defecto e usa o nome do servizo (`web`).
 
 Dentro da shell estás en `/var/www/html`, o cartafol local definido por `WWW_DIR` (`www/` por defecto),
-co usuario `dev`, que ten `sudo` sen contrasinal. Tes `php`, `composer` e `mysql` dispoñibles,
+co usuario `ad`, que ten `sudo` sen contrasinal. Tes `php`, `composer` e `mysql` dispoñibles,
 ademais de `nano`, `vi` e `vis` para editar ficheiros.
 
 Para abrir a consola **como root**:
@@ -148,7 +149,7 @@ conta pode executar Docker, conéctate a ese equipo e abre a consola do contedor
 
 ```bash
 ssh usuario@equipo
-docker exec -it -u dev daw-web bash
+docker exec -it -u ad daw-web bash
 ```
 
 Substitúe `usuario@equipo` polo usuario e o nome ou IP do anfitrión. O segundo comando execútase
@@ -350,18 +351,18 @@ Para alternar entre Programación con Java e DWCS con PHP, consulta a
 [guía de perfís separados de VS Code](docs/vscode-perfis.md).
 
 Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
-VS Code execútase dentro do contedor `web` co usuario `dev`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
+VS Code execútase dentro do contedor `web` co usuario `ad`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
-A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6` de GHCR.
+A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6-ad` de GHCR.
 
-Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → Dev Containers: Rebuild Container** para aplicar tamén as montaxes de `.devcontainer/compose.devcontainer.yaml`. Reabrir a xanela pode reutilizar o contedor anterior sen `/workspace` nin os axustes de Xdebug. A reconstrución conserva os ficheiros montados e o volume da base de datos. Se aparece `unable to find user dev`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
+Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → Dev Containers: Rebuild Container** para aplicar tamén as montaxes de `.devcontainer/compose.devcontainer.yaml`. Reabrir a xanela pode reutilizar o contedor anterior sen `/workspace` nin os axustes de Xdebug. A reconstrución conserva os ficheiros montados e o volume da base de datos. Se aparece `unable to find user ad`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
 
 - **En Linux (Arch Linux, Debian, Ubuntu...):**
   - Funciona de forma 100% nativa comunicándose co socket `/var/run/docker.sock`, con montaxes nativas de disco e sen sobrecarga de virtualización.
-  - O usuario `dev` (`UID:GID 1000:1000`) coincide co primeiro usuario habitual do sistema anfitrión, polo que non hai conflitos de permisos nos ficheiros creados.
+  - O usuario `ad` (`UID:GID 1000:1000`) coincide co primeiro usuario habitual do sistema anfitrión, polo que non hai conflitos de permisos nos ficheiros creados.
   - O ficheiro `.vscode/settings.json` está preparado para ambos os sistemas: a opción de WSL ignórase en Linux automaticamente, e disponse do perfil de terminal `"Contedor DAW Dev"` se se usa VS Code no anfitrión sen Dev Containers.
 - **En Windows 11 con WSL2 (sen Docker Desktop):**
-  - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`, adaptado automaticamente a `Debian-DAW` na aula).
+  - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`).
   - No despregamento de aula, as extensións de VS Code (`ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl`) instálanse automaticamente e disponse da orde `daw-code` para abrir o proxecto directamente e facer clic en *«Reopen in Container»*.
   - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-web`.
   - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11) e a [guía de aula Windows 11](docs/aula-windows11.md).
@@ -422,11 +423,11 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
   actualiza os datos existentes ao arrancar. Para fixar unha versión concreta: `MARIADB_VERSION=12.3` no `.env`.
 - **Outra versión de PHP:** `PHP_VERSION=8.4` no `.env` e `docker compose up -d`. Como esa versión non está publicada,
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
-- **PHP execútase co usuario `dev`**, co UID do anfitrión vía `APACHE_RUN_USER`. Así se evitan os problemas de permisos con subidas de ficheiros, `vendor/`, logs…
+- **En Compose base, Apache executa PHP como `ad`**, co UID indicado ao construír a imaxe. Na aula, o override executa Apache como `www-data`, igual ca na MV.
 - **OPcache** está activo con `revalidate_freq=0` para que os cambios se vexan ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/daw-dev:8.6` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.6`.
+  `ghcr.io/miguelfm/daw-dev:8.6-ad` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.6-ad`.
   Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
   ata que o propietario cambia a súa visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
   de seguridade de PHP e Debian.

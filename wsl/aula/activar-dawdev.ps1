@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 <#
 .SYNOPSIS
-Activa DAW Dev na conta que o executa: importa Debian-DAW e copia os ficheiros do proxecto.
+Activa DAW Dev na conta que o executa: importa Debian e copia os ficheiros do proxecto.
 .DESCRIPTION
 Lánzao cada usuario desde o menú Inicio (DAW Dev > Activar DAW Dev), sen administración.
 Non deixa nada no inicio de sesión. Repetilo é seguro: conserva a distribución e os datos.

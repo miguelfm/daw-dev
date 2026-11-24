@@ -2,7 +2,7 @@
 
 DAW Dev é un contorno de desenvolvemento PHP que funciona na túa conta de
 Windows sen permisos de administración. Está formado por unha distribución
-Linux de WSL2, `Debian-DAW`, con Docker, e tres contedores: `web` (Apache e
+Linux de WSL2, `Debian`, con Docker, e tres contedores: `web` (Apache e
 PHP 8.6 con Xdebug 3.6), `db` (MariaDB) e `phpmyadmin`.
 
 O contedor `web` compórtase como a máquina virtual (MV) da aula: a raíz web
@@ -26,12 +26,12 @@ datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 ## Onde están os ficheiros
 
 - **`www`** é a raíz web. O acceso directo «DAW - Proxectos (www)» do
-  Escritorio abre o cartafol `\\wsl.localhost\Debian-DAW\home\ad\www`, que no
+  Escritorio abre o cartafol `\\wsl.localhost\Debian\home\ad\www`, que no
   contedor é `/home/ad/html`. O ficheiro `www/u3/t1/index.php` ábrese en
   `http://localhost/u3/t1/index.php`.
 - **`datos`** garda, como na MV, os ficheiros que unha aplicación le ou
   escribe fóra da raíz web. En Windows está en
-  `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\datos`, e no
+  `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\datos`, e no
   contedor, en `/home/ad/datos`.
 
 Apache executa PHP como `www-data`, que non pode escribir en `www` nin en
@@ -87,29 +87,28 @@ e `getenv('DB_PASSWORD')`.
 
 ## Abrir un terminal de Linux
 
-Desde PowerShell, esta orde abre un terminal en `Debian-DAW`:
+Desde PowerShell, esta orde abre un terminal en `Debian`:
 
 ```powershell
-wsl -d Debian-DAW --cd ~
+wsl -d Debian --cd ~
 ```
 
 Entras como `ad` no teu directorio persoal, onde está `www`. Aquí hai Docker
-e o proxecto (`~/proxectos/daw-dev`), pero non PHP: PHP está no contedor.
+e o proxecto (`~/proxectos/daw-dev`). PHP e Composer están no contedor.
 Para entrar no contedor `web`, que ten que estar arrancado:
 
 ```bash
 cd ~/proxectos/daw-dev
-docker compose exec -u dev web bash
+docker compose exec -u ad web bash
 ```
 
-Entras como `dev` en `/var/www/html`, que é o mesmo directorio ca
-`/home/ad/html`. Tes `php`, `composer`, `git`, o cliente `mariadb` e `nano`,
+Entras como `ad` en `/home/ad/html`, a raíz web da aula. Tes `php`, `composer`, `git`, o cliente `mariadb` e `nano`,
 coas mesmas directivas de PHP ca Apache, e as rutas da MV: por exemplo,
-`cd /home/ad/html/u3/t1`. Un `exit` sae do contedor e outro, de `Debian-DAW`.
+`cd /home/ad/html/u3/t1`. Un `exit` sae do contedor e outro, de `Debian`.
 
 ::: warning
 
-Sen `-u dev` entras como `root`, e os ficheiros que crees así quedan de
+Sen `-u ad` entras como `root`, e os ficheiros que crees así quedan de
 `root`: desde Windows non poderás gardar cambios neles.
 
 :::
@@ -119,11 +118,11 @@ Sen `-u dev` entras como `root`, e os ficheiros que crees así quedan de
 Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
 
 1. Executa `daw-code`. VS Code abre o proxecto,
-   `\\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev`.
+   `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev`.
 2. Preme `F1` e escolle **Dev Containers: Reopen in Container**.
 3. VS Code ábrese de novo dentro do contedor `web`, co proxecto en
    `/workspace` e o código en `/workspace/www`. O terminal integrado
-   (`Ctrl+ñ`) xa é o do contedor, como `dev`.
+   (`Ctrl+ñ`) xa é o do contedor, como `ad`.
 
 Ao abrir o proxecto no contedor arrancan tamén MariaDB e phpMyAdmin, e ao
 pechar VS Code páranse os contedores.
@@ -135,24 +134,22 @@ Xdebug só depura as peticións que o piden, como na MV:
 2. Abre a páxina engadindo `?XDEBUG_TRIGGER=1` ao enderezo, por exemplo
    `http://localhost/u3/t1/index.php?XDEBUG_TRIGGER=1`.
 
-Xdebug conecta con VS Code cando este está dentro do contedor. Con VS Code
-aberto en Windows, fóra del, podes editar os ficheiros, pero non depurar.
+Para depurar, abre VS Code dentro do contedor.
 
 ## Problemas habituais
 
 - **`http://localhost/` non responde.** Mira `daw-status`: se `daw-web`
   non está `Up`, executa `daw-start`.
 - **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
-- **Windows non recoñece `daw-start`.** Abre un terminal novo. Se segue sen
-  recoñecela, ou se estás noutro computador, o contorno aínda non está
-  activado nesa conta: escolle **DAW Dev → Activar DAW Dev** no menú Inicio.
-- **A activación remata cun erro.** Avisa ao docente: o rexistro está en
-  `%LOCALAPPDATA%\DAW-Aula`. Non a repitas mentres a xanela segue aberta.
+- **Windows non recoñece `daw-start`.** Abre un terminal novo. Se persiste,
+  escolle **DAW Dev → Activar DAW Dev** no menú Inicio.
+- **A activación remata cun erro.** Avisa ao docente. O rexistro está en
+  `%LOCALAPPDATA%\DAW-Aula`.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
-- **Windows non deixa gardar un ficheiro.** Creouse como `root` dentro do
-  contedor. Desde `~/proxectos/daw-dev`, devólvello a `dev`:
+- **Windows non deixa gardar un ficheiro creado como `root`.** Desde
+  `~/proxectos/daw-dev`, devólvello a `ad` con esta orde.
 
   ```bash
-  docker compose exec web chown dev:dev /home/ad/html/u3/t1/f.php
+  docker compose exec web chown ad:ad /home/ad/html/u3/t1/f.php
   ```

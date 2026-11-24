@@ -1,4 +1,5 @@
 .env
+.daw-backup/
 www/*
 !www/index.php
 !www/info.php

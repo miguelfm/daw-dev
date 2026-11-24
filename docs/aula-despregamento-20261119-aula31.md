@@ -18,7 +18,7 @@ Estado dos postos da Aula 31 ao rematar a intervención do 19/11/2026, problemas
 
 | Postos | Estado WinRM | Características Windows | WSL 3.0.5.0 | Paquete en `C:\ProgramData\DAW-Aula` | AutoInicio (`HKLM`) | Lanzador manual |
 |---|---|---|---|---|---|---|
-| **01, 03, 04, 05, 06, 07, 08, 10, 12, 14, 16, 20, 22, 24, 25, 27, 29, 30** (18 postos libres) | Activo (Kerberos) | `VirtualMachinePlatform`: Enabled<br>`Microsoft-Windows-Subsystem-Linux`: Enabled (Reiniciados) | Instalado e verificado | Modelo `debian-daw.tar.gz` (SetupRevision: 2) | Desactivado (Retirado `DAWAula`) | `iniciar-daw.cmd` e Menú Inicio (`DAW Dev`) dispoñibles |
+| **01, 03, 04, 05, 06, 07, 08, 10, 12, 14, 16, 20, 22, 24, 25, 27, 29, 30** (18 postos libres) | Activo (Kerberos) | `VirtualMachinePlatform`: Enabled<br>`Microsoft-Windows-Subsystem-Linux`: Enabled (Reiniciados) | Instalado e verificado | Modelo `debian.tar.gz` (SetupRevision: 2) | Desactivado (Retirado `DAWAula`) | `iniciar-daw.cmd` e Menú Inicio (`DAW Dev`) dispoñibles |
 | **02, 09, 11, 13, 15, 18, 19, 21, 23, 26, 28** (11 postos con sesión activa) | Activo (Kerberos) | `VirtualMachinePlatform`: Enabled<br>`Microsoft-Windows-Subsystem-Linux`: Enabled (`-NoRestart`, require reinicio) | Pendente de instalar MSI | Pendente de copia | Non configurado | Pendente |
 | **17** | Apagado | Pendente | Pendente | Pendente | Non configurado | Pendente |
 
@@ -116,7 +116,7 @@ A Aula 31 é utilizada por diversos cursos e materias que non precisan nin deben
    - Instalouse en `C:\ProgramData\DAW-Aula\iniciar-daw.cmd` (con permisos de lectura e execución para o grupo `Users`).
    - Creouse o acceso directo en `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DAW Dev\Inicializar DAW Dev.lnk`.
    - Ao executarse sen elevación polo alumno conectado:
-     1. Importa a imaxe `debian-daw.tar.gz` en `%LOCALAPPDATA%\wsl\Debian-DAW`.
+     1. Importa a imaxe `debian.tar.gz` en `%LOCALAPPDATA%\wsl\Debian`.
      2. Configura o usuario Linux `ad` (contrasinal `abc123..`).
      3. Arranca o servizo Docker e valida `docker info` e o Compose do proxecto.
      4. Xera os scripts CLI de control (`daw-start`, `daw-stop`, etc.) no seu `%USERPROFILE%\.local\bin`.

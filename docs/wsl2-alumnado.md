@@ -8,7 +8,7 @@ e VS Code seguen sendo os de Windows.
 
 ## Se a aula usa a instalación automática
 
-Co [modelo de aula](aula-windows11.md), a primeira vez que inicias sesión prepárase **Debian-DAW** na túa
+Co [modelo de aula](aula-windows11.md), a primeira vez que inicias sesión prepárase **Debian** na túa
 conta. Agarda a que remate e abre unha terminal nova de PowerShell ou CMD:
 
 ```powershell
@@ -19,7 +19,7 @@ daw-stop        # Conserva os teus ficheiros e a BD
 daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
 ```
 
-O código está directamente en `\\wsl.localhost\Debian-DAW\home\ad\www` (tamén accesible a través do acceso directo do teu Escritorio de Windows: **«DAW - Proxectos (www)»**, ou pola ruta histórica `\\wsl.localhost\Debian-DAW\home\alumno\proxectos\daw-dev\www`).
+O código está directamente en `\\wsl.localhost\Debian\home\ad\www` (tamén accesible a través do acceso directo do teu Escritorio de Windows: **«DAW - Proxectos (www)»**).
 
 Para traballar con **VS Code e Dev Containers** (recomendado):
 Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto e detectará a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
@@ -27,7 +27,7 @@ Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto
 Para entrar no proxecto directamente en Debian:
 
 ```powershell
-wsl -d Debian-DAW --cd /home/ad/www
+wsl -d Debian --cd /home/ad/www
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
@@ -184,10 +184,10 @@ Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [RE
 Co contedor en marcha, executa **dentro de Debian**, desde calquera cartafol:
 
 ```bash
-docker exec -it -u dev daw-web bash
+docker exec -it -u ad daw-web bash
 ```
 
-Entrarás como `dev` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
+Entrarás como `ad` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
 Consulta o [README](../README.md#consola-do-contedor-web) para o acceso como root, a alternativa con
 Docker Compose e o acceso remoto por SSH ao equipo anfitrión. Para entrar directamente desde
 PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola-do-contedor-web).

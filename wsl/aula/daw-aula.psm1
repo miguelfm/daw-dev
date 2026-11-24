@@ -70,7 +70,11 @@ old=no
 if id alumno >/dev/null 2>&1; then
     old=yes
     ! id ad >/dev/null 2>&1 || { echo 'Existen alumno e ad; revisar sen modificar.' >&2; exit 1; }
-    ! pgrep -u alumno >/dev/null || { echo 'O usuario alumno ten procesos activos. Gardar traballos e pechalos antes de migrar.' >&2; exit 1; }
+    if pgrep -u alumno >/dev/null; then
+        echo 'O usuario alumno ten procesos activos. Gardar traballos e pechalos antes de migrar.' >&2; exit 1
+    elif [[ $? -ne 1 ]]; then
+        echo 'Non se puido comprobar se hai procesos activos; conservouse a conta.' >&2; exit 1
+    fi
     [[ ! -e /home/ad && ! -L /home/ad ]] || { echo '/home/ad xa existe; conservouse.' >&2; exit 1; }
     ! getent group ad >/dev/null || { echo 'O grupo ad xa existe; revisar.' >&2; exit 1; }
     home=/home/alumno
@@ -96,6 +100,10 @@ if [[ -f /etc/wsl.conf ]]; then
     sections=$(grep -cE '^[[:space:]]*\[user\][[:space:]]*([#;].*)?$' /etc/wsl.conf || true)
     [[ $sections -le 1 ]] || { echo 'wsl.conf ten varias seccións user; conservouse.' >&2; exit 1; }
 fi
+launcher=/usr/local/bin/daw-aula-command
+if [[ -e $launcher || -L $launcher ]]; then
+    [[ -f $launcher && ! -L $launcher ]] || { echo 'Lanzador DAW non recoñecido; conservouse.' >&2; exit 1; }
+fi
 if [[ $old == yes ]]; then
     usermod -l ad -d /home/ad -m alumno
 fi
@@ -103,7 +111,6 @@ if getent group alumno >/dev/null && ! getent group ad >/dev/null; then
     [[ $(getent group alumno | cut -d: -f3) == $(id -g ad) ]] || { echo 'Grupo alumno non recoñecido.' >&2; exit 1; }
     groupmod -n ad alumno
 fi
-[[ -L /home/alumno ]] || ln -s /home/ad /home/alumno
 [[ -L /home/ad/www ]] || ln -s /home/ad/proxectos/daw-dev/www /home/ad/www
 # Preserve every other section/key/comment; change only [user].default.
 temp=$(mktemp /etc/.wsl.conf.daw-XXXXXX)
@@ -124,6 +131,13 @@ if ! cmp -s "$temp" /etc/wsl.conf; then
     cp -p /etc/wsl.conf "/etc/wsl.conf.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
     chmod --reference=/etc/wsl.conf "$temp"
     mv "$temp" /etc/wsl.conf
+fi
+if [[ -f $launcher ]] && grep -Fxq 'cd /home/alumno/proxectos/daw-dev' "$launcher"; then
+    sed -i 's|^cd /home/alumno/proxectos/daw-dev$|cd /home/ad/proxectos/daw-dev|' "$launcher"
+fi
+# Só se retira a ligazón exacta creada por unha instalación DAW anterior.
+if [[ -L /home/alumno && $(readlink /home/alumno) == /home/ad ]]; then
+    rm -- /home/alumno
 fi
 '@
     $text.Replace("`r",'')
@@ -307,7 +321,7 @@ function Set-DawStartMenuShortcut {
 function Assert-DawPackage {
     param([string]$Directory)
     $manifest=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
-    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $manifest.LinuxUser -notin @('alumno','ad')){throw 'Manifesto de modelo non recoñecido.'}
+    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian.tar','debian.tar.gz','debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $manifest.LinuxUser -notin @('alumno','ad')){throw 'Manifesto de modelo non recoñecido.'}
     if(-not $manifest.PSObject.Properties['SetupRevision'] -or $manifest.SetupRevision -ne 2 -or -not $manifest.PSObject.Properties['ScriptSha256']){throw 'Paquete antigo: actualizar os scripts con actualizar-paquete.ps1, conservando a imaxe.'}
     foreach($name in Get-DawSetupFiles){
         $property=$manifest.ScriptSha256.PSObject.Properties[$name]
@@ -347,7 +361,7 @@ function Update-DawPackage {
     param([string]$Directory,[string]$Source=$PSScriptRoot)
     $path=Join-Path $Directory 'manifest.json'
     $manifest=Get-Content -LiteralPath $path -Raw -Encoding UTF8|ConvertFrom-Json
-    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto non recoñecido; non se actualizaron scripts.'}
+    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian.tar','debian.tar.gz','debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto non recoñecido; non se actualizaron scripts.'}
     if((Get-FileHash -LiteralPath (Join-Path $Directory $manifest.Image) -Algorithm SHA256).Hash -ne $manifest.Sha256){throw 'A imaxe non coincide; non se actualizaron scripts.'}
     $sources=@{}
     foreach($name in Get-DawSetupFiles){
@@ -398,14 +412,29 @@ function New-DawProjectStage {
     New-Item -ItemType Directory -Path $Destination|Out-Null
     $root=(Get-Item -LiteralPath $files).FullName.TrimEnd('\','/')
     $entries=@()
-    foreach($file in @(Get-ChildItem -LiteralPath $files -Recurse -Force|Sort-Object FullName)){
+    $sources=@{}
+    foreach($file in @(Get-ChildItem -LiteralPath $files -Recurse -Force)){
         if($file.Attributes -band [IO.FileAttributes]::ReparsePoint){throw "Ligazón no proxecto: $($file.FullName)"}
         if($file.PSIsContainer){continue}
-        $relative=$file.FullName.Substring($root.Length+1).Replace('\','/')
+        $sources.Add($file.FullName.Substring($root.Length+1).Replace('\','/'),$file)
+    }
+    $repo=Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($Source)))
+    $sharedPaths=@(
+        '.gitignore','.vscode/settings.json','Dockerfile','README.md',
+        'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
+        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/comprobar.sh'
+    )
+    foreach($relative in $sharedPaths){
+        $file=Get-Item -LiteralPath (Join-Path $repo $relative) -Force
+        if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw "Ficheiro non válido: $relative"}
+        $sources.Add($relative,$file)
+    }
+    foreach($relative in @($sources.Keys|Sort-Object)){
+        $file=$sources[$relative]
         if(-not(Test-DawProjectPath $relative)){throw "Ruta non permitida no proxecto: $relative"}
         $target=Join-Path (Join-Path $Destination 'ficheiros') ($relative.Replace('/',[IO.Path]::DirectorySeparatorChar))
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null
-        Copy-Item -LiteralPath $file.FullName -Destination $target
+        Copy-Item -LiteralPath $file.FullName -Destination $target -Force
         # Data folders only receive new files; the student's own files are never replaced.
         $mode=if($relative -match '^datos/'){'CreateOnly'}else{'Replace'}
         $entries+=[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash;Mode=$mode}
@@ -509,6 +538,8 @@ if [[ $1 == /* ]]; then src=$1; else src=$(wslpath -u "$1"); fi
 archive=$2 archive_sha=$3
 shift 3
 project=$PWD
+distro=${WSL_DISTRO_NAME:-Debian}
+[[ $distro =~ ^[A-Za-z0-9._-]+$ ]] || fail 'Nome da distribución WSL non válido.'
 [[ -f $project/compose.yaml && ! -L $project/compose.yaml ]] || fail 'Falta o proxecto esperado.'
 [[ -d $src && ! -L $src ]] || fail 'Falta o directorio dos ficheiros do proxecto.'
 digest() { sha256sum < "$1" | cut -d' ' -f1; }
@@ -557,7 +588,7 @@ if [[ -n $override ]]; then
 fi
 images=$(docker compose "${compose_args[@]}" config --images) \
     || fail 'Compose non acepta os ficheiros novos; non se cambiou nada.'
-web_image=ghcr.io/miguelfm/dwcs-php:8.6
+web_image=ghcr.io/miguelfm/dwcs-php:8.6-ad
 if grep -Fxq "$web_image" <<< "$images"; then
     for ((i=0; i<60; i++)); do docker info >/dev/null 2>&1 && break; sleep 1; done
     docker info >/dev/null 2>&1 || fail 'Docker non responde.'
@@ -569,17 +600,30 @@ if grep -Fxq "$web_image" <<< "$images"; then
             docker image load --input "$archive" >&2 || fail 'Non se puido cargar a imaxe de PHP.'
         else
             docker image pull "$web_image" >&2 \
-                || fail 'Falta a imaxe de PHP 8.6. Engádea ao paquete da aula con engadir-imaxe.ps1.'
+                || fail 'Falta a imaxe de PHP 8.6 coa conta ad. Engádea ao paquete da aula con engadir-imaxe.ps1.'
         fi
         docker image inspect "$web_image" >/dev/null || fail "Falta a etiqueta $web_image na imaxe cargada."
     fi
+    docker run --rm --pull never --network none --user ad --entrypoint sh "$web_image" -ec \
+        'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && test ! -e /home/dev && test ! -L /home/dev' \
+        || fail 'A imaxe PHP non ten a conta ad limpa. Non se cambiou o proxecto.'
 fi
 for ((i = 0; i < ${#args[@]}; i += 3)); do
     rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
     dest=$project/$rel
+    permissions=0644
+    case $rel in
+        .vscode/settings.json)
+            replacement="s/\"Debian\"/\"$distro\"/g"
+            sha=$(sed "$replacement" "$src/$rel" | sha256sum | cut -d' ' -f1)
+            ;;
+        scripts/daw.sh|scripts/comprobar.sh) permissions=0755 ;;
+    esac
     action=creado
     if [[ -f $dest ]]; then
-        if [[ $(digest "$dest") == "$sha" ]]; then echo "igual $rel"; continue; fi
+        if [[ $(digest "$dest") == "$sha" ]] && { [[ $permissions != 0755 ]] || [[ -x $dest ]]; }; then
+            echo "igual $rel"; continue
+        fi
         if [[ $mode == CreateOnly ]]; then echo "conservado $rel"; continue; fi
         mkdir -p -- "$backup/$(dirname -- "$rel")"
         cp -p -- "$dest" "$backup/$rel"
@@ -587,8 +631,12 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
     fi
     mkdir -p -- "$(dirname -- "$dest")"
     tmp=$(mktemp "$(dirname -- "$dest")/.daw-proxecto-XXXXXX")
-    cp -- "$src/$rel" "$tmp"
-    chmod 0644 -- "$tmp"
+    if [[ $rel == .vscode/settings.json ]]; then
+        sed "$replacement" "$src/$rel" > "$tmp"
+    else
+        cp -- "$src/$rel" "$tmp"
+    fi
+    chmod "$permissions" -- "$tmp"
     [[ $(digest "$tmp") == "$sha" ]] || fail "A copia non coincide: $rel"
     mv -f -- "$tmp" "$dest"
     tmp=
@@ -614,7 +662,7 @@ function Invoke-DawProjectOverlay {
     $image=$null
     if(Test-Path -LiteralPath $packageManifest -PathType Leaf){
         $packageData=Get-Content -LiteralPath $packageManifest -Raw -Encoding UTF8|ConvertFrom-Json
-        $image=Get-DawPackageImages $packageData|Where-Object {$_.Name -eq 'ghcr.io/miguelfm/dwcs-php:8.6'}|Select-Object -First 1
+        $image=Get-DawPackageImages $packageData|Where-Object {$_.Name -eq 'ghcr.io/miguelfm/dwcs-php:8.6-ad'}|Select-Object -First 1
     }
     if($image){$arguments+=@((Join-Path $package $image.File),$image.Sha256.ToLowerInvariant())}
     else{$arguments+=@('-','-')}

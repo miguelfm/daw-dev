@@ -40,12 +40,15 @@ function Invoke-Model([string[]]$CommandArgs) {
 if ($Resume) {
     $checkpoint = Get-Content -LiteralPath $checkpointPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $registered = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss' | Get-ItemProperty | Where-Object DistributionName -eq $Distribution
+    if ($checkpoint.LinuxUser -ne 'ad') { throw 'Este punto de continuación corresponde a un modelo anterior. Crea un modelo novo cun directorio de saída novo.' }
     if ($checkpoint.Distribution -ne $Distribution -or $checkpoint.InstallDirectory -ne $distroDir -or
         -not $registered -or $registered.BasePath.TrimEnd('\') -ne $distroDir.TrimEnd('\') -or
         (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash -ne $checkpoint.SourcesSha256) {
         throw 'O punto de continuación non coincide co modelo creado por este script.'
     }
-    if ((Test-Path -LiteralPath (Join-Path $output 'debian-daw.tar')) -or
+    if ((Test-Path -LiteralPath (Join-Path $output 'debian.tar')) -or
+        (Test-Path -LiteralPath (Join-Path $output 'debian.tar.gz')) -or
+        (Test-Path -LiteralPath (Join-Path $output 'debian-daw.tar')) -or
         (Test-Path -LiteralPath (Join-Path $output 'debian-daw.tar.gz'))) { throw 'Xa hai unha exportación. Non se sobrescribe.' }
     $base = @{ Amd64Url = @{ Url = $checkpoint.BaseUrl; Sha256 = $checkpoint.BaseSha256 } }
     $sourceCommit = $checkpoint.SourceCommit
@@ -77,8 +80,16 @@ if ((Get-FileHash -LiteralPath $baseTar -Algorithm SHA256).Hash -ne $base.Amd64U
 }
 & git.exe -C $repo archive --format=tar --output=$sources HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Fallou git archive.' }
-# Inclúe os lanzadores locais desta entrega, aínda que os cambios non estean publicados.
-& tar.exe -rf $sources -C $repo wsl/daw.ps1 wsl/keep-alive.sh wsl/install-daw-commands.ps1 wsl/aula/configurar-modelo.sh
+# Engade a configuración desta entrega, incluídos cambios locais. Só rutas versionadas.
+$localPaths = @(
+    '.gitignore', '.devcontainer', '.vscode', 'Dockerfile', 'README.md', 'compose.yaml',
+    'docs',
+    'scripts/daw.sh', 'scripts/comprobar.sh', 'wsl/daw.ps1', 'wsl/keep-alive.sh', 'wsl/install-daw-commands.ps1',
+    'wsl/aula'
+)
+$localSources = @(& git.exe -C $repo ls-files -- @localPaths)
+if ($LASTEXITCODE -ne 0 -or -not $localSources) { throw 'Non se puido listar a configuración versionada do modelo.' }
+& tar.exe -rf $sources -C $repo @localSources
 if ($LASTEXITCODE -ne 0) { throw 'Fallou a preparación dos scripts do modelo.' }
 if (Test-Path -LiteralPath $distroDir) { throw "O directorio $distroDir xa existe." }
 New-Item -ItemType Directory -Path $distroDir -Force | Out-Null
@@ -91,7 +102,7 @@ Invoke-Model @('tar','-xf',$linuxSources,'-C','/tmp','wsl/aula/configurar-modelo
 Invoke-Model @('bash','/tmp/wsl/aula/configurar-modelo.sh','install',$linuxSources)
 $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 [ordered]@{
-    Distribution = $Distribution; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
+    Distribution = $Distribution; LinuxUser = 'ad'; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
     SourcesSha256 = (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256
 } | ConvertTo-Json | Set-Content -LiteralPath $checkpointPath -Encoding UTF8
@@ -99,8 +110,8 @@ $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 # O configurador e os lanzadores poden recibir correccións antes de selar o modelo.
 $linuxConfigurator = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u (Join-Path $PSScriptRoot 'configurar-modelo.sh')) -join ''
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o configurador.' }
-Invoke-Model @('cp',$linuxConfigurator.Trim(),'/home/alumno/proxectos/daw-dev/wsl/aula/configurar-modelo.sh')
-$imageArgs = @('bash','/home/alumno/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','images')
+Invoke-Model @('cp',$linuxConfigurator.Trim(),'/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh')
+$imageArgs = @('bash','/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','images')
 if ($DockerImagesArchive) {
     $linuxImages = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u ([IO.Path]::GetFullPath($DockerImagesArchive))) -join ''
     if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o arquivo de imaxes Docker.' }
@@ -112,10 +123,10 @@ for ($attempt = 1; $attempt -le 3; $attempt++) {
     try { Invoke-Model $imageArgs; break }
     catch { if ($attempt -eq 3) { throw }; Write-Warning 'Repetindo a descarga das imaxes...'; Start-Sleep -Seconds 5 }
 }
-Invoke-Model @('bash','/home/alumno/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','seal')
+Invoke-Model @('bash','/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','seal')
 & wsl.exe --terminate $Distribution
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido parar o modelo.' }
-$image = Join-Path $output 'debian-daw.tar.gz'
+$image = Join-Path $output 'debian.tar.gz'
 & wsl.exe --export $Distribution $image --format tar.gz
 if ($LASTEXITCODE -ne 0) { throw 'Fallou a exportación do modelo.' }
 foreach ($file in 'instalar-alumno.ps1','iniciar-usuario.ps1','daw-aula.psm1') {
@@ -125,9 +136,9 @@ foreach ($file in 'daw.ps1','install-daw-commands.ps1') {
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) $file) -Destination $output
 }
 $manifest = [ordered]@{
-    Schema = 1; Marker = 'daw-aula-v1'; LinuxUser = 'alumno'
-    LinuxProjectPath = '/home/alumno/proxectos/daw-dev'
-    Image = 'debian-daw.tar.gz'; Sha256 = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
+    Schema = 1; Marker = 'daw-aula-v1'; LinuxUser = 'ad'
+    LinuxProjectPath = '/home/ad/proxectos/daw-dev'
+    Image = 'debian.tar.gz'; Sha256 = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
     CreatedUtc = [DateTime]::UtcNow.ToString('o')
     SourceCommit = $sourceCommit; SourcesSha256 = (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256
@@ -136,4 +147,4 @@ $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'manife
 Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
 Update-DawPackage $output $PSScriptRoot
 Write-Host "Paquete preparado en $output. A distribución $Distribution consérvase para inspección."
-Write-Host 'O subdirectorio build non se distribúe. Non se arrancaron contedores nin se crearon datos de alumnos.'
+Write-Host 'O subdirectorio build non se distribúe. O modelo non contén contedores nin datos de alumnos.'

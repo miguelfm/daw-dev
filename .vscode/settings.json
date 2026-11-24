@@ -15,7 +15,7 @@
                 "exec",
                 "-it",
                 "-u",
-                "dev",
+                "ad",
                 "daw-web",
                 "bash"
             ],
@@ -30,7 +30,7 @@
             "path": "/bin/bash",
             "args": [
                 "-lc",
-                "if [ -f /.dockerenv ]; then exec /bin/bash; else exec docker exec -it -u dev daw-web bash; fi"
+                "if [ -f /.dockerenv ]; then exec /bin/bash; else exec docker exec -it -u ad daw-web bash; fi"
             ],
             "icon": "server-process"
         }

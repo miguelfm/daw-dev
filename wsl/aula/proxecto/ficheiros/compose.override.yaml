@@ -7,9 +7,9 @@ services:
       # Apache executa PHP como www-data, igual ca na MV
       APACHE_RUN_USER: www-data
       APACHE_RUN_GROUP: www-data
+    working_dir: /home/ad/html
     volumes:
-      # As rutas da MV: a raíz web e os datos fóra dela
-      - ${WWW_DIR:-./www}:/home/ad/html
+      # Os datos da MV quedan fóra da raíz web
       - ./datos:/home/ad/datos
       - ./docker/aula/zz-aula.ini:/usr/local/etc/php/conf.d/zz-aula.ini:ro
       - ./docker/aula/000-default.conf:/etc/apache2/sites-available/000-default.conf:ro
@@ -17,8 +17,11 @@ services:
       - bash
       - -c
       - |
-        # www-data fóra do grupo dev, e o directorio de sesións de Debian
-        gpasswd -d www-data dev >/dev/null 2>&1 || true
+        # Apache non herda os permisos de escritura do grupo do alumnado.
+        grupo=$(id -gn ad) || exit 1
+        if [ "$$grupo" != www-data ] && id -Gn www-data | tr ' ' '\n' | grep -Fxq "$$grupo"; then
+          gpasswd -d www-data "$$grupo" || exit 1
+        fi
         # A máscara de Apache na MV, a de Debian: o que crea www-data
         # pódeno ler os demais, pero só el o cambia (a imaxe pon 002)
         sed -i 's/^umask 002$$/umask 022/' /etc/apache2/envvars

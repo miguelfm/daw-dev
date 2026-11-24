@@ -18,7 +18,7 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 5. **Activación da contorna:**
    - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev > Inicializar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
-6. A contorna configura o usuario predeterminado de Linux como **`ad`** (mantendo compatibilidade total con `alumno`), con acceso directo en Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
+6. A contorna configura o usuario predeterminado de Linux como **`ad`**, con acceso directo en Windows Explorer en `\\wsl.localhost\Debian\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
@@ -108,20 +108,20 @@ No profesor, con WSL2 xa instalado, PowerShell normal, Git e acceso a Internet:
 O directorio de saída debe ser novo. O script crea unha distribución separada `DAW-Modelo` e nunca usa a
 Debian persoal do profesor. Descarga a base oficial indicada no catálogo Microsoft WSL e comproba SHA256.
 Instala Docker desde o repositorio oficial e precarga PHP/Apache, MariaDB e phpMyAdmin.
-Non crea contedores nin volumes de BD no modelo. Conserva a distribución modelo para inspección.
+O modelo exportado non contén contedores nin volumes de BD. Conserva a distribución modelo para inspección.
 
-O código inicial procede dos ficheiros versionados de `git archive HEAD`, cos lanzadores e o configurador
-locais desta entrega. Non copia `.env` persoais, traballos non versionados de `www`, claves nin o perfil
-do profesor. O usuario Linux é `alumno`, UID/GID 1000, con contrasinal bloqueado e acceso ao grupo Docker.
-Para administración Linux posterior, o propietario da distribución pode usar `wsl -d Debian-DAW -u root`.
+O código inicial procede de `git archive HEAD`, coa configuración e as guías versionadas
+da copia de traballo desde a que se executa o script. Non copia `.env` persoais, traballos non versionados de `www`, claves nin o perfil
+do profesor. O usuario Linux é `ad`, UID/GID 1000, con contrasinal bloqueado e acceso ao grupo Docker.
+Para administración Linux posterior, o propietario da distribución pode usar `wsl -d Debian -u root`.
 Isto non lle concede permisos de administrador de Windows.
 
-O modelo usa o Compose do proxecto, incluída a ruta pública histórica `ghcr.io/miguelfm/dwcs-php:8.6`,
-e conserva `/home/alumno/proxectos/daw-dev/www` e o volume `daw-dev_db_data` para os datos de cada conta.
+O modelo usa o Compose do proxecto, incluída a imaxe pública `ghcr.io/miguelfm/dwcs-php:8.6-ad`,
+e conserva `/home/ad/proxectos/daw-dev/www` e o volume `daw-dev_db_data` para os datos de cada conta.
 Configura `WEB_PORT=127.0.0.1:80`, `PMA_PORT=127.0.0.1:8081` e `DB_PORT=127.0.0.1:3306`.
 Non se abre o socket Docker pola rede. VS Code debe conectarse a WSL para usar Xdebug.
 
-`debian-daw.tar.gz` comprime a imaxe para reducir a copia pola LAN.
+`debian.tar.gz` comprime a imaxe para reducir a copia pola LAN.
 `manifest.json` rexistra o SHA256 da imaxe, a base oficial, a data e o commit do proxecto.
 O subdirectorio `build` é material de construción e non se copia aos alumnos.
 Se a construción falla, conserva o log e inspecciona `DAW-Modelo`: non reutilices unha distribución persoal
@@ -132,7 +132,7 @@ Se falla só a descarga das imaxes, `-Resume` continúa o mesmo modelo a partir 
 sen reinstalar Debian. Tamén podes aproveitar imaxes xa descargadas nunha Debian do profesor:
 
 ```powershell
-wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.6 mariadb:lts phpmyadmin:latest
+wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.6-ad mariadb:lts phpmyadmin:latest
 .\wsl\aula\preparar-modelo.ps1 -OutputDirectory C:\DAW-Paquete-2026 -Resume -DockerImagesArchive C:\DAW-images.tar
 ```
 
@@ -176,14 +176,14 @@ Nas aulas que se comparten con outros ciclos ou materias onde o resto do alumnad
   ```
 - A importación execútase de xeito limpo, interactivo e unicamente no perfil do alumno de DAW que estea presente nese posto.
 
-Repetir o instalador non substitúe unha Debian-DAW existente nin borra datos. Se a conta xa usa outro modelo,
+Repetir o instalador non substitúe unha Debian existente nin borra datos. Se a conta xa usa outro modelo,
 detense: actualizar o modelo distribuído non é un mecanismo para actualizar os proxectos existentes.
 Para iso está a acción seguinte.
 
 ### Actualizar os ficheiros dos proxectos xa importados
 
 `ActualizarProxecto` copia `wsl/aula/proxecto/ficheiros` en `/home/ad/proxectos/daw-dev` da
-Debian-DAW do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
+Debian do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
 regras da copia están no [README dos ficheiros do proxecto](../wsl/aula/proxecto/README.md).
 
 ```powershell
@@ -208,27 +208,61 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
 `%LOCALAPPDATA%\DAW-Aula\proxecto.log` e `proxecto-estado.json`.
 
 - Necesita unha única sesión de alumno no posto. Sen sesión, ou se a conta aínda non ten
-  Debian-DAW, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Numero`.
+  Debian, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Numero`.
 - O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopiarModelo`.
 - Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start`. `-Reiniciar` recrea
   o contedor web se está en marcha; pecha unha sesión aberta de Dev Containers e as sesións de PHP.
-- Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian-DAW despois
+- Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian despois
   necesita outra vez `ActualizarProxecto`.
 
 #### Actualizar a PHP 8.6 nos equipos da aula
 
-Nas contas xa instaladas, `ActualizarProxecto` retira o valor `PHP_VERSION=8.5`
-que gardaba o modelo no `.env` e deixa unha copia en `.daw-backup`. A actualización
-comproba que a imaxe PHP 8.6 estea na Debian do alumno antes de cambiar o proxecto.
-Se falta, carga a imaxe rexistrada no paquete da aula ou descárgaa de GHCR cando
-haxa acceso á rede. O contedor web usa a nova imaxe no seguinte `daw-start`.
+Nas contas xa instaladas, `ActualizarProxecto` conserva `www/`, `datos/` e o volume de MariaDB.
+Retira o valor `PHP_VERSION=8.5` que gardaba o modelo no `.env` e deixa unha copia en
+`.daw-backup`. Antes de substituír ficheiros comproba a imaxe `8.6-ad`. Se falta, carga
+o arquivo do paquete ou descarga a imaxe de GHCR. A etiqueta distingue a imaxe nova
+das imaxes anteriores que segue habendo na caché. O seguinte `daw-start` recrea `web`
+con `ad` (UID/GID 1000). Se gardaches ficheiros na capa do contedor fóra das montaxes,
+cópiaos ao proxecto primeiro.
+
+Para contas xa activadas, reutiliza o paquete do seu modelo e actualiza os scripts e a
+imaxe PHP do paquete. A nova exportación de Debian é para contas sen ela.
+
+Para preparar a copia sen Internet, descarga e exporta a imaxe desde o equipo do
+profesor en Linux ou WSL:
+
+```bash
+docker pull --platform linux/amd64 ghcr.io/miguelfm/dwcs-php:8.6-ad
+docker image save ghcr.io/miguelfm/dwcs-php:8.6-ad | gzip > daw-dev-php86-ad.tar.gz
+```
+
+Para probar cambios locais, usa `docker compose build web` desde o repositorio
+antes de exportar a mesma etiqueta.
+
+En PowerShell, rexistra o arquivo no mesmo paquete de aula que xa se usa nos postos:
+
+```powershell
+$paquete = 'C:\DAW-Paquete-2026'
+.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
+.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\daw-dev-php86-ad.tar.gz -Name ghcr.io/miguelfm/dwcs-php:8.6-ad
+.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
+.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+```
+
+No posto de proba, a conta do alumno pode usar tamén **Activar DAW Dev** para aplicar
+a actualización. Despois de `daw-start`, comproba as versións con
+`wsl -d Debian --exec docker exec daw-web php -v`. Abre un exercicio xa
+existente no navegador e comproba en VS Code que un punto de interrupción se
+activa ao engadir `?XDEBUG_TRIGGER=1` ao enderezo. Valida ese posto antes de actualizar os demais.
+
+<details>
+<summary>Publicación histórica de PHP 8.6 (21/11/2026)</summary>
 
 O 21/11/2026 publicouse a imaxe `linux/amd64` con PHP `8.6.0` e Xdebug `3.6.0alpha1`
 como `ghcr.io/miguelfm/dwcs-php:8.6` e `ghcr.io/miguelfm/daw-dev:8.6`. Ambas as
 etiquetas apuntaban a `sha256:d65fabc7719ed91cd5d232c561cc87e91e717f24edf0b68f4d20fc95981fc64a`.
 Confirmouse a descarga pública. Nunha proba local en Linux coa configuración Apache
-da aula, Xdebug conectou con `XDEBUG_TRIGGER=1`. A primeira proba nun
-posto Windows/WSL2 da aula está pendente e poderá facerse a partir do luns 23/11/2026.
+da aula, Xdebug conectou con `XDEBUG_TRIGGER=1`. Nesa data quedaba pendente a primeira proba nun posto Windows/WSL2 da aula.
 [Execución de publicación](https://github.com/miguelfm/daw-dev/actions/runs/44934087884).
 
 Esa imaxe non tiña `mbstring`: a imaxe oficial de PHP 8.6 xa non a compila, como
@@ -236,32 +270,9 @@ facía a 8.5, e `mb_strlen()`, que usa DWCS desde a U4, daba un erro fatal. O me
 día publicouse de novo con `mbstring` nas dúas etiquetas, que pasaron a apuntar a
 `sha256:bb7762ad0e307f1e64bb0c6c6f213d97eaa47311e6e16a29a7aff13d82caa1d6`
 ([execución](https://github.com/miguelfm/daw-dev/actions/runs/44939197023)). Ten os
-mesmos 45 módulos de PHP ca a 8.5. Un paquete de aula preparado coa imaxe anterior
-hai que volver preparalo con esta antes da proba no posto.
+mesmos 45 módulos de PHP ca a 8.5.
 
-Para preparar a copia sen Internet, descarga e exporta a imaxe desde o equipo do
-profesor en Linux ou WSL:
-
-```bash
-docker pull --platform linux/amd64 ghcr.io/miguelfm/dwcs-php:8.6
-docker image save ghcr.io/miguelfm/dwcs-php:8.6 | gzip > daw-dev-php86.tar.gz
-```
-
-En PowerShell, rexistra o arquivo no mesmo paquete de aula que xa se usa nos postos:
-
-```powershell
-$paquete = 'C:\DAW-Paquete-2026'
-.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
-.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\daw-dev-php86.tar.gz -Name ghcr.io/miguelfm/dwcs-php:8.6
-.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
-.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
-```
-
-No posto de proba, a conta do alumno pode usar tamén **Activar DAW Dev** para aplicar
-a actualización. Despois de `daw-start`, comproba as versións con
-`wsl -d Debian-DAW --exec docker exec daw-web php -v`. Abre un exercicio xa
-existente no navegador e comproba en VS Code que un punto de interrupción se
-activa ao engadir `?XDEBUG_TRIGGER=1` ao enderezo. Valida ese posto antes de actualizar os demais.
+</details>
 
 ### Activación manual desde o menú Inicio
 
@@ -323,8 +334,9 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 
 ### Acceso directo aos ficheiros web e contorna Linux
 
-O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do *document root*:
-- **Dende Windows Explorer:** `\\wsl.localhost\Debian-DAW\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
+`ad` é a conta do modelo WSL e da terminal do contedor PHP. O instalador tamén pode
+actualizar un modelo anterior co mesmo UID/GID. As rutas de traballo son:
+- **Dende Windows Explorer:** `\\wsl.localhost\Debian\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
 - **Con VS Code e Dev Containers:**
   O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
   ```powershell
@@ -333,10 +345,9 @@ O instalador migra o usuario do modelo a `ad` e configura a ruta simplificada do
   Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). A imaxe precompilada inclúe PHP 8.6, Composer, Xdebug e o cliente MariaDB.
 - **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code estándar:
   ```powershell
-  wsl -d Debian-DAW --cd /home/ad/www
+  wsl -d Debian --cd /home/ad/www
   code .
   ```
-- Mantense a compatibilidade total coa ruta interna histórica `/home/alumno/proxectos/daw-dev/www` mediante ligazóns simbólicas transparentes.
 
 Os lanzadores Windows arrancan WSL se está parado, agardan por Docker e manteñen unha sesión oculta
 mentres existan contedores do proxecto en marcha. `daw-stop` deixa rematar esa sesión en ata 20 segundos.

@@ -48,7 +48,7 @@ Se o proxecto está dentro de Debian, tamén podes instalar os lanzadores desde 
 destes scripts, indicando a ruta Linux:
 
 ```powershell
-.\wsl\install-daw-commands.ps1 -Distribution Debian -LinuxProjectPath /home/alumno/proxectos/daw-dev
+.\wsl\install-daw-commands.ps1 -Distribution Debian -LinuxProjectPath '/home/<o-teu-usuario>/proxectos/daw-dev'
 ```
 
 Nese modo gárdase unha copia do lanzador en `%LOCALAPPDATA%\daw-dev-launcher`, que non depende
@@ -101,10 +101,10 @@ Co contedor en marcha, podes abrir unha consola desde calquera cartafol de Power
 Como Docker está dentro de Debian, chama ao comando a través de WSL2:
 
 ```powershell
-wsl -d Debian -- docker exec -it -u dev daw-web bash
+wsl -d Debian -- docker exec -it -u ad daw-web bash
 ```
 
-Entrarás como `dev` en `/var/www/html`. Se precisas unha consola como root:
+Entrarás como `ad` en `/var/www/html`. Se precisas unha consola como root:
 
 ```powershell
 wsl -d Debian -- docker exec -it -u root daw-web bash
@@ -114,7 +114,7 @@ Escribe `exit` para pechar a consola; o contedor segue funcionando. Se está par
 arráncao antes con `daw-start`. Substitúe `Debian` se usas outra distribución de WSL.
 
 Se tes Docker dispoñible directamente en Windows, podes executar
-`docker exec -it -u dev daw-web bash` sen o prefixo `wsl -d Debian --`.
+`docker exec -it -u ad daw-web bash` sen o prefixo `wsl -d Debian --`.
 O [README](../README.md#consola-do-contedor-web) explica tamén a alternativa con Docker Compose
 e o acceso desde outro equipo por SSH ao anfitrión.
 
@@ -136,13 +136,13 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
      "dev.containers.executeInWSL": true,
      "dev.containers.executeInWSLDistro": "Debian"
      ```
-     *(No modelo de aula `Debian-DAW`, o script do alumno axusta automaticamente o valor a `"Debian-DAW"`).*
-   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/dwcs-php:8.6`) ou descargala de GHCR.
+     *(No modelo de aula e no proxecto, o valor predeterminado é `"Debian"`).*
+   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/dwcs-php:8.6-ad`) ou descargala de GHCR.
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
    - O espazo de traballo abrirase en `/workspace` dentro do contedor.
-   - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `dev`, con PHP 8.6, Composer, Git e o cliente de MariaDB dispoñibles.
+   - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `ad`, con PHP 8.6, Composer, Git e o cliente de MariaDB dispoñibles.
 
 ### Opción B: VS Code en Windows con terminal integrado no contedor
 
@@ -153,13 +153,13 @@ Se prefires manter a interface e extensións de VS Code executándose localmente
   "terminal.integrated.profiles.windows": {
       "Contedor DAW Dev": {
           "path": "wsl.exe",
-          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "dev", "daw-web", "bash"],
+          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "ad", "daw-web", "bash"],
           "icon": "server-process"
       }
   },
   "terminal.integrated.defaultProfile.windows": "Contedor DAW Dev"
   ```
-- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `dev` no contedor `daw-web`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
+- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `ad` no contedor `daw-web`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
 
 ## Acceso aos servizos
 

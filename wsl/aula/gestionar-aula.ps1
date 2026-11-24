@@ -7,7 +7,7 @@ Comprobar: só diagnóstico. HabilitarWinRM: bootstrap con PsExec asinado de Mic
 PrepararWSL: características + MSI oficial (non reinicia). CopiarModelo: copia local
 protexida e baixo demanda (AutoInicio opt-in). InstalarUsuario: tarefa sen
 elevación na sesión activa. ActualizarProxecto: copia wsl\aula\proxecto\ficheiros no
-proxecto da Debian-DAW do alumno conectado, sen tocar www (Reiniciar recrea o contedor
+proxecto da Debian do alumno conectado, sen tocar www (Reiniciar recrea o contedor
 web se está en marcha). Estado: consulta logs por perfil. Non almacena contrasinais.
 .EXAMPLE
 .\gestionar-aula.ps1 -Action Comprobar -Aula 31 -Numero 1

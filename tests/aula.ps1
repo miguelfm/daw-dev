@@ -34,7 +34,7 @@ try{
         Assert ((($out -join "`n")|ConvertFrom-Json) -eq $value)
         Throws {Invoke-DawNative $exe @('-NoProfile','-Command','exit 9')} 'exit 9'
         # wsl.exe 3.0 executa "--list" como orde: as opcións van sen comiñas.
-        foreach($bare in '--list','-d','Debian-DAW','C:\ProgramData\DAW-Aula\','/home/ad/proxectos/daw-dev'){Assert ((ConvertTo-DawArgument $bare) -ceq $bare) "Quoted: $bare"}
+        foreach($bare in '--list','-d','Debian','C:\ProgramData\DAW-Aula\','/home/ad/proxectos/daw-dev'){Assert ((ConvertTo-DawArgument $bare) -ceq $bare) "Quoted: $bare"}
         Assert ((ConvertTo-DawArgument '') -eq '""')
         Assert ((ConvertTo-DawArgument 'a b\') -eq '"a b\\"')
         Assert ((ConvertTo-DawArgument 'a"b') -eq '"a\"b"')
@@ -62,9 +62,9 @@ try{
             function script:Invoke-DawNative {param($File,$Arguments) throw 'wsl.exe (exit 1): WSL non dispoñible'}
         }
         Throws {Get-DawDistributions} 'exit 1'
-        & $script:M {function script:Invoke-DawNative {param($File,$Arguments) "D`0e`0b`0i`0a`0n`0-`0D`0A`0W`0",'',' Debian '}}
+        & $script:M {function script:Invoke-DawNative {param($File,$Arguments) "D`0e`0b`0i`0a`0n`0",'',' Ubuntu '}}
         $list=@(Get-DawDistributions)
-        Assert ($list.Count -eq 2 -and $list[0] -eq 'Debian-DAW' -and $list[1] -eq 'Debian')
+        Assert ($list.Count -eq 2 -and $list[0] -eq 'Debian' -and $list[1] -eq 'Ubuntu')
         foreach($name in 'instalar-alumno.ps1','actualizar-proxecto.ps1'){
             $t=[IO.File]::ReadAllText((Join-Path $script:Repo "wsl/aula/$name"))
             Assert ($t.Contains('Get-DawDistributions') -and -not $t.Contains("'--list'")) "$name must use Get-DawDistributions"
@@ -75,18 +75,18 @@ try{
             $script:Calls=@()
             function script:Invoke-DawNative {param($File,$Arguments) $script:Calls+=, $Arguments; 'foreign-model'}
         }
-        Throws {Assert-DawOrigin 'Debian-DAW' 'daw-aula-v1' ('a'*64) (Join-Path $script:Temp 'absent') $false} 'non é un modelo'
+        Throws {Assert-DawOrigin 'Debian' 'daw-aula-v1' ('a'*64) (Join-Path $script:Temp 'absent') $false} 'non é un modelo'
         $calls=& $script:M {,$script:Calls}
         Assert ($calls.Count -eq 1 -and $calls[0] -contains 'cat' -and $calls[0] -notcontains 'bash')
     }
     Test 'mismatching origin never migrated; missing origin requires explicit adoption' {
         & $script:M {function script:Invoke-DawNative {param($File,$Arguments) 'daw-aula-v1'}}
         $p=Join-Path $script:Temp 'origin.sha';Set-Content $p ('b'*64)
-        Throws {Assert-DawOrigin 'Debian-DAW' 'daw-aula-v1' ('a'*64) $p $false} 'doutro modelo'
+        Throws {Assert-DawOrigin 'Debian' 'daw-aula-v1' ('a'*64) $p $false} 'doutro modelo'
         Remove-Item $p
-        Throws {Assert-DawOrigin 'Debian-DAW' 'daw-aula-v1' ('a'*64) $p $false} 'sen rexistro'
-        Assert-DawOrigin 'Debian-DAW' 'daw-aula-v1' ('a'*64) $p $false -AdoptExisting
-        Assert-DawOrigin 'Debian-DAW' 'daw-aula-v1' ('a'*64) $p $true
+        Throws {Assert-DawOrigin 'Debian' 'daw-aula-v1' ('a'*64) $p $false} 'sen rexistro'
+        Assert-DawOrigin 'Debian' 'daw-aula-v1' ('a'*64) $p $false -AdoptExisting
+        Assert-DawOrigin 'Debian' 'daw-aula-v1' ('a'*64) $p $true
         Assert (-not(Test-Path $p)) 'Validation itself must never mutate the origin'
     }
     Test 'installer validates marker and source BEFORE invoking migration' {
@@ -129,9 +129,9 @@ try{
             $base=if($name -in @('daw.ps1','install-daw-commands.ps1')){Split-Path -Parent $source}else{$source}
             [IO.File]::WriteAllText((Join-Path $base $name),('payload '+$name))
         }
-        $image=Join-Path $dest 'debian-daw.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
+        $image=Join-Path $dest 'debian.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
         $sha=(Get-FileHash $image -Algorithm SHA256).Hash
-        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='alumno';Image='debian-daw.tar.gz';Sha256=$sha}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='ad';Image='debian.tar.gz';Sha256=$sha}
         Update-DawPackage $dest $source
         $m=Assert-DawPackage $dest
         Assert ($m.Sha256 -eq $sha -and $m.SetupRevision -eq 2)
@@ -207,7 +207,7 @@ try{
         $stage=Join-Path $script:Temp 'stage'
         $m=New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage
         $paths=@($m.Files|ForEach-Object {$_.Path})
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','.vscode/settings.json','docs/guia-inicio-alumnado.pdf','scripts/daw.sh','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
         Assert ((@($m.Files|Where-Object {$_.Mode -eq 'CreateOnly'}|ForEach-Object {$_.Path}) -join ',') -eq 'datos/LEME.txt')
         Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
         Throws {New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage} 'xa existe'
@@ -244,9 +244,9 @@ try{
         $dest=Join-Path $script:Temp 'package-images'
         New-Item -ItemType Directory -Path $dest -Force|Out-Null
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
-        $image=Join-Path $dest 'debian-daw.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
+        $image=Join-Path $dest 'debian.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='alumno';Image='debian-daw.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;SetupRevision=2;ScriptSha256=[pscustomobject]$hashes}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=1;Marker='daw-aula-v1';LinuxUser='ad';Image='debian.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;SetupRevision=2;ScriptSha256=[pscustomobject]$hashes}
         Assert (@(Get-DawPackageImages (Assert-DawPackage $dest)).Count -eq 0)
         $archive=Join-Path $script:Temp 'dwcc-angular.tar.gz';[IO.File]::WriteAllText($archive,'angular bytes')
         $entry=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
@@ -333,13 +333,13 @@ try{
             $script:Lines=@('substituido compose.override.yaml','conservado datos/LEME.txt','copia /home/ad/proxectos/daw-dev/.daw-backup/x','');$script:Passed=$null
             function script:Invoke-DawNative {param($File,$Arguments) $script:Passed=$Arguments;$script:Lines}
         }
-        $r=Invoke-DawProjectOverlay 'Debian-DAW' 'C:\ProgramData\DAW-Aula\proxecto' $manifest
+        $r=Invoke-DawProjectOverlay 'Debian' 'C:\ProgramData\DAW-Aula\proxecto' $manifest
         Assert ((@($r.Replaced) -join ',') -eq 'compose.override.yaml' -and (@($r.Kept) -join ',') -eq 'datos/LEME.txt' -and $r.Backup -like '*/.daw-backup/x')
         $passed=& $script:M {,$script:Passed}
-        Assert (($passed[0..7] -join ' ') -eq '-d Debian-DAW -u ad --cd /home/ad/proxectos/daw-dev --exec bash')
+        Assert (($passed[0..7] -join ' ') -eq '-d Debian -u ad --cd /home/ad/proxectos/daw-dev --exec bash')
         Assert ($passed[-6] -eq 'compose.override.yaml' -and $passed[-5] -eq ('a'*64) -and $passed[-4] -eq 'Replace' -and $passed[-1] -eq 'CreateOnly')
         & $script:M {$script:Lines=@('igual compose.override.yaml')}
-        Throws {Invoke-DawProjectOverlay 'Debian-DAW' 'C:\ProgramData\DAW-Aula\proxecto' $manifest} 'non informou'
+        Throws {Invoke-DawProjectOverlay 'Debian' 'C:\ProgramData\DAW-Aula\proxecto' $manifest} 'non informou'
     }
     # The installer and the project updater share the task runner; both must keep its guarantees.
     foreach($kind in @('install','project')){

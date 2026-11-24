@@ -35,7 +35,7 @@ Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesr
   - Docker Engine (`29.9.3`) e Docker Compose (`v5.7.1`) instalados dentro da distribución.
   - Imaxes base precargadas: `ghcr.io/miguelfm/dwcs-php:8.5`, `mariadb:lts`, `phpmyadmin:latest`.
   - Proxecto empaquetado mediante `git archive HEAD` excluindo `.env` persoais, claves e históricos non versionados.
-  - Empaquetado comprimido xerado en `C:\Users\miguelfm\Projects\daw-aula-paquete-20261111-final\debian-daw.tar.gz` (1,4 GB) con `manifest.json` e sumas SHA256 verificadas.
+  - Empaquetado comprimido xerado en `C:\Users\miguelfm\Projects\daw-aula-paquete-20261111-final\debian.tar.gz` (1,4 GB) con `manifest.json` e sumas SHA256 verificadas.
 
 ### 4. Distribución á máquina piloto
 - **Mecanismo:** `gestionar-aula.ps1 -Action CopiarModelo` cara a `\\A31EQ01.iesrodolfoucha.es\c$\ProgramData\DAW-Aula`.
@@ -47,7 +47,7 @@ Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesr
 ### 5. Proba funcional con usuario estándar local (`daw-proba`)
 - **Configuración:** Conta local `daw-proba` sen privilexios de administrador de Windows (`WindowsAdmin: false`).
 - **Execución de proba (`proba.json`):**
-  - Importación correcta da distribución `Debian-DAW` no espazo de usuario (`%LOCALAPPDATA%\DAW-Aula`).
+  - Importación correcta da distribución `Debian` no espazo de usuario (`%LOCALAPPDATA%\DAW-Aula`).
   - Creación de lanzadores en `%USERPROFILE%\.local\bin` (`daw-start`, `daw-star`, `daw-start-all`, `daw-start-db`, `daw-stop`, `daw-status`, `daw-logs`, `daw-help`).
   - **Arranque web:** `daw-start` / `daw-star` levantou exclusivamente o contedor web (Apache + PHP). Resposta HTTP `200` en `http://localhost/index.php`.
   - **Arranque completo:** `daw-start-all` levantou MariaDB e phpMyAdmin. Resposta HTTP `200` en `http://localhost:8081`.
@@ -58,7 +58,7 @@ Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesr
 - **Acción:** Inicio de sesión dunha conta estándar de dominio no equipo piloto 01.
 - **Resultado:**
   - A tarefa de inicio lanzou `iniciar-usuario.ps1` en segundo plano con token estándar de usuario (sen UAC nin permisos de administración).
-  - Distribución `Debian-DAW` importada satisfactoriamente en `C:\Users\infdamd2\AppData\Local\DAW-Aula`.
+  - Distribución `Debian` importada satisfactoriamente en `C:\Users\infdamd2\AppData\Local\DAW-Aula`.
   - Lanzadores `.cmd` rexistrados no PATH do usuario.
   - Estado confirmado en remoto como `Success: True` mediante `gestionar-aula.ps1 -Action Estado -Aula 31 -Numero 1`.
 
@@ -80,7 +80,7 @@ Rexistro das comprobacións realizadas sobre o equipamento piloto (`A31EQ01.iesr
 1. **Espazo e perfil local:**
    - WSL almacena o disco virtual (`ext4.vhdx`) no perfil local do equipo. Se un alumno cambia de posto de traballo, nese novo equipo iniciarase unha copia limpa do modelo e deberá sincronizar os seus proxectos mediante Git.
 2. **Tempo da primeira importación:**
-   - A primeira vez que un alumno inicia sesión nun equipo novo, a descompresión e importación de Debian-DAW require entre 1 e 3 minutos (segundo o rendemento do disco NVMe/SSD). Os arranques posteriores son inmediatos.
+   - A primeira vez que un alumno inicia sesión nun equipo novo, a descompresión e importación de Debian require entre 1 e 3 minutos (segundo o rendemento do disco NVMe/SSD). Os arranques posteriores son inmediatos.
 3. **Concorrencia de portos:**
    - Os servizos mapean os portos `80`, `8081` e `3306` na interface `127.0.0.1` de Windows. Débese lembrar ao alumnado que execute `daw-stop` ao rematar a sesión de clase para evitar colisións con futuros inicios no mesmo equipo.
 
@@ -100,13 +100,13 @@ Rexistro da execución completa de instalación, paralelización e verificación
 ### 2. Rendemento e paralelización (`gestionar-aula-paralelo.ps1`)
 - **Fase WinRM:** Habilitación secuencial mediante PsExec asinado por Microsoft (~50 s por máquina).
 - **Fase WSL2:** Habilitación de características DISM e instalación do MSI oficial en lotes concorrentes de 5 equipos mediante *jobs* de PowerShell. Redución do tempo de DISM de 11 minutos por lote a só 2 minutos e 50 segundos.
-- **Fase de Copia SMB:** Distribución de `debian-daw.tar.gz` (1,41 GB) e scripts en lotes paralelos de 5 equipos (~1 min por lote, ~22 MB/s por equipo sen saturar a ligazón Gigabit do profesor).
+- **Fase de Copia SMB:** Distribución de `debian.tar.gz` (1,41 GB) e scripts en lotes paralelos de 5 equipos (~1 min por lote, ~22 MB/s por equipo sen saturar a ligazón Gigabit do profesor).
 - **Reinicio remoto limpo:** Executado mediante `Invoke-Command` con `shutdown.exe /r /t 5 /f /d p:2:4` a través de WinRM, superando a limitación de `Restart-Computer` bloqueada polo cortalumes RPC (0x800706BA).
 
 ### 3. Simplificación da ruta de traballo para o alumnado (`ad`) e xestión de aula compartida
-- Adaptouse `instalar-alumno.ps1` para que na importación de `Debian-DAW`:
+- Adaptouse `instalar-alumno.ps1` para que na importación de `Debian`:
   - Renomee de forma transparente o usuario interno a `ad` e configure `default=ad` en `/etc/wsl.conf`.
-  - Enlace `/home/ad/www` cara a `/home/ad/proxectos/daw-dev/www`, permitindo o acceso directo desde Windows Explorer en `\\wsl.localhost\Debian-DAW\home\ad\www`.
+  - Enlace `/home/ad/www` cara a `/home/ad/proxectos/daw-dev/www`, permitindo o acceso directo desde Windows Explorer en `\\wsl.localhost\Debian\home\ad\www`.
   - Cree automaticamente no Escritorio de Windows o acceso directo `DAW - Proxectos (www).lnk`.
   - Manteña a ligazón de compatibilidade `/home/alumno -> /home/ad`.
 - **Aulas compartidas:** Retirouse a clave `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` nos 28 equipos para evitar a execución automática en inicios de sesión de alumnos doutras materias (cero impacto, cero consumo de disco para outros cursos). A activación do contedor queda configurada baixo demanda mediante `gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`.
@@ -155,11 +155,11 @@ Todos os compoñentes de virtualización, arquivos base e integridade SHA256 ato
 
 ### 5. Integración con VS Code Dev Containers e Soporte para Aula Compartida
 
-- **Aula compartida (Opción A):** Eliminouse a entrada de inicio automático `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` nos 28 equipos para que os alumnos doutros ciclos ou módulos non experimenten ningún atraso nin consumo de espazo no seu inicio de sesión. A preparación de `Debian-DAW` para o grupo de DAW lánzase baixo demanda polo profesorado mediante `gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`.
+- **Aula compartida (Opción A):** Eliminouse a entrada de inicio automático `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` nos 28 equipos para que os alumnos doutros ciclos ou módulos non experimenten ningún atraso nin consumo de espazo no seu inicio de sesión. A preparación de `Debian` para o grupo de DAW lánzase baixo demanda polo profesorado mediante `gestionar-aula.ps1 -Action InstalarUsuario -Aula 34`.
 - **Integración con Dev Containers:**
   - Engadiuse a orde `daw-code` para abrir o proxecto en VS Code con todas as rutas resoltas.
   - O instalador (`instalar-alumno.ps1`) preinstala automaticamente as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` no perfil do alumno se VS Code está presente.
-  - `.vscode/settings.json` adáptase para que `dev.containers.executeInWSLDistro` apunte a `Debian-DAW`.
+  - `.vscode/settings.json` usa a distribución `Debian` en `dev.containers.executeInWSLDistro`.
   - `.devcontainer/compose.devcontainer.yaml` utiliza a imaxe precompilada local con `build: !reset null`, garantindo que premendo **«Reopen in Container»** o contedor inicie en poucos segundos sen requirir compilación nin descargas de Docker Hub.
   - Distribuíronse os scripts actualizados a tódolos equipos da aula en `C:\ProgramData\DAW-Aula\`.
 

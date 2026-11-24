@@ -19,6 +19,8 @@ if '--images' in args:
 loaded=pathlib.Path(os.environ['DAW_DOCKER_LOG']).with_suffix('.loaded')
 if args[:2] == ['image', 'inspect']:
     sys.exit(0 if loaded.is_file() else 1)
+if args[:1] == ['run'] and fail == 'legacy-image':
+    sys.exit(1)
 if args[:2] in (['image', 'load'], ['image', 'pull']):
     loaded.touch()
 sys.exit(1 if (fail=='pre' and pre) or (fail=='post' and not pre) else 0)
@@ -104,7 +106,7 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
     env_file.chmod(0o600)
     archive = root86 / 'daw-dev-php86.tar.gz'
     archive.write_bytes(b'docker image archive')
-    image = 'ghcr.io/miguelfm/dwcs-php:8.6'
+    image = 'ghcr.io/miguelfm/dwcs-php:8.6-ad'
     before86 = snapshot(project86)
     r, calls = run(root86, src86, project86, image=image, archive=(str(archive), '0' * 64))
     assert r.returncode != 0 and 'SHA256' in r.stderr and snapshot(project86) == before86, r.stderr
@@ -112,12 +114,35 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
     assert r.returncode == 0 and ['image', 'load', '--input', str(archive)] in calls, r.stderr
     assert calls[0][4] == str(src86 / 'compose.yaml') and '--env-file' in calls[0], calls
     assert (project86 / '.daw-backup' / backups(project86)[0] / '.env').read_text() == old_env
+    assert any(call[:1] == ['run'] and image in call for call in calls), calls
     assert env_file.read_text() == old_env.replace('PHP_VERSION=8.5\n', '')
     assert env_file.stat().st_mode & 0o777 == 0o600
     r, calls = run(root86, src86, project86, image=image)
     assert r.returncode == 0 and not any(call[:2] in (['image', 'load'], ['image', 'pull']) for call in calls), calls
     count += 1; print('PASS PHP 8.6 is loaded from the verified archive and the old default is migrated once')
 
+    root, src, project = fixture('vscode-settings')
+    (src / '.vscode').mkdir(exist_ok=True)
+    shutil.copy(repo / '.vscode/settings.json', src / '.vscode/settings.json')
+    (src / 'scripts').mkdir()
+    shutil.copy(repo / 'scripts/daw.sh', src / 'scripts/daw.sh')
+    before = snapshot(project)
+    r, calls = run(root, src, project, image=image, fail='legacy-image')
+    assert r.returncode != 0 and 'conta ad' in r.stderr and snapshot(project) == before, r.stderr
+    r, calls = run(root, src, project)
+    assert r.returncode == 0, r.stderr
+    settings = (project / '.vscode/settings.json').read_text()
+    distro = os.environ.get('WSL_DISTRO_NAME', 'Debian')
+    assert settings == (repo / '.vscode/settings.json').read_text().replace('"Debian"', f'"{distro}"')
+    assert os.access(project / 'scripts/daw.sh', os.X_OK)
+    before = backups(project)
+    r, calls = run(root, src, project)
+    assert r.returncode == 0 and all(line.startswith('igual ') for line in r.stdout.splitlines()), r.stderr
+    assert backups(project) == before
+    count += 1; print('PASS rejects mislabeled images, sets the WSL profile and preserves executable launchers')
+
+    root, src, project = fixture('data-update')
+    r, calls = run(root, src, project); assert r.returncode == 0, r.stderr
     (project / 'datos/LEME.txt').write_text('notas do alumno')
     (project / 'compose.override.yaml').write_text('services: {}\n')
     r, calls = run(root, src, project); assert r.returncode == 0, r.stderr
@@ -174,7 +199,7 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
         assert r.returncode == 0, r.stderr
         config = subprocess.run([docker, 'compose', 'config', '--format', 'json'], cwd=project, capture_output=True, text=True, check=True)
         web = json.loads(config.stdout)['services']['web']
-        assert web['image'] == 'example.invalid/dwcs-php:8.6' and web['build']['args']['PHP_VERSION'] == '8.6', web
+        assert web['image'] == 'example.invalid/dwcs-php:8.6-ad' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-aula.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']

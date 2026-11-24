@@ -30,7 +30,7 @@ mesmo posto aínda non ten o contorno.
 
 | Postos | Estado |
 |---|---|
-| 04–09, 11, 12, 15–17, 21 | Completos: paquete cos scripts de `400ad03`, `Debian-DAW` na conta conectada, extensións Dev Containers e WSL, acceso directo e proxecto na revisión `471F9A86` (`944b03a`) |
+| 04–09, 11, 12, 15–17, 21 | Completos: paquete cos scripts de `400ad03`, `Debian` na conta conectada, extensións Dev Containers e WSL, acceso directo e proxecto na revisión `471F9A86` (`944b03a`) |
 | 14 | WinRM activado por IP. O DNS do centro resolve `A34EQ14` a `172.20.14.3`, e o posto está en `172.21.34.14`: os scripts, que usan o nome e Kerberos, non chegan. Sen paquete |
 | 18 | WinRM activado. WSL desactivado e sen paquete |
 | Os demais | Apagados; sen comprobar |
@@ -53,7 +53,7 @@ Executado como o alumno conectado no posto A34EQ16, cunha tarefa sen xanela:
 - No contedor: `DocumentRoot /home/ad/html`, Apache como `www-data`, as
   directivas de `zz-aula.ini` e PHP 8.5.12. MariaDB 12.3.3 acepta
   `dwcs`/`abc123.` e `root`/`abc123.`; as variables `DB_*` están definidas.
-- `wsl -d Debian-DAW` entra como `ad`; `docker compose exec -u dev web`,
+- `wsl -d Debian` entra como `ad`; `docker compose exec -u dev web`,
   como `dev`, con `php`, `composer`, `git`, `mariadb` e `nano`.
 
 Sen comprobar: abrir o proxecto con Dev Containers e unha sesión real de
@@ -75,7 +75,7 @@ importación continuou e rematou, pero sen o rexistro de orixe, e o reintento
 detívose. Completáronse con `InstalarUsuario -AdoptarExistente`, que comproba
 a marca do modelo antes de cambiar nada. Non se debe repetir a instalación
 mentres unha importación siga en curso: o tamaño de
-`%LOCALAPPDATA%\wsl\Debian-DAW\ext4.vhdx` chega a uns 3 GB ao rematar.
+`%LOCALAPPDATA%\wsl\Debian\ext4.vhdx` chega a uns 3 GB ao rematar.
 
 ## Próxima actualización
 

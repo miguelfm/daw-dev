@@ -12,13 +12,13 @@ services:
         PHP_VERSION: ${PHP_VERSION:-8.6}
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
-    # Ruta pública histórica, tamén actualizada polo CI de daw-dev.
-    # Se non existe (outra versión de PHP...), Compose constrúea co Dockerfile.
-    image: ${DAW_DEV_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.6}
+    # A etiqueta -ad identifica as imaxes coa conta ad, mesmo se hai unha 8.6 anterior na caché.
+    image: ${DAW_DEV_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.6}-ad
     ports:
       - "${WEB_PORT:-80}:80"
     volumes:
       - ${WWW_DIR:-./www}:/var/www/html
+      - ${WWW_DIR:-./www}:/home/ad/html
       # Usa a configuración do repositorio tamén coas imaxes publicadas.
       - ./docker/apache/daw-dev.conf:/etc/apache2/conf-available/daw-dev.conf:ro
     environment:

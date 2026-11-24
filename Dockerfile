@@ -3,14 +3,13 @@
 ARG PHP_VERSION=8.6
 FROM php:${PHP_VERSION}-apache
 
-ARG USERNAME=dev
 # UID/GID do usuario do anfitrión (Linux). Así os ficheiros que crea PHP
 # (subidas, cachés, vendor/...) pertencen ao teu usuario e non a root.
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# Apache executa PHP co usuario dev e o grupo www-data de Apache
-ENV APACHE_RUN_USER=${USERNAME} \
+# Apache executa PHP co usuario ad e o grupo www-data de Apache
+ENV APACHE_RUN_USER=ad \
     APACHE_RUN_GROUP=www-data
 
 # Configuración de Apache: ServerName, AllowOverride (.htaccess) e mod_rewrite
@@ -56,18 +55,17 @@ RUN install-php-extensions \
 # php.ini de desenvolvemento (display_errors=On, E_ALL...) como base
 RUN cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
-# Usuario sen privilexios co mesmo UID/GID que o anfitrión, no grupo www-data e con sudo sen contrasinal.
-# Crea a ligazón simbólica /home/dev/html -> /var/www/html e configura permisos e umask 002.
-RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" "$USERNAME") \
-    && useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /bin/bash -G www-data "$USERNAME" \
-    && usermod -aG "$USERNAME" www-data 2>/dev/null || true \
-    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
-    && chmod 0440 "/etc/sudoers.d/$USERNAME" \
-    && chmod 0755 "/home/$USERNAME" \
-    && ln -s /var/www/html "/home/$USERNAME/html" \
-    && chown -h "$USERNAME:$USERNAME" "/home/$USERNAME/html" \
-    && echo "umask 002" >> "/home/$USERNAME/.bashrc" \
-    && chown -R "$USERNAME:www-data" /var/www/html \
+# A conta do contedor usa o UID/GID do anfitrión para conservar os permisos.
+RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" ad) \
+    && useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /bin/bash -G www-data ad \
+    && primary_group=$(id -gn ad) \
+    && if [ "$primary_group" != www-data ]; then usermod -aG "$primary_group" www-data; fi \
+    && echo "ad ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ad \
+    && chmod 0440 /etc/sudoers.d/ad \
+    && chmod 0755 /home/ad \
+    && echo "umask 002" >> /home/ad/.bashrc \
+    && install -d -o ad -g www-data -m 2775 /home/ad/html \
+    && chown -R ad:www-data /var/www/html \
     && chmod -R 2775 /var/www/html
 
 # UTF-8 na shell (acentos no cliente mysql, nano...)

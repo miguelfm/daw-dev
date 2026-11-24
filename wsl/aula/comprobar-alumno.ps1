@@ -7,7 +7,7 @@ Executar sen elevación DESPOIS de instalar o modelo. Usa a configuración prede
 da aula. Crea e elimina unha táboa de proba. Ao rematar deixa os contedores parados.
 #>
 [CmdletBinding()]
-param([string]$Distribution = 'Debian-DAW')
+param([string]$Distribution = 'Debian')
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 Start-Transcript -LiteralPath (Join-Path $stateDir 'proba.log') -Append | Out-Null
 $report = [ordered]@{ User = [Security.Principal.WindowsIdentity]::GetCurrent().Name; WindowsAdmin = $false; Success = $false; Error = $null }
 $token = [Guid]::NewGuid().ToString('N')
-$project = '/home/alumno/proxectos/daw-dev'
+$project = '/home/ad/proxectos/daw-dev'
 $fixture = (& wsl.exe -d $Distribution -u ad --exec wslpath -a -u (Join-Path $PSScriptRoot 'proba-persistencia.sh')) -join ''
 $fixture = $fixture.Trim()
 function Invoke-NativeChecked([scriptblock]$Command) {

@@ -1,2 +1,2 @@
 Datos das tarefas, fóra da raíz web.
-No contedor: /home/ad/datos. En Windows: \\wsl.localhost\Debian-DAW\home\ad\proxectos\daw-dev\datos
+No contedor: /home/ad/datos. En Windows: \\wsl.localhost\Debian\home\ad\proxectos\daw-dev\datos
