@@ -211,10 +211,11 @@ Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e 
 alias daw-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
 alias daw-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
 alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-start-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
+alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
 alias daw-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
+alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
+alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` para activalos.
@@ -229,10 +230,11 @@ terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_pr
 alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
 alias daw-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
 alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" stop'
+alias daw-start-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
+alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
 alias daw-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" logs --tail 100 -f'
-alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-stop daw-status daw-logs daw-help'
+alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
+alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-status daw-logs daw-help'
 ```
 
 Abre outra terminal ou executa `source ~/.bashrc`, `source ~/.zshrc` ou `source ~/.bash_profile`,
@@ -249,10 +251,11 @@ $script:DawCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
 function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
-function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose stop @args }
+function daw-start-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
+function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
 function daw-status { wsl.exe -d Debian -- docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Podes pegar o bloque na sesión actual. Para gardalo, engádeo ao teu
@@ -278,15 +281,21 @@ $script:DawCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
 function daw-start { docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { docker compose -f $script:DawCompose up -d db web @args }
 function daw-start-all { docker compose -f $script:DawCompose up -d @args }
-function daw-stop { docker compose -f $script:DawCompose stop @args }
+function daw-start-doc { docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
+function daw-stop { docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
 function daw-status { docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { docker compose -f $script:DawCompose logs --tail 100 -f @args }
-function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
+function daw-logs { docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
+function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-status', 'daw-logs', 'daw-help' }
 ```
 
 Unha vez cargado o bloque da túa shell, podes executar `daw-start`, `daw-start-all`, `daw-status`
 ou `daw-stop` sen entrar no cartafol do proxecto. Docker debe estar instalado e dispoñible na
 contorna onde se executan os comandos.
+
+Ten en conta que estas definicións manuais chaman directamente a `docker compose` sen pasar por
+`scripts/daw.sh`: polo tanto, non inclúen a migración automática dun ficheiro `.env` anterior
+ao 24-11-2026 (se tes un `.env` antigo co contrasinal por defecto anterior, actualízao a man ou usa
+os lanzadores do instalador).
 
 O instalador da [guía de Windows](docs/windows11-contedores.md) crea lanzadores cos mesmos
 nomes `daw-*` para PowerShell e CMD. Escolle os lanzadores ou as funcións de PowerShell segundo
