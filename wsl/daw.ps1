@@ -14,6 +14,13 @@ $startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 # Angular (DWCC): imaxe publicada e, na aula, copia no paquete para cargala sen Internet.
 $angularImage = 'ghcr.io/miguelfm/dwcc-angular:22'
 $angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } else { 'C:\ProgramData\DAW-Aula\dwcc-angular.tar.gz' }
+# Documentación sen conexión (daw-doc): na aula, as tres imaxes van no paquete.
+$docImages = [ordered]@{
+    'ghcr.io/miguelfm/daw-doc-php:en' = 'daw-doc-php.tar.gz'
+    'ghcr.io/miguelfm/daw-doc-devdocs:latest' = 'daw-doc-devdocs.tar.gz'
+    'ghcr.io/miguelfm/daw-doc-laravel:12.x' = 'daw-doc-laravel.tar.gz'
+}
+$docArchiveDirectory = if ($env:DAW_DOC_ARCHIVES) { $env:DAW_DOC_ARCHIVES } else { 'C:\ProgramData\DAW-Aula' }
 
 function Initialize-AngularKey {
     # Chave da conta de Windows e entrada dwcc-angular de ~/.ssh/config, só a primeira vez.
@@ -43,15 +50,16 @@ function Initialize-AngularKey {
 
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
-        Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular'
+        Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
         Write-Output '       daw-stop | daw-status | daw-logs | daw-code | daw-help'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
         Write-Output '  daw-start-db: start MariaDB and the web service together.'
         Write-Output '  daw-start-angular: start the Angular container; connect VS Code by SSH to dwcc-angular.'
+        Write-Output '  daw-start-doc: start the offline PHP manual (8080), DevDocs (5042) and Laravel docs (8088).'
         Write-Output '  Other running containers are left running.'
-        Write-Output '  daw-stop: stop DAW Dev containers, Angular included, without deleting data.'
+        Write-Output '  daw-stop: stop DAW Dev containers, Angular and the docs included, without deleting data.'
         Write-Output '  daw-status: show names, status and ports, including stopped containers.'
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
         Write-Output '  daw-code: open the project in VS Code (ready for Dev Containers).'
@@ -81,10 +89,11 @@ switch ($Action.ToLowerInvariant()) {
     'start-all' { $composeArgs = $startArgs }
     'start-db' { $composeArgs = $startArgs + @('db', 'web') }
     'start-angular' { $composeArgs = @('--profile', 'angular') + $startArgs + @('angular') }
+    'start-doc' { $composeArgs = @('--profile', 'doc') + $startArgs + @('doc-php', 'doc-devdocs', 'doc-laravel') }
     # Compose só para os servizos dun perfil se se lle indica o perfil.
-    'stop' { $composeArgs = @('--profile', 'angular', 'stop') }
+    'stop' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }
     'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
-    'logs' { $composeArgs = @('--profile', 'angular', 'logs', '--tail', '100', '-f') }
+    'logs' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'logs', '--tail', '100', '-f') }
     default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
 }
 
@@ -119,13 +128,33 @@ if ($Action.ToLowerInvariant() -eq 'start-angular') {
         if ($LASTEXITCODE -ne 0) { throw 'Could not load the Angular image.' }
     }
 }
+if ($Action.ToLowerInvariant() -eq 'start-doc') {
+    foreach ($image in $docImages.Keys) {
+        $archive = Join-Path $docArchiveDirectory $docImages[$image]
+        & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $image
+        if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath $archive)) {
+            Write-Output "Loading $image from the classroom package (only the first time)..."
+            $linuxArchive = ((& wsl.exe @wslArgs --exec wslpath -u $archive) -join '').Trim()
+            & wsl.exe @wslArgs --exec docker load -i $linuxArchive
+            if ($LASTEXITCODE -ne 0) { throw "Could not load $image." }
+        }
+    }
+}
 & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose @composeArgs
 $composeExitCode = $LASTEXITCODE
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start-db', 'start-all')) {
+    # Os volumes de MariaDB anteriores ao 24-11-2026 teñen o contrasinal vello por defecto.
+    & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh sincronizar-bd
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB passwords.' }
+}
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') {
     Write-Output 'Angular is running. In VS Code: F1 > Remote-SSH: Connect to Host... > dwcc-angular,'
     Write-Output 'open /home/node/proxectos and run: ng serve --host 0.0.0.0  (http://localhost:4200)'
 }
-if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all', 'start-angular')) {
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-doc') {
+    Write-Output 'PHP manual: http://localhost:8080/   DevDocs: http://localhost:5042/   Laravel: http://localhost:8088/'
+}
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all', 'start-angular', 'start-doc')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
     Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList ($wslArgs + @(
         '--cd', ('"' + $ProjectPath + '"'),

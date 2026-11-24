@@ -71,7 +71,7 @@ if docker compose exec -T -u ad web sh -ec 'test "$HOME" = /home/ad && test -d /
 else
     fallo "a imaxe web non ten a conta ad limpa"
 fi
-if docker compose exec -T -u ad web mysql -udwcs -pabc123. dwcs -e 'SELECT nome FROM alumnado' 2>/dev/null | grep -q 'Uxía'; then
+if docker compose exec -T -u ad web sh -c 'MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -e "SELECT nome FROM alumnado"' 2>/dev/null | grep -q 'Uxía'; then
     ok "cliente mysql e acentos (utf8mb4)"
 else
     fallo "cliente mysql (credenciais cambiadas no .env? BD sen os datos de exemplo?)"

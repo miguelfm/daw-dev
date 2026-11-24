@@ -26,6 +26,7 @@ $commands = [ordered]@{
     'daw-start-all' = 'start-all'
     'daw-start-db' = 'start-db'
     'daw-start-angular' = 'start-angular'
+    'daw-start-doc' = 'start-doc'
     'daw-stop' = 'stop'
     'daw-status' = 'status'
     'daw-logs' = 'logs'

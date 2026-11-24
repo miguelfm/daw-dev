@@ -309,6 +309,40 @@ O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compr�
 conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
 Compose non para os servizos dun perfil.
 
+### Documentación sen conexión (daw-doc)
+
+O perfil `doc` de `compose.yaml` arranca o manual de PHP (<http://localhost:8080/>),
+DevDocs con HTML e CSS (<http://localhost:5042/>) e a documentación de Laravel 12.x
+(<http://localhost:8088/>), coas imaxes do proxecto
+[daw-doc](https://github.com/miguelfm/daw-doc). Serven para os exames e as clases sen
+Internet. As imaxes constrúense no profesor, en Linux ou WSL, e cada unha vai ao
+paquete co seu SHA256:
+
+```bash
+# No repositorio de daw-doc, con Internet: deixa os tres .tar.gz en dist/
+scripts/empaquetar.sh
+```
+
+```powershell
+$paquete = 'C:\DAW-Paquete-2026'
+.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
+foreach ($p in @(
+    @('daw-doc-php.tar.gz', 'ghcr.io/miguelfm/daw-doc-php:en'),
+    @('daw-doc-devdocs.tar.gz', 'ghcr.io/miguelfm/daw-doc-devdocs:latest'),
+    @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:12.x'))) {
+    .\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
+}
+.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
+.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+```
+
+`ActualizarProxecto` leva o `compose.yaml` co perfil `doc`, e **Activar DAW Dev**, a
+orde `daw-start-doc`. A primeira vez en cada conta, `daw-start-doc` carga as imaxes que
+falten desde `C:\ProgramData\DAW-Aula` con `docker load`; despois arranca nuns
+segundos. Como os outros servizos, os portos só escoitan en `127.0.0.1`, e
+`daw-stop` tamén para a documentación. Os tres arquivos ocupan uns 115 MB: cada un leva
+a súa copia da capa de nginx.
+
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).
 

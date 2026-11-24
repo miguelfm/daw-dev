@@ -87,7 +87,7 @@ Tras editar só este ficheiro de configuración, reinicia o web con
 
 En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para executar
 `daw-start` (só servidor web), `daw-start-db` (BD e web),
-`daw-start-all` (web, BD e phpMyAdmin), `daw-stop`,
+`daw-start-all` (web, BD e phpMyAdmin), `daw-start-doc` (documentación sen conexión), `daw-stop`,
 `daw-status`, `daw-logs` e `daw-code` (apertura directa en VS Code con soporte Dev Containers) desde PowerShell ou CMD.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
 
@@ -187,6 +187,7 @@ terminal para cargar os nomes actualizados.
 | `daw-start` | Arranca só `daw-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
 | `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
 | `daw-start-db` | Arranca a base de datos e o web. |
+| `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, DevDocs en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
@@ -298,7 +299,7 @@ contorna orixinal para manter compatibles os exercicios e as bases de datos exis
 
 | Base de datos | Usuario | Contrasinal | Root       |
 |---------------|---------|-------------|------------|
-| `dwcs`        | `dwcs`  | `abc123.`   | `abc123.`  |
+| `dwcs`        | `dwcs`  | `abc123..`  | `abc123..` |
 
 - **Dende PHP o servidor é `db`, non `localhost`.** As credenciais están tamén en variables de contorna:
 

@@ -49,6 +49,7 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-start-db` | Arranca `web` e MariaDB |
 | `daw-start-all` | Arranca `web`, MariaDB e phpMyAdmin |
 | `daw-start-angular` | Arranca o contedor de Angular (DWCC) |
+| `daw-start-doc` | Arranca a documentación sen conexión |
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
 | `daw-code` | Abre o proxecto en Visual Studio Code |
@@ -71,14 +72,17 @@ guía *Angular con DAW Dev (DWCC)*.
 | Web | `http://localhost/` | `daw-start` |
 | phpMyAdmin | `http://localhost:8081/` | `daw-start-all` |
 | MariaDB | `localhost`, porto `3306` | `daw-start-db` |
+| Manual de PHP | `http://localhost:8080/` | `daw-start-doc` |
+| DevDocs (HTML e CSS) | `http://localhost:5042/` | `daw-start-doc` |
+| Documentación de Laravel | `http://localhost:8088/` | `daw-start-doc` |
 
 Só se pode acceder a eles desde o propio computador. MariaDB ten dous
 usuarios, co mesmo contrasinal:
 
 | Usuario | Contrasinal | Uso |
 |---|---|---|
-| `dwcs` | `abc123.` | Aplicacións; base de datos `dwcs` |
-| `root` | `abc123.` | Administración |
+| `dwcs` | `abc123..` | Aplicacións; base de datos `dwcs` |
+| `root` | `abc123..` | Administración |
 
 Desde PHP, o servidor de bases de datos chámase `db`, non `localhost`. O
 contedor ten os datos de conexión en variables de contorno, que o código

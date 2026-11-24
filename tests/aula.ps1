@@ -264,8 +264,15 @@ try{
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
-        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular'"){Assert ($daw.Contains($s)) "Missing: $s"}
+        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc'"){Assert ($daw.Contains($s)) "Missing: $s"}
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-start-angular' = 'start-angular'"))
+    }
+    Test 'offline docs are a profiled service loaded from the package and started by the launcher' {
+        $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
+        foreach($s in 'profiles: ["doc"]','127.0.0.1:8080}:80','127.0.0.1:5042}:9292','127.0.0.1:8088}:80'){Assert ($compose.Contains($s)) "Missing: $s"}
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
+        foreach($s in "'start-doc' { `$composeArgs = @('--profile', 'doc')","'daw-doc-php.tar.gz'","'daw-doc-devdocs.tar.gz'","'daw-doc-laravel.tar.gz'","'start-angular', 'start-doc')"){Assert ($daw.Contains($s)) "Missing: $s"}
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/install-daw-commands.ps1')).Contains("'daw-start-doc' = 'start-doc'"))
     }
     Test 'manual activation installs, then applies the staged project, and reports failures' {
         $exe=(Get-Process -Id $PID).Path

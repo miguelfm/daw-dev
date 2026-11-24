@@ -27,7 +27,7 @@ services:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-dwcs}
       DB_USER: ${DB_USER:-dwcs}
-      DB_PASSWORD: ${DB_PASSWORD:-abc123.}
+      DB_PASSWORD: ${DB_PASSWORD:-abc123..}
     extra_hosts:
       # Necesario en Linux para que Xdebug chegue ao IDE do anfitrión
       - "host.docker.internal:host-gateway"
@@ -42,10 +42,10 @@ services:
       # Para conectar desde o anfitrión (DBeaver, HeidiSQL, extensión de VS Code...)
       - "${DB_PORT:-3306}:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-abc123.}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-abc123..}
       MARIADB_DATABASE: ${DB_NAME:-dwcs}
       MARIADB_USER: ${DB_USER:-dwcs}
-      MARIADB_PASSWORD: ${DB_PASSWORD:-abc123.}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-abc123..}
       # Coa etiqueta lts a versión pode cambiar: actualiza os datos existentes ao arrancar
       MARIADB_AUTO_UPGRADE: "1"
       TZ: Europe/Madrid
@@ -97,6 +97,29 @@ services:
         read_only: true
         bind:
           create_host_path: false
+
+  # Documentación sen conexión do proxecto daw-doc: o manual de PHP, DevDocs (HTML
+  # e CSS) e Laravel. O perfil fai que só arranquen con daw-start-doc.
+  doc-php:
+    profiles: ["doc"]
+    container_name: daw-doc-php
+    image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-php:en
+    ports:
+      - "${DOC_PHP_PORT:-127.0.0.1:8080}:80"
+
+  doc-devdocs:
+    profiles: ["doc"]
+    container_name: daw-doc-devdocs
+    image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-devdocs:latest
+    ports:
+      - "${DOC_DEVDOCS_PORT:-127.0.0.1:5042}:9292"
+
+  doc-laravel:
+    profiles: ["doc"]
+    container_name: daw-doc-laravel
+    image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-laravel:12.x
+    ports:
+      - "${DOC_LARAVEL_PORT:-127.0.0.1:8088}:80"
 
 volumes:
   db_data:

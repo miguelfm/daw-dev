@@ -59,9 +59,14 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
         return subprocess.run(['bash',str(script)],env=dict(os.environ,PATH=str(root/'bin')+os.pathsep+os.environ['PATH'],DAW_MIGRATION_FIXTURE=str(root)),capture_output=True,text=True)
     root,script,project=fixture('migrate')
     launcher=root/'usr/local/bin/daw-aula-command'
-    launcher.write_text(f'#!/usr/bin/env bash\ncd {root}/home/alumno/proxectos/daw-dev\n')
+    launcher.write_text(f'#!/usr/bin/env bash\ncd {root}/home/alumno/proxectos/daw-dev\ncase "${{0##*/}}" in\n'
+        '  daw-start-all) exec docker compose up -d --wait --wait-timeout 300 "$@" ;;\n'
+        '  daw-start-db) exec docker compose up -d --wait --wait-timeout 300 db web "$@" ;;\n'
+        '  daw-stop) exec docker compose stop "$@" ;;\nesac\n')
     r=run(root,script);assert r.returncode==0,r.stderr
-    assert launcher.read_text().splitlines()[-1] == f'cd {root}/home/ad/proxectos/daw-dev'
+    lines=launcher.read_text().splitlines()
+    assert lines[1] == f'cd {root}/home/ad/proxectos/daw-dev'
+    assert lines[3:6]==['  daw-start-all) exec bash scripts/daw.sh start-all "$@" ;;','  daw-start-db) exec bash scripts/daw.sh start-db "$@" ;;','  daw-stop) exec docker compose stop "$@" ;;'],lines
     config=(root/'etc/wsl.conf').read_text()
     assert 'default=ad\n' in config and 'default=preserve' in config and 'default=also-preserve' in config
     assert (root/'home/ad/proxectos/daw-dev/www/work.php').read_text()=='student work'
@@ -71,6 +76,15 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
     (root/'home/alumno').symlink_to(root/'home/ad')
     r=run(root,script);assert r.returncode==0 and not (root/'home/alumno').is_symlink(),r.stderr
     print('PASS actual migration preserves project/config sections and is idempotent')
+    env=root/'home/ad/proxectos/daw-dev/.env'
+    env.write_text('WEB_PORT=127.0.0.1:80\nDB_PASSWORD=abc123.\nDB_ROOT_PASSWORD=abc123.\n')
+    r=run(root,script);assert r.returncode==0,r.stderr
+    assert env.read_text()=='WEB_PORT=127.0.0.1:80\nDB_PASSWORD=abc123..\nDB_ROOT_PASSWORD=abc123..\n',env.read_text()
+    backups=list(env.parent.glob('.env.daw-backup-*'));assert len(backups)==1 and 'abc123.\n' in backups[0].read_text()
+    r=run(root,script);assert r.returncode==0 and len(list(env.parent.glob('.env.daw-backup-*')))==1,r.stderr
+    env.write_text('DB_PASSWORD=persoal\nDB_ROOT_PASSWORD=abc123..\n')
+    r=run(root,script);assert r.returncode==0 and env.read_text()=='DB_PASSWORD=persoal\nDB_ROOT_PASSWORD=abc123..\n'
+    print('PASS old default MariaDB password in .env replaced once, custom values kept')
     for name,opts in [('active',{'active':True}),('process-check-error',{'pgrep_exit':2}),('collision',{'ad':True}),('uid',{'uid':1001}),('home',{'home_other':True}),('usermod-error',{'fail_usermod':True})]:
         root,script,project=fixture(name,**opts);before=(root/'etc/wsl.conf').read_bytes()
         r=run(root,script);assert r.returncode!=0,(name,r.stdout)
@@ -90,4 +104,4 @@ with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
     r=run(root,script);assert r.returncode!=0
     assert (root/'home/alumno/personal').read_text()=='personal'
     print('PASS an existing unrelated home is preserved')
-print('ALL 10 MIGRATION SCENARIOS PASSED')
+print('ALL 11 MIGRATION SCENARIOS PASSED')

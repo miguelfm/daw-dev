@@ -39,8 +39,8 @@ set -euo pipefail
 cd /home/ad/proxectos/daw-dev
 case "${0##*/}" in
   daw-start|daw-star) exec docker compose up -d --wait --wait-timeout 300 --no-deps web "$@" ;;
-  daw-start-all) exec docker compose up -d --wait --wait-timeout 300 "$@" ;;
-  daw-start-db) exec docker compose up -d --wait --wait-timeout 300 db web "$@" ;;
+  daw-start-all) exec bash scripts/daw.sh start-all "$@" ;;
+  daw-start-db) exec bash scripts/daw.sh start-db "$@" ;;
   daw-stop) exec docker compose stop "$@" ;;
   daw-status) exec docker compose ps --all "$@" ;;
 esac
