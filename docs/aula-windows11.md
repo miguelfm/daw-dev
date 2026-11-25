@@ -16,7 +16,7 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 3. Constrúe **un modelo limpo Debian**, con Docker Engine, Compose, o proxecto e as tres imaxes descargadas.
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Aula`, protexido contra escritura do alumnado.
 5. **Activación da contorna:**
-   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev > Inicializar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
+   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
 6. A contorna configura o usuario predeterminado de Linux como **`ad`**. O acceso directo **«DAW - Proxectos (www)»** do Escritorio abre o `www` do proxecto en Debian. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
 
@@ -354,8 +354,14 @@ foreach ($p in @(
 orde `daw-start-doc`. A primeira vez en cada conta, `daw-start-doc` carga as imaxes que
 falten desde `C:\ProgramData\DAW-Aula` con `docker load`; despois arranca nuns
 segundos. Como os outros servizos, os portos só escoitan en `127.0.0.1`, e
-`daw-stop` tamén para a documentación. Os tres arquivos ocupan uns 115 MB: cada un leva
+`daw-stop-doc` para só a documentación. Os tres arquivos ocupan arredor de 125 MB: cada un leva
 a súa copia da capa de nginx.
+
+Para renovar a documentación, volve xerar os arquivos no repositorio de
+`daw-doc` e rexístraos no paquete con `engadir-imaxe.ps1`. Nas contas que xa
+teñen esas etiquetas en Docker, verifica o paquete e carga os arquivos novos
+con `docker load -i` antes de executar `daw-start-doc`. O lanzador reutiliza as
+imaxes locais cando xa están cargadas.
 
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).

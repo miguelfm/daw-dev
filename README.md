@@ -108,7 +108,7 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Composer                                | `docker compose exec -u ad web composer require monolog/monolog` |
 | Executar un script PHP por consola      | `docker compose exec -u ad web php script.php` |
 | Reconstruír tras cambiar Dockerfile/ini | `docker compose up -d --build`                  |
-| Actualizar as imaxes publicadas         | `docker compose pull && docker compose up -d`   |
+| Actualizar o servidor web               | `docker compose pull web && docker compose up -d --no-deps web` |
 | Comprobar que todo funciona             | `./scripts/comprobar.sh`                        |
 | Borrar contedores e volumes xestionados, **incluída a BD** | `docker compose down -v`             |
 
@@ -463,7 +463,10 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 - **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
   e para o que se ve no módulo o comportamento é o mesmo: o DSN segue sendo `mysql:`, e `mysqli`, PDO e phpMyAdmin funcionan igual.
   A etiqueta `lts` colle a última versión de soporte longo. Cando saia unha LTS nova, `docker compose pull` actualiza a imaxe e MariaDB
-  actualiza os datos existentes ao arrancar. Para fixar unha versión concreta: `MARIADB_VERSION=12.3` no `.env`.
+  actualiza os datos existentes ao arrancar. Antes de cambiar de serie con datos que
+  queiras conservar, fai unha copia da base de datos e proba a actualización nun
+  volume separado. Para quedar na serie 12.3 e recibir os seus parches, usa
+  `MARIADB_VERSION=12.3` no `.env`.
 - **Outra versión de PHP:** `PHP_VERSION=8.4` no `.env` e `docker compose up -d`. Como esa versión non está publicada,
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
 - **En Compose base, Apache executa PHP como `ad`**, co UID indicado ao construír a imaxe. Na aula, o override executa Apache como `www-data`, igual ca na MV.

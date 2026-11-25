@@ -53,6 +53,11 @@ cando cambies de ruta ou actualices os scripts. `daw-code` abre a copia de Debia
 VS Code a través da extensión WSL. O despregamento da aula inclúe este paso na
 activación da conta. [Guía do despregamento automatizado](aula-windows11.md).
 
+A instalación manual crea os lanzadores para PowerShell e CMD. A entrada
+**DAW Dev → Activar DAW Dev** do menú Inicio procede do despregamento da aula:
+`CopiarModelo` copia o paquete ao equipo e prepara a entrada común.
+[Activación desde o menú Inicio](aula-windows11.md#activación-manual-desde-o-menú-inicio).
+
 ### Comprobar os lanzadores
 
 Abre unha nova xanela de PowerShell ou CMD e comproba:
