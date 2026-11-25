@@ -5,7 +5,9 @@
     [string]$ProjectPath,
     [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser,
     [switch]$Open,
-    [switch]$Local
+    [switch]$Local,
+    [string]$PackageDirectory,
+    [switch]$SkipVSCode
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,7 +56,8 @@ switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
         Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code'
-        Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-help'
+        Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-activate | daw-help'
+        Write-Output '  daw-activate: install or update the classroom setup from its deployed package.'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
@@ -75,6 +78,15 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '                Add -Open to open the Windows path in File Explorer.'
         Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
         exit 0
+    }
+    'activate' {
+        $package = if ($PackageDirectory) { $PackageDirectory } else { Join-Path $env:ProgramData 'DAW-Aula' }
+        $activator = Join-Path $package 'activar-dawdev.ps1'
+        if (-not (Test-Path -LiteralPath $activator -PathType Leaf)) {
+            throw "The classroom package has not been deployed to $package."
+        }
+        & $activator -Distribution $Distribution -SenVSCode:$SkipVSCode -SenPausa
+        exit $LASTEXITCODE
     }
     'code' {
         $targetPath = $ProjectPath

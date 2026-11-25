@@ -288,6 +288,18 @@ Dev** no menú Inicio común. Calquera usuario a executa cando a necesita, sen a
 `actualizar-proxecto.ps1`, nunha xanela que amosa o progreso. Non se engade nada ao inicio
 de sesión, e os usuarios doutros módulos só ven a entrada no menú.
 
+Nunha conta cos lanzadores instalados, `daw-activate` executa o mesmo
+activador desde PowerShell ou CMD. Antes de instalar os lanzadores, tamén
+podes chamar ao script do paquete desde PowerShell:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:ProgramData\DAW-Aula\activar-dawdev.ps1"
+```
+
+O activador usa a distribución `Debian` por defecto. Para unha proba illada,
+pódese indicar `-Distribution` no script. `daw-start` arranca Apache e PHP
+despois da activación.
+
 - Repetir a activación é seguro, e é a forma de que unha conta xa activada reciba as
   ordes `daw-*` e os ficheiros do proxecto novos.
 - O instalador rexeita as contas con elevación, como o Administrador integrado (`-500`);

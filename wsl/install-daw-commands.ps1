@@ -21,6 +21,7 @@ if ($LinuxProjectPath) {
 New-Item -ItemType Directory -Path $binPath -Force | Out-Null
 
 $commands = [ordered]@{
+    'daw-activate' = 'activate'
     'daw-start' = 'start'
     'daw-star' = 'start'
     'daw-start-all' = 'start-all'

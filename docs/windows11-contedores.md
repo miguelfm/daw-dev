@@ -55,7 +55,8 @@ activación da conta. [Guía do despregamento automatizado](aula-windows11.md).
 
 A instalación manual crea os lanzadores para PowerShell e CMD. A entrada
 **DAW Dev → Activar DAW Dev** do menú Inicio procede do despregamento da aula:
-`CopiarModelo` copia o paquete ao equipo e prepara a entrada común.
+`CopiarModelo` copia o paquete ao equipo e prepara a entrada común. Co
+paquete despregado, `daw-activate` invoca o mesmo activador desde o terminal.
 [Activación desde o menú Inicio](aula-windows11.md#activación-manual-desde-o-menú-inicio).
 
 ### Comprobar os lanzadores

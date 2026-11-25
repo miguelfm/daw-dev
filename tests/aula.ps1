@@ -26,6 +26,20 @@ try{
             Assert ($e.Count -eq 0) "$($f.Name): $e"
         }
     }
+    Test 'terminal activation uses the classroom activator in the selected distribution' {
+        $package=Join-Path $script:Temp 'terminal activation'
+        New-Item -ItemType Directory -Path $package|Out-Null
+        $entry=Join-Path $package 'activar-dawdev.ps1'
+        [IO.File]::WriteAllText($entry,@'
+param([string]$Distribution,[switch]$SenVSCode,[switch]$SenPausa)
+Write-Output "$Distribution|$SenVSCode|$SenPausa"
+exit 0
+'@)
+        $launcher=Join-Path $script:Repo 'wsl/daw.ps1'
+        $result=& $launcher -Action activate -Distribution 'Debian-Proba' -PackageDirectory $package -SkipVSCode
+        Assert ($LASTEXITCODE -eq 0 -and $result -eq 'Debian-Proba|True|True')
+        Throws { & $launcher -Action activate -PackageDirectory (Join-Path $package 'missing') } 'not been deployed'
+    }
     Test 'native quoted arguments, errors and timeout' {
         $exe=(Get-Process -Id $PID).Path
         $f=Join-Path $script:Temp 'quoted script.ps1';[IO.File]::WriteAllText($f,'param([string]$Value) $Value | ConvertTo-Json -Compress')
