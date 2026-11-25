@@ -346,6 +346,17 @@ function Get-DawPackageImages {
         $extra
     }
 }
+function Get-DawChangedPackageFiles {
+    param([string]$Directory,[object[]]$Files)
+    foreach ($file in $Files) {
+        $path = Join-Path $Directory $file.File
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf -ErrorAction Stop) -or
+            (Get-Item -LiteralPath $path -ErrorAction Stop).Length -ne $file.Length -or
+            (Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash -ne $file.Sha256) {
+            $file.File
+        }
+    }
+}
 function Add-DawPackageImage {
     # No profesor: copia un docker save (.tar ou .tar.gz) ao paquete e rexístrao co seu SHA256.
     param([string]$Directory,[string]$Archive,[string]$Name)

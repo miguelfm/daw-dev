@@ -72,16 +72,30 @@ if ($Action -eq 'PrepararWSL') {
     }
     Assert-MicrosoftSignature $WslMsi
 }
-$files = @('manifest.json') + @(Get-DawSetupFiles)
 if ($Action -eq 'CopiarModelo') {
     if (-not $PackageDirectory) { throw 'Indica -PackageDirectory.' }
-    foreach ($file in $files) {
+    foreach ($file in @('manifest.json') + @(Get-DawSetupFiles)) {
         if (-not (Test-Path -LiteralPath (Join-Path $PackageDirectory $file) -PathType Leaf)) { throw "Falta $file no paquete." }
     }
     $manifest = Assert-DawPackage $PackageDirectory
-    $files += $manifest.Image
-    $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
-    $files += @(Get-DawPackageFiles $manifest | ForEach-Object { $_.File })
+    $manifestHash = (Get-FileHash -LiteralPath (Join-Path $PackageDirectory 'manifest.json') -Algorithm SHA256).Hash
+    $entries = @(
+        foreach ($name in Get-DawSetupFiles) {
+            [pscustomobject]@{File = $name; Sha256 = $manifest.ScriptSha256.$name}
+        }
+        [pscustomobject]@{File = $manifest.Image; Sha256 = $manifest.Sha256}
+        Get-DawPackageImages $manifest
+        Get-DawPackageFiles $manifest
+        # Publicar o manifesto só despois dos ficheiros aos que apunta.
+        [pscustomobject]@{File = 'manifest.json'; Sha256 = $manifestHash}
+    )
+    $packageFiles = foreach ($entry in $entries) {
+        [pscustomobject]@{
+            File = $entry.File
+            Sha256 = $entry.Sha256
+            Length = (Get-Item -LiteralPath (Join-Path $PackageDirectory $entry.File)).Length
+        }
+    }
 }
 $projectStage = $null
 if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
@@ -149,9 +163,8 @@ foreach ($n in $Numero) {
                         Write-Host "[$computer] Non se reiniciou automaticamente. Revisa RestartRequired."
                     }
                     'CopiarModelo' {
-                        $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
-                        Invoke-Command -Session $session -ScriptBlock {
-                            param($source)
+                        $changedFiles = @(Invoke-Command -Session $session -ScriptBlock {
+                            param($source,$expectedFiles)
                             New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
                             # Prevent a new logon from starting the old installer during package replacement.
                             Set-DawAutoStart
@@ -185,13 +198,15 @@ foreach ($n in $Numero) {
                                 $fileAcl.SetOwner($admins)
                                 Set-Acl -LiteralPath $_.FullName -AclObject $fileAcl
                             }
-                        } -ArgumentList $moduleSource
-                        foreach ($file in $files) {
+                            Get-DawChangedPackageFiles $target $expectedFiles
+                        } -ArgumentList $moduleSource,$packageFiles)
+                        $transfer = @($packageFiles | Where-Object { $_.File -in $changedFiles })
+                        foreach ($file in $transfer.File) {
                             # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
                             Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination "\\$computer\c$\ProgramData\DAW-Aula\$file" -Force
                         }
                         Invoke-Command -Session $session -ScriptBlock {
-                            param($enableAuto)
+                            param($enableAuto,$expectedManifestHash)
                             $target = 'C:\ProgramData\DAW-Aula'
                             # Elimina ACL explícitas herdadas dunha copia anterior en cada ficheiro.
                             Get-ChildItem -LiteralPath $target -File | ForEach-Object {
@@ -201,20 +216,29 @@ foreach ($n in $Numero) {
                                 Set-Acl -LiteralPath $_.FullName -AclObject $acl
                             }
                             Import-Module (Join-Path $target 'daw-aula.psm1') -Force
+                            $remoteManifest = Join-Path $target 'manifest.json'
+                            if ((Get-FileHash -LiteralPath $remoteManifest -Algorithm SHA256).Hash -ne $expectedManifestHash) {
+                                throw 'O manifesto copiado non coincide co do paquete de orixe.'
+                            }
                             Assert-DawPackage $target | Out-Null
                             Set-DawAutoStart -Enabled:$enableAuto
                             Initialize-DawProjectDirectory
-                        } -ArgumentList $AutoInicio.IsPresent
+                        } -ArgumentList $AutoInicio.IsPresent,$manifestHash
                         # Ficheiros do proxecto e entrada do menú Inicio: cada usuario activa DAW Dev
                         # cando o necesita, sen que o docente teña que estar conectado.
                         Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
                         $details = Invoke-Command -Session $session -ScriptBlock {
-                            param($revision)
+                            param($revision,$copied,$reused)
                             Reset-DawProjectAcl
                             $stage = Assert-DawProjectOverlay (Get-DawProjectDirectory)
                             if ($stage.Revision -ne $revision) { throw 'A revisión do proxecto copiado non coincide.' }
-                            [pscustomobject]@{ Revision = $stage.Revision; Shortcut = Set-DawStartMenuShortcut }
-                        } -ArgumentList $projectManifest.Revision
+                            [pscustomobject]@{
+                                Revision = $stage.Revision
+                                Shortcut = Set-DawStartMenuShortcut
+                                CopiedFiles = $copied
+                                ReusedFiles = $reused
+                            }
+                        } -ArgumentList $projectManifest.Revision,$transfer.Count,($packageFiles.Count - $transfer.Count)
                     }
                     'Estado' {
                         $details = Invoke-Command -Session $session -ScriptBlock {

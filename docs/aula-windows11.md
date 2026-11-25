@@ -148,7 +148,13 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 .\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -Aula 31 -Numero 1 -PackageDirectory C:\DAW-Paquete-2026
 ```
 
-Verifica o SHA256 antes e despois da copia. A carpeta local só permite escritura a SYSTEM e Administradores;
+Verifica o SHA-256 no equipo docente e no destino. Cada posto comproba na súa unidade os ficheiros
+que xa ten. Só se transfiren os que faltan ou teñen un SHA-256 distinto, incluídas as imaxes.
+Se cambia o manifesto, cópiase ao final. Antes de confirmar o resultado, compróbase que o manifesto
+coincide co de orixe e volven verificarse todos os seus ficheiros. O resultado indica cantos se
+copiaron e cantos se reutilizaron.
+
+A carpeta local só permite escritura a SYSTEM e Administradores;
 os usuarios teñen lectura e execución. Non depende de compartir credenciais nin dun servidor accesible
 no momento de iniciar sesión.
 

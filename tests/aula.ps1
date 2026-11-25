@@ -399,6 +399,25 @@ try{
             Assert ($link.Arguments -eq '-NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\DAW-Aula\activar-dawdev.ps1"')
         }
     }
+    Test 'classroom transfer reuses identical bytes and repairs changed or missing files' {
+        $source=Join-Path $script:Temp 'transfer-source'
+        $target=Join-Path $script:Temp 'transfer-target'
+        New-Item -ItemType Directory -Path $source,$target|Out-Null
+        $names=@('debian-daw.tar.gz','daw-dev-php86.tar.gz','dwcc-angular.tar.gz','daw.ps1','manifest.json')
+        $entries=foreach($name in $names){
+            $path=Join-Path $source $name
+            [IO.File]::WriteAllText($path,'current')
+            [pscustomobject]@{File=$name;Length=(Get-Item -LiteralPath $path).Length;Sha256=(Get-FileHash -LiteralPath $path).Hash}
+        }
+        Copy-Item -LiteralPath (Join-Path $source $names[0]) -Destination $target
+        [IO.File]::WriteAllText((Join-Path $target $names[1]),'corrupt')
+        [IO.File]::WriteAllText((Join-Path $target $names[3]),'old')
+        [IO.File]::WriteAllText((Join-Path $target $names[4]),'old')
+        $changed=@(Get-DawChangedPackageFiles $target $entries)
+        Assert (($changed -join ',') -eq (($names | Select-Object -Skip 1) -join ','))
+        foreach($name in $changed){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Force}
+        Assert (@(Get-DawChangedPackageFiles $target $entries).Count -eq 0) 'Repeating a copy must not transfer unchanged files'
+    }
     Test 'CopiarModelo stages the project and creates the start menu entry, without autostart' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/aula/gestionar-aula.ps1'))
         foreach($s in 'Initialize-DawProjectDirectory','Assert-DawProjectOverlay (Get-DawProjectDirectory)','Set-DawStartMenuShortcut','Set-DawAutoStart -Enabled:$enableAuto'){Assert ($t.Contains($s)) "Missing: $s"}
