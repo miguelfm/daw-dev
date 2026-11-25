@@ -106,7 +106,7 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Ver estado, incluídos os parados        | `docker compose ps --all`                        |
 | Ver erros de PHP e do servidor web      | `docker compose logs -f web`                    |
 | Abrir unha shell no contedor            | `docker compose exec -u dev web bash`           |
-| Consola de MariaDB                      | `docker compose exec -u dev web mysql -u dwcs -p dwcs` |
+| Consola de MariaDB                      | `docker compose exec -u dev web mysql -u daw -p dwcs` |
 | Consola de MariaDB como root            | `docker compose exec db mariadb -u root -p`     |
 | Composer                                | `docker compose exec -u dev web composer require monolog/monolog` |
 | Executar un script PHP por consola      | `docker compose exec -u dev web php script.php` |
@@ -301,12 +301,12 @@ onde teñas o proxecto. `daw-start-all` arranca os mesmos tres servizos en todos
 
 ## Base de datos
 
-Credenciais de exemplo por defecto (cámbianse no `.env`). Consérvanse os nomes `dwcs` da
+Credenciais de exemplo por defecto (cámbianse no `.env`). Consérvase o nome da base de datos `dwcs` da
 contorna orixinal para manter compatibles os exercicios e as bases de datos existentes:
 
-| Base de datos | Usuario | Contrasinal | Root       |
-|---------------|---------|-------------|------------|
-| `dwcs`        | `dwcs`  | `abc123.`   | `abc123.`  |
+| Base de datos | Usuario | Contrasinal | Root        |
+|---------------|---------|-------------|-------------|
+| `dwcs`        | `daw`   | `abc123..`  | `abc123..`  |
 
 - **Dende PHP o servidor é `db`, non `localhost`.** As credenciais están tamén en variables de contorna:
 

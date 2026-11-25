@@ -66,7 +66,7 @@ if [ "$(grep -c '✔' <<< "$E")" -ge 10 ] && ! grep -q '✘' <<< "$E"; then ok "
 SERVIDOR=$(grep -o 'Servidor web.*' <<< "$E" | awk -F'\t' '{print $2}' | sed 's/^ *//')
 
 seccion "Ferramentas no contedor"
-if docker compose exec -T -u dev web mysql -udwcs -pabc123. dwcs -e 'SELECT nome FROM alumnado' 2>/dev/null | grep -q 'Uxía'; then
+if docker compose exec -T -u dev web mysql -udaw -pabc123.. dwcs -e 'SELECT nome FROM alumnado' 2>/dev/null | grep -q 'Uxía'; then
     ok "cliente mysql e acentos (utf8mb4)"
 else
     fallo "cliente mysql (credenciais cambiadas no .env? BD sen os datos de exemplo?)"

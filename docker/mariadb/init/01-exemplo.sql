@@ -1,5 +1,5 @@
 -- Executado só na primeira creación do volume de datos.
--- A BD `dwcs` e o usuario `dwcs` xa os crea a imaxe de MariaDB (variables do .env).
+-- A BD `dwcs` e o usuario `daw` xa os crea a imaxe de MariaDB (variables do .env).
 -- Sen isto o cliente de inicialización le o ficheiro como latin1 e os acentos
 -- gárdanse mal (Ã­...). Inclúeo sempre nos teus scripts .sql.
 SET NAMES utf8mb4;

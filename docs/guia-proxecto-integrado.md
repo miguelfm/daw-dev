@@ -74,8 +74,8 @@ DB_CONNECTION=mysql
 DB_HOST=db
 DB_PORT=3306
 DB_DATABASE=dwcs
-DB_USERNAME=dwcs
-DB_PASSWORD=abc123.
+DB_USERNAME=daw
+DB_PASSWORD=abc123..
 ```
 
 Despois, no mesmo terminal, `php artisan migrate`.

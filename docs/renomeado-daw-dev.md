@@ -2,8 +2,10 @@
 
 O proxecto, o repositorio e os contedores pasan a usar o nome `daw-dev`. Os comandos usan
 o prefixo `daw-`, por exemplo `daw-start` e `daw-stop`.
-O código de `www/` e os datos de MariaDB consérvanse. A base de datos e o usuario de exemplo
-seguen chamándose `dwcs`; non é necesario renomealos para migrar a contorna.
+O código de `www/` e os datos de MariaDB consérvanse. A base de datos segue
+chamándose `dwcs` e o usuario de exemplo para aplicacións é `daw` (co contrasinal
+habitual `abc123..`); non é necesario renomealos para migrar a contorna se xa
+tes credenciais configuradas.
 
 ## Instalacións existentes en Linux ou WSL2
 
