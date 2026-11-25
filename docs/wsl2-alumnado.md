@@ -17,9 +17,13 @@ daw-start       # Só PHP e Apache; tamén funciona daw-star
 daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
 daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
+daw-web-root -Open   # Abre a raíz web no Explorador de ficheiros
+daw-wsl-shell   # Abre Debian no proxecto
+daw-web-shell   # Abre o contedor de Apache e PHP
 ```
 
-O código está directamente en `\\wsl.localhost\Debian\home\ad\www` (tamén accesible a través do acceso directo do teu Escritorio de Windows: **«DAW - Proxectos (www)»**).
+No Explorador, o cartafol web da aula é `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www`.
+Tamén podes abrilo desde o Escritorio co acceso directo **«DAW - Proxectos (www)»**.
 
 Para traballar con **VS Code e Dev Containers** (recomendado):
 Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto e detectará a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
@@ -27,7 +31,7 @@ Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto
 Para entrar no proxecto directamente en Debian:
 
 ```powershell
-wsl -d Debian --cd /home/ad/www
+wsl -d Debian --cd /home/ad/proxectos/daw-dev
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
@@ -80,9 +84,11 @@ git clone https://github.com/miguelfm/daw-dev.git ~/proxectos/daw-dev
 co segundo comando. O instalador de Docker tamén inclúe `wget` entre as dependencias.
 
 Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che dan un `.zip`, descomprímeo en Windows, executa
-`cd ~ && explorer.exe .` en Debian e arrastra o cartafol `daw-dev` á xanela que se abre.
+`mkdir -p ~/proxectos && cd ~/proxectos && explorer.exe .` en Debian e arrastra o cartafol `daw-dev` á xanela que se abre.
 
-> **Garda sempre o proxecto dentro de Debian (`~/proxectos/daw-dev`), nunca en `C:`**. En `C:` todo vai moito máis lento.
+> Garda o proxecto dentro de Debian (`~/proxectos/daw-dev`) para que Docker e as
+> ferramentas Linux lean os ficheiros directamente. O proxecto tamén admite
+> [unha copia en Windows](windows11-contedores.md#rendemento).
 > Se xa o descargaches en `~/dwcs`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
 
 ### 1.3. Instalar Docker
@@ -194,9 +200,10 @@ PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola
 
 ### Atallos opcionais para a terminal
 
-Podes definir `daw-start`, `daw-start-all`, `daw-stop` e `daw-status` seguindo a
-[sección de atallos do README](../README.md#atallos-daw-para-a-terminal). Tes exemplos para Bash dentro
-de Debian e para PowerShell desde Windows, que chama a Docker a través de WSL2.
+Para usar `daw-start`, `daw-code` e `daw-web-root` desde Windows, instala
+[os lanzadores para unha copia en Debian](windows11-contedores.md#copia-do-proxecto-en-debian).
+Para atallos manuais de Bash ou PowerShell, consulta
+[a sección de atallos do README](../README.md#atallos-daw-para-a-terminal).
 
 Se usas Bash, cambia a ruta dos exemplos a `$HOME/proxectos/daw-dev/compose.yaml` e garda os alias en `~/.bashrc`.
 En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/proxectos/daw-dev/compose.yaml`.
@@ -219,7 +226,10 @@ interrupción **non paran**: Xdebug só chega a VS Code cando este está conecta
 ### Ver os ficheiros desde Windows
 
 En Debian, `explorer.exe .` abre o cartafol actual no Explorador de Windows. Tamén podes ir a
-`\\wsl.localhost\Debian\home\<o-teu-usuario>\proxectos\daw-dev` no Explorador.
+`\\wsl.localhost\Debian\home\<o-teu-usuario>\proxectos\daw-dev\www` no Explorador
+se seguiches a instalación manual desta guía. `daw-web-root -Open` abre o
+cartafol que usa Apache, mesmo cun `WWW_DIR` personalizado. Tamén podes
+[configurar unha ruta fixa en `/home/ad/www`](windows11-contedores.md#ruta-fixa-opcional-nunha-instalación-manual).
 
 ### Portainer CE: xestión gráfica opcional
 

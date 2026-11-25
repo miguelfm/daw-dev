@@ -3,7 +3,9 @@
     [string]$Distribution = 'Debian',
     # Ruta absoluta dentro de Debian, ou ruta Windows da copia habitual.
     [string]$ProjectPath,
-    [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser
+    [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser,
+    [switch]$Open,
+    [switch]$Local
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,7 +53,8 @@ function Initialize-AngularKey {
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
-        Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-code | daw-help'
+        Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code'
+        Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-help'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
@@ -64,15 +67,27 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-stop-doc: stop only the offline documentation containers.'
         Write-Output '  daw-status: show names, status and ports, including stopped containers.'
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
-        Write-Output '  daw-shell: open an interactive bash shell in the web container as user ad.'
-        Write-Output '  daw-code: open the project in VS Code (ready for Dev Containers).'
+        Write-Output '  daw-web-shell: open Bash in the Apache/PHP web container as user ad.'
+        Write-Output '  daw-shell: alias for daw-web-shell.'
+        Write-Output '  daw-wsl-shell: open Debian in WSL at the project directory without starting Docker.'
+        Write-Output '  daw-code: open the project in VS Code; add -Local to edit in Windows without VS Code Server.'
+        Write-Output '  daw-web-root: show the Windows and Debian paths to the Apache web root.'
+        Write-Output '                Add -Open to open the Windows path in File Explorer.'
+        Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
         exit 0
     }
     'code' {
-        $targetPath = if ($ProjectPath.StartsWith('/')) {
-            "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+        $targetPath = $ProjectPath
+        $useWslRemote = $ProjectPath.StartsWith('/') -and -not $Local
+        $codeArgs = if ($useWslRemote) {
+            @('--remote', ('"wsl+' + $Distribution + '"'), ('"' + $ProjectPath.TrimEnd('/') + '/"'))
         } else {
-            $ProjectPath
+            if ($ProjectPath.StartsWith('/')) {
+                & wsl.exe @wslArgs --exec test -d $ProjectPath
+                if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
+                $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+            }
+            '"' + $targetPath + '"'
         }
         $codeCmd = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
         if (-not (Test-Path -LiteralPath $codeCmd)) {
@@ -80,13 +95,21 @@ switch ($Action.ToLowerInvariant()) {
             if ($cmdCheck) { $codeCmd = $cmdCheck.Source }
         }
         if (Test-Path -LiteralPath $codeCmd) {
-            Start-Process -FilePath $codeCmd -ArgumentList ('"' + $targetPath + '"')
+            Start-Process -FilePath $codeCmd -ArgumentList $codeArgs
             Write-Output "VS Code aberto no proxecto: $targetPath"
-            Write-Output "Para traballar no contedor, preme F1 e selecciona: Dev Containers: Reopen in Container"
+            if ($Local) {
+                Write-Output 'Local editing in Windows. Use daw-web-shell for PHP and Composer.'
+            } else {
+                Write-Output "Para traballar no contedor, preme F1 e selecciona: Dev Containers: Reopen in Container"
+            }
         } else {
             Write-Error "Non se atopou VS Code no equipo."
         }
         exit 0
+    }
+    'wsl-shell' {
+        & wsl.exe @wslArgs --cd $ProjectPath
+        exit $LASTEXITCODE
     }
     'start' { $composeArgs = $startArgs + @('--no-deps', 'web') }
     'start-all' { $composeArgs = $startArgs }
@@ -100,6 +123,7 @@ switch ($Action.ToLowerInvariant()) {
     'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
     'logs' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'logs', '--tail', '100', '-f') }
     'shell' { $composeArgs = @('exec', '-u', 'ad', 'web', 'bash') }
+    { $_ -in 'web-root', 'www' } { }
     default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
 }
 
@@ -112,6 +136,48 @@ if ($ProjectPath.StartsWith('/')) {
 # systemd pode estar rematando o arranque de Docker cando WSL acaba de abrir.
 & wsl.exe @wslArgs --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
 if ($LASTEXITCODE -ne 0) { throw 'Docker did not start in WSL. Ask the teacher to check the Docker service.' }
+if ($Action -in 'web-root', 'www') {
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        $webRoots = @('/var/www/html', '/home/ad/html')
+        $containers = @(& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --all --quiet web)
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        # Excluír contedores temporais de `docker compose run`.
+        $mountJson = if ($containers.Count) {
+            $mountFormat = '{{if ne (index .Config.Labels `com.docker.compose.oneoff`) `True`}}{{json .Mounts}}{{end}}'
+            $inspect = & wsl.exe @wslArgs --exec docker inspect --type container --format $mountFormat @containers
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $inspect | Where-Object { $_ }
+        }
+        $sources = if ($mountJson) {
+            foreach ($entry in $mountJson) {
+                $mounts = ConvertFrom-Json -InputObject $entry
+                $mounts | Where-Object { $_.Type -eq 'bind' -and $_.Destination -cin $webRoots } | ForEach-Object { $_.Source }
+            }
+        } else {
+            $config = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose config --format json web
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            ($config -join "`n" | ConvertFrom-Json).services.web.volumes |
+                Where-Object { $_.type -eq 'bind' -and $_.target -cin $webRoots } | ForEach-Object { $_.source }
+        }
+        if (-not $sources) { throw 'The web service has no host directory mounted at /var/www/html or /home/ad/html.' }
+        $paths = foreach ($source in ($sources | Select-Object -Unique)) {
+            $windowsPath = & wsl.exe @wslArgs --exec wslpath -w $source
+            if ($LASTEXITCODE -ne 0 -or -not $windowsPath) { throw "Could not translate the web directory to a Windows path: $source" }
+            [pscustomobject]@{ Windows = $windowsPath; Debian = $source }
+        }
+    } finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+    foreach ($path in $paths) {
+        Write-Output $path.Windows
+        if ($Action -eq 'web-root') { Write-Output $path.Debian }
+        if ($Open) { Invoke-Item -LiteralPath $path.Windows }
+    }
+    exit 0
+}
 if ($Action.ToLowerInvariant().StartsWith('start')) {
     # Un .env anterior ao 24-11-2026 leva o contrasinal por defecto anterior de MariaDB.
     & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env

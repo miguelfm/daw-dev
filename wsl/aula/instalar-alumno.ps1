@@ -65,7 +65,7 @@ try{
     if(-not $SenVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
-    Write-Output "Instalación $RequestId comprobada. Ruta: \\wsl.localhost\$Distribution\home\ad\www"
+    Write-Output "Instalación $RequestId comprobada. Ruta: \\wsl.localhost\$Distribution\home\ad\proxectos\daw-dev\www"
 }catch{$status.Error=$_.Exception.Message;throw}
 finally{
     try{

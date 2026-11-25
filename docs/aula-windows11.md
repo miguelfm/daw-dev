@@ -18,7 +18,7 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 5. **Activación da contorna:**
    - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev > Inicializar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
-6. A contorna configura o usuario predeterminado de Linux como **`ad`**, con acceso directo en Windows Explorer en `\\wsl.localhost\Debian\home\ad\www` e un acceso directo no Escritorio (**«DAW - Proxectos (www)»**). Desde PowerShell ou CMD, o alumno usa `daw-start`, `daw-start-all`, `daw-stop` e `daw-status`, sen elevación.
+6. A contorna configura o usuario predeterminado de Linux como **`ad`**. O acceso directo **«DAW - Proxectos (www)»** do Escritorio abre o `www` do proxecto en Debian. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar Debian como administrador non o instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
@@ -215,6 +215,11 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
 - Repetila coa mesma revisión non cambia nada. Unha conta que importe Debian despois
   necesita outra vez `ActualizarProxecto`.
 
+Para distribuír cambios nos lanzadores de Windows ou no acceso directo do Escritorio,
+actualiza o paquete con `actualizar-paquete.ps1`, cópiao aos postos e volve executar
+**Activar DAW Dev** na conta do alumno. `ActualizarProxecto` aplica os ficheiros de
+Debian. A activación instala os lanzadores e actualiza o acceso directo.
+
 #### Actualizar a PHP 8.6 nos equipos da aula
 
 Nas contas xa instaladas, `ActualizarProxecto` conserva `www/`, `datos/` e o volume de MariaDB.
@@ -369,6 +374,9 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-stop` | Para os servizos e conserva a BD e o código |
 | `daw-status` | Lista tamén contedores parados |
 | `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |
+| `daw-web-root -Open` | Abre a raíz web no Explorador. `daw-web-root` amosa as rutas de Windows e Debian. |
+| `daw-wsl-shell` | Abre Debian no proxecto, tamén con Docker parado |
+| `daw-web-shell` | Abre a terminal do contedor de Apache e PHP |
 | `daw-help` | Axuda dos comandos Windows |
 
 Accede a `http://localhost`, `http://localhost/index.php` e `http://localhost:8081`.
@@ -379,18 +387,15 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 
 `ad` é a conta do modelo WSL e da terminal do contedor PHP. O instalador tamén pode
 actualizar un modelo anterior co mesmo UID/GID. As rutas de traballo son:
-- **Dende Windows Explorer:** `\\wsl.localhost\Debian\home\ad\www` (ou a través do acceso directo creado automaticamente no Escritorio: **«DAW - Proxectos (www)»**).
+- **Desde o Explorador de ficheiros:** `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www`. Tamén podes usar o acceso directo **«DAW - Proxectos (www)»** ou `daw-web-root -Open`.
 - **Con VS Code e Dev Containers:**
   O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
   ```powershell
   daw-code
   ```
   Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). A imaxe precompilada inclúe PHP 8.6, Composer, Xdebug e o cliente MariaDB.
-- **Dende a terminal de Debian:** O usuario predeterminado é `ad`. O cartafol `~/www` liga directamente á raíz de Apache. Para traballar con VS Code estándar:
-  ```powershell
-  wsl -d Debian --cd /home/ad/www
-  code .
-  ```
+- **Desde a terminal de Debian:** `daw-wsl-shell` abre o proxecto co usuario `ad`.
+  O enlace `~/www` serve para acceder ao cartafol web desde Linux.
 
 Os lanzadores Windows arrancan WSL se está parado, agardan por Docker e manteñen unha sesión oculta
 mentres existan contedores do proxecto en marcha. `daw-stop` deixa rematar esa sesión en ata 20 segundos.

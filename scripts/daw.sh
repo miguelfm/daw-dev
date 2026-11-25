@@ -39,7 +39,7 @@ migrar_env() {
 show_help() {
     cat << 'EOF'
 Uso: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc
-     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-help
+     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-web-shell | daw-web-root | daw-help
 
 Comandos dispoñibles:
   daw-start      Arranca só daw-web: PHP 8.6, Apache, Xdebug e acceso con daw-shell.
@@ -50,17 +50,19 @@ Comandos dispoñibles:
   daw-start-doc  Arranca a documentación sen conexión: manual de PHP (8080),
                  DevDocs (5042) e Laravel (8088).
   daw-code       Abre o proxecto no perfil DWCS - PHP de VS Code.
+  daw-web-root   Amosa a ruta da raíz web de Apache no sistema anfitrión.
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
   daw-stop-all   Para todos os contedores: desenvolvemento, documentación e Angular.
   daw-stop-doc   Para só os contedores da documentación sen conexión.
   daw-status     Mostra o estado e portos dos contedores da contorna.
   daw-logs       Mostra e segue as últimas liñas de logs dos contedores (Ctrl+C para saír).
-  daw-shell      Abre unha terminal interactiva bash no contedor web co usuario ad.
+  daw-web-shell  Abre Bash no contedor de Apache e PHP co usuario ad.
+  daw-shell      Alias de daw-web-shell.
   daw-publicar   Sincroniza o código e as solucións de DWCS cara a daw-dev/www/dwcs.
   daw-help       Mostra esta axuda.
 
 Tamén podes invocar:
-  daw <start|start-all|start-db|start-angular|start-doc|code|stop|stop-all|stop-doc|status|logs|shell|check|publicar|help> [argumentos...]
+  daw <start|start-all|start-db|start-angular|start-doc|code|web-root|stop|stop-all|stop-doc|status|logs|web-shell|check|publicar|help> [argumentos...]
 EOF
 }
 
@@ -74,12 +76,13 @@ case "$PROG_NAME" in
     daw-start-angular)  ACTION="start-angular" ;;
     daw-start-doc)      ACTION="start-doc" ;;
     daw-code)           ACTION="code" ;;
+    daw-web-root)       ACTION="web-root" ;;
     daw-stop)           ACTION="stop" ;;
     daw-stop-all)       ACTION="stop-all" ;;
     daw-stop-doc)       ACTION="stop-doc" ;;
     daw-status)         ACTION="status" ;;
     daw-logs)           ACTION="logs" ;;
-    daw-shell|daw-bash) ACTION="shell" ;;
+    daw-web-shell|daw-shell|daw-bash) ACTION="web-shell" ;;
     daw-publicar)       ACTION="publicar" ;;
     daw-help)           ACTION="help" ;;
     daw|daw.sh)
@@ -135,7 +138,59 @@ case "$ACTION" in
     code)
         code --new-window --profile 'DWCS - PHP' "$PROJECT_DIR" "$@"
         ;;
-    shell|bash)
+    web-root)
+        if ! command -v python3 >/dev/null; then
+            echo 'Erro: daw-web-root require Python 3.' >&2
+            exit 1
+        fi
+        python3 - "$PROJECT_DIR" "${COMPOSE_ARGS[@]}" <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+web_roots = {"/var/www/html", "/home/ad/html"}
+compose = ("compose", "--project-directory", *sys.argv[1:])
+
+
+def docker(*args):
+    return subprocess.run(("docker", *args), check=True, stdout=subprocess.PIPE, encoding="utf-8").stdout
+
+
+def native_path(source):
+    if sys.platform == "darwin" and not os.path.isdir(source):
+        for prefix in ("/host_mnt", "/run/desktop/mnt/host"):
+            if source.startswith(prefix + "/"):
+                return source[len(prefix):]
+    return source
+
+
+try:
+    containers = docker(*compose, "ps", "--all", "--quiet", "web").split()
+    mounts = []
+    if containers:
+        # As instancias de docker compose run poden ter montaxes propias.
+        template = '{{if ne (index .Config.Labels "com.docker.compose.oneoff") "True"}}{{json .Mounts}}{{end}}'
+        inspected = docker("inspect", "--type", "container", "--format", template, *containers)
+        mounts = [json.loads(line) for line in inspected.splitlines() if line]
+
+    if mounts:
+        sources = (mount["Source"] for container in mounts for mount in container
+                   if mount["Type"] == "bind" and mount["Destination"] in web_roots)
+    else:
+        config = json.loads(docker(*compose, "config", "--format", "json", "web"))
+        sources = (mount["source"] for mount in config["services"]["web"].get("volumes", [])
+                   if mount["type"] == "bind" and mount["target"] in web_roots)
+except subprocess.CalledProcessError as error:
+    sys.exit(error.returncode)
+
+paths = dict.fromkeys(native_path(source) for source in sources)
+if not paths:
+    sys.exit("Erro: a raíz web non está montada desde un cartafol do anfitrión.")
+print(*paths, sep="\n")
+PY
+        ;;
+    web-shell|shell|bash)
         docker compose "${COMPOSE_ARGS[@]}" exec -u ad web bash "$@"
         ;;
     check|comprobar)

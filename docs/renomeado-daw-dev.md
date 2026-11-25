@@ -71,7 +71,7 @@ o nome antigo mediante as variables anteriores.
 Se usas unha copia do repositorio en Windows, retira primeiro os contedores antigos desde esa copia:
 
 ```powershell
-wsl -d Debian --cd C:\Users\miguelfm\Projects\dwcs-php -- docker compose down
+wsl -d Debian --cd "$env:USERPROFILE\Projects\dwcs-php" -- docker compose down
 ```
 
 Actualiza o repositorio, renomea o cartafol a `daw-dev` e axusta o `.env` como no apartado anterior.

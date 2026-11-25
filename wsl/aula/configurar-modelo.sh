@@ -13,7 +13,7 @@ install)
     [[ ! -e /home/ad && ! -L /home/ad ]] || { echo '/home/ad xa existe; precisa unha base limpa.' >&2; exit 1; }
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y systemd systemd-sysv dbus sudo git curl wget ca-certificates procps
+    apt-get install -y systemd systemd-sysv dbus sudo git curl wget ca-certificates procps python3
     useradd --uid 1000 --user-group --create-home --shell /bin/bash ad
     passwd --lock ad
     mkdir -p "$project"
@@ -43,10 +43,12 @@ case "${0##*/}" in
   daw-start-db) exec docker compose up -d --wait --wait-timeout 300 db web "$@" ;;
   daw-stop) exec docker compose stop "$@" ;;
   daw-status) exec docker compose ps --all "$@" ;;
+  daw-web-root) exec bash scripts/daw.sh web-root "$@" ;;
+  daw-web-shell|daw-shell) exec bash scripts/daw.sh web-shell "$@" ;;
 esac
 EOF
     chmod 755 /usr/local/bin/daw-aula-command
-    for command in daw-start daw-star daw-start-all daw-start-db daw-stop daw-status; do
+    for command in daw-start daw-star daw-start-all daw-start-db daw-stop daw-status daw-web-root daw-web-shell daw-shell; do
         ln -s /usr/local/bin/daw-aula-command "/usr/local/bin/$command"
     done
     printf '%s\n' 'daw-aula-v1' > /etc/daw-aula-modelo

@@ -8,21 +8,18 @@ en calquera cartafol, cos comandos `daw-*`. Os comandos e a súa axuda están en
 - Windows 11 con WSL2 e a distribución **Debian**.
 - Docker Engine e Docker Compose instalados dentro de Debian; o usuario de Debian
   debe poder executar `docker` sen `sudo`.
-- Este repositorio descargado en Windows. Neste equipo está en
-  `C:\Users\miguelfm\Projects\daw-dev`.
+- Unha copia do repositorio en Windows ou dentro de Debian.
 
-Docker Engine, Compose e Portainer CE xa están instalados neste equipo. Para preparar
-outro equipo, consulta a [guía de instalación](wsl2-alumnado.md).
-Para proxectos almacenados no sistema de ficheiros de Debian, segue os comandos desa guía.
-Os comandos desta páxina están pensados para a copia do repositorio en Windows; os accesos
-desde WSL a ficheiros en `C:` poden ser máis lentos que a ficheiros nativos de Debian.
+Para preparar o equipo, consulta a [guía de instalación](wsl2-alumnado.md).
 
 ## Instalar os comandos no PATH do usuario
 
-Abre PowerShell, entra na raíz do repositorio e executa:
+### Copia do proxecto en Windows
+
+Abre PowerShell e executa desde a raíz do proxecto:
 
 ```powershell
-cd C:\Users\miguelfm\Projects\daw-dev
+cd "$env:USERPROFILE\Projects\daw-dev"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-commands.ps1
 ```
 
@@ -31,29 +28,118 @@ ese cartafol ao PATH do usuario se falta. Non require permisos de administrador.
 unha instalación anterior, executa de novo o instalador: substitúe os lanzadores e retira
 os antigos lanzadores `dwcs*.cmd` ou `daw-dev-*.cmd` cando apuntan a esta copia do repositorio ou ao seu antigo
 cartafol `dwcs-php`. Véxase tamén a [guía de migración](renomeado-daw-dev.md).
-A opción `ExecutionPolicy Bypass` só se aplica ao
-proceso que executa o script; non cambia a política permanente de PowerShell.
+A opción `ExecutionPolicy Bypass` aplícase ao proceso que executa o script.
+Os lanzadores chaman a `wsl/daw.ps1` do repositorio. Se moves a copia, volve
+executar o instalador desde a nova raíz.
+
+### Copia do proxecto en Debian
+
+En PowerShell, axusta `$project` á ruta Linux da túa copia. Este exemplo copia
+os dous scripts a un cartafol temporal de Windows antes de executar o instalador.
+Así podes actualizar os lanzadores directamente desde a copia activa de Debian.
+
+```powershell
+$project = '/home/uxia/proxectos/daw-dev'
+wsl.exe -d Debian --exec true
+$source = '\\wsl.localhost\Debian' + ($project -replace '/', '\')
+$setup = Join-Path $env:TEMP ('daw-dev-setup-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $setup | Out-Null
+Copy-Item -LiteralPath "$source\wsl\install-daw-commands.ps1", "$source\wsl\daw.ps1" -Destination $setup
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$setup\install-daw-commands.ps1" -Distribution Debian -LinuxProjectPath $project
+```
+
+O instalador garda `daw.ps1` en `%LOCALAPPDATA%\daw-dev-launcher`. Repite o paso
+cando cambies de ruta ou actualices os scripts. `daw-code` abre a copia de Debian en
+VS Code a través da extensión WSL. O despregamento da aula inclúe este paso na
+activación da conta. [Guía do despregamento automatizado](aula-windows11.md).
+
+### Comprobar os lanzadores
 
 Abre unha nova xanela de PowerShell ou CMD e comproba:
 
 ```powershell
 daw-help
 daw-status
+daw-web-root
 ```
 
-Os lanzadores chaman a `wsl/daw.ps1` do repositorio, que determina a raíz do proxecto
-a partir da súa propia localización. Se moves o repositorio, executa de novo o instalador.
+## Abrir a raíz web no Explorador de ficheiros
 
-Se o proxecto está dentro de Debian, tamén podes instalar os lanzadores desde unha copia Windows
-destes scripts, indicando a ruta Linux:
+En PowerShell ou CMD, `daw-web-root` amosa primeiro a ruta para o Explorador e
+na liña seguinte a ruta para a terminal de Debian. `daw-web-root -Open` abre
+o cartafol no Explorador. `daw-www` segue dispoñible e só amosa a ruta de Windows.
+O comando consulta a montaxe do contedor
+web, mesmo se está parado. Antes de crear o contedor, usa a
+configuración de Compose, que resolve `WWW_DIR` (`./www` por defecto). Se cambias
+`WWW_DIR` co contedor xa creado, executa `daw-start` para aplicar a nova montaxe.
 
-```powershell
-.\wsl\install-daw-commands.ps1 -Distribution Debian -LinuxProjectPath '/home/<o-teu-usuario>/proxectos/daw-dev'
-```
+| Onde se gardou o proxecto | Ruta no Explorador | Ruta en Debian |
+|---|---|---|
+| En Windows | `C:\Users\<usuario>\Projects\daw-dev\www` | `/mnt/c/Users/<usuario>/Projects/daw-dev/www` |
+| En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\proxectos\daw-dev\www` | `/home/<usuario>/proxectos/daw-dev/www` |
+| En Debian, co instalador da aula | `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www` | `/home/ad/proxectos/daw-dev/www` |
+| En Debian, coa montaxe opcional descrita abaixo | `\\wsl.localhost\Debian\home\ad\www` | `/home/ad/www` |
 
-Nese modo gárdase unha copia do lanzador en `%LOCALAPPDATA%\daw-dev-launcher`, que non depende
-de ter Debian aberto para localizar o script. Para a instalación completa nunha aula, consulta
-[o despregamento automatizado](aula-windows11.md). `daw-star` tamén funciona como alias de `daw-start`.
+Para explorar Debian, pega `\\wsl.localhost\Debian\` na barra de enderezos.
+`\\wsl$` lista as distribucións dispoñibles. Desde un terminal de Debian tamén
+podes executar `explorer.exe .` no cartafol que queiras abrir. Para os ficheiros
+gardados en `C:`, usa a ruta de Windows, que Debian ve baixo `/mnt/c/`.
+
+Dentro do contedor, Compose monta o cartafol web en `/var/www/html` e
+`/home/ad/html`. Apache serve desde `/var/www/html` na configuración base e desde
+`/home/ad/html` coa configuración da aula. Na terminal de Debian da aula tamén
+podes usar o enlace `~/www`.
+
+### Ruta fixa opcional nunha instalación manual
+
+Se a copia activa está en Debian, podes expoñer o seu `www` en `/home/ad/www`
+cunha montaxe *bind*. Déixase `WWW_DIR=./www` para que Apache, Git e Xdebug usen
+o `www` da mesma copia. A ruta fixa é independente do nome da conta de Windows.
+
+1. Se migras desde Windows, copia o repositorio completo a Debian, incluídos
+   `.git`, `.env` e os ficheiros locais de `www/`. Comproba `git status` e
+   `docker compose config --quiet` na copia nova. Garda a de Windows como
+   respaldo. Instala os lanzadores para a ruta de Debian segundo o apartado
+   anterior e executa `daw-start` para que Apache use a copia nova. Mantén o
+   mesmo nome de proxecto e o mesmo volume de MariaDB no `.env`.
+2. En Debian, confirma que `/home/ad/www` está libre e que `/etc/fstab` carece
+   dunha entrada para ela. Se atopas a ligazón do modelo da aula, usa o acceso
+   da aula descrito arriba. Nunha instalación manual cunha ruta libre, crea o
+   punto de montaxe e garda unha copia de `/etc/fstab`:
+
+   ```bash
+   sudo install -d -m 0755 /home/ad/www
+   sudo cp -p --no-clobber /etc/fstab /etc/fstab.before-daw-dev
+   sudoedit /etc/fstab
+   ```
+
+3. Engade esta liña, substituíndo a primeira ruta polo `www` da túa copia activa:
+
+   ```fstab
+   /home/uxia/proxectos/daw-dev/www /home/ad/www none bind,nofail 0 0
+   ```
+
+4. Valida e activa a montaxe:
+
+   ```bash
+   sudo findmnt --verify && sudo systemctl daemon-reload && sudo mount /home/ad/www
+   findmnt --mountpoint /home/ad/www
+   ```
+
+En Windows, abre `\\wsl.localhost\Debian\home\ad\www` e comproba no navegador
+que Apache serve os mesmos ficheiros. `daw-web-root` seguirá amosando a ruta
+que Docker monta directamente. WSL procesa `/etc/fstab` ao iniciar Debian.
+[Configuración de WSL sobre as montaxes ao arrancar](https://learn.microsoft.com/en-us/windows/wsl/wsl-config#automount-settings).
+
+### Rendemento
+
+O rendemento depende de onde se gardan os ficheiros e de onde se executan as
+ferramentas. Para o Explorador e ferramentas nativas de Windows, o acceso directo
+a `C:` evita cruzar entre Windows e WSL. Para Docker, Git ou Composer en Debian,
+un proxecto baixo `/home/<usuario>/` evita que Linux lea ficheiros a través de
+`/mnt/c/`. A diferenza adoita notarse máis en operacións con moitos ficheiros.
+Abrir un cartafol desde o Explorador non altera a montaxe que usa Docker.
+[Guía de Microsoft sobre os sistemas de ficheiros de WSL](https://learn.microsoft.com/en-us/windows/wsl/interop).
 
 ## Comandos de uso diario
 
@@ -64,6 +150,10 @@ de ter Debian aberto para localizar o script. Para a instalación completa nunha
 | `daw-start-all` | Arranca o web, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
 | `daw-stop` | Para os contedores DAW Dev. Conserva contedores e datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos, tamén dos contedores parados. |
+| `daw-web-root [-Open]` | Amosa as rutas de Windows e Debian. Con `-Open` tamén abre o cartafol no Explorador. |
+| `daw-code [-Local]` | Abre o proxecto en VS Code. Para unha copia en Debian, conecta coa extensión WSL. Con `-Local` abre o editor en Windows. |
+| `daw-web-shell` | Abre Bash no contedor de Apache e PHP como `ad`. `daw-shell` segue funcionando como alias. |
+| `daw-wsl-shell` | Abre Debian no cartafol do proxecto, tamén con Docker parado. |
 | `daw-logs` | Mostra as últimas 100 liñas por servizo e segue os novos logs. `Ctrl+C` sae da consulta. |
 | `daw-help` | Mostra a axuda. |
 
@@ -97,21 +187,26 @@ con `wsl --shutdown` segue parando o contorno.
 
 ## Consola do contedor web
 
-Co contedor en marcha, podes abrir unha consola desde calquera cartafol de PowerShell ou CMD.
-Como Docker está dentro de Debian, chama ao comando a través de WSL2:
+Desde PowerShell ou CMD, escolle a terminal segundo onde queiras traballar:
 
 ```powershell
-wsl -d Debian -- docker exec -it -u ad daw-web bash
+daw-wsl-shell
+daw-web-shell
 ```
 
-Entrarás como `ad` en `/var/www/html`. Se precisas unha consola como root:
+`daw-wsl-shell` abre a distribución Debian e usa a súa conta Linux. Alí podes
+consultar `curl --manual` ou usar Docker e Git. `daw-web-shell` entra como `ad`
+no contedor que executa Apache e PHP. Alí podes usar `php -v` ou `composer -V`.
+Se o contedor está parado, arráncao antes con `daw-start`.
+
+Se precisas unha consola como root no contedor:
 
 ```powershell
 wsl -d Debian -- docker exec -it -u root daw-web bash
 ```
 
-Escribe `exit` para pechar a consola; o contedor segue funcionando. Se está parado,
-arráncao antes con `daw-start`. Substitúe `Debian` se usas outra distribución de WSL.
+Escribe `exit` para volver á terminal anterior. Substitúe `Debian` se usas
+outra distribución de WSL.
 
 Se tes Docker dispoñible directamente en Windows, podes executar
 `docker exec -it -u ad daw-web bash` sen o prefixo `wsl -d Debian --`.
@@ -189,14 +284,44 @@ Non despregues unha segunda copia de DAW Dev desde Portainer: os nomes dos conte
 
 ## Comprobar a contorna
 
-Desde Windows, executa o comprobador incluído no proxecto:
+Se o proxecto está en Debian, abre a súa raíz nun terminal de Debian e executa:
+
+```bash
+bash scripts/comprobar.sh
+```
+
+Se está en Windows, abre PowerShell na raíz do proxecto e executa:
 
 ```powershell
-wsl -d Debian --cd C:\Users\miguelfm\Projects\daw-dev -- bash scripts/comprobar.sh
+wsl -d Debian --cd (Get-Location).Path -- bash scripts/comprobar.sh
 ```
 
 Comproba PHP, conexión coa BD, Composer, permisos de ficheiros, actualización dos
 cambios, Xdebug e phpMyAdmin. O comprobador arranca a contorna se está parada.
+
+### VS Code queda en «Retrying to download VS Code Server»
+
+Desde a paleta de VS Code, abre **WSL: Show Log** se falla a conexión a Debian,
+ou **Dev Containers: Show Container Log** se falla ao reabrir no contedor.
+Busca a primeira mensaxe de erro xusto antes de **Retrying**.
+
+Se aparece un erro de conexión, proba en PowerShell a URL que figura no
+rexistro. `curl.exe` segue a redirección e limita a comprobación a 20 segundos:
+
+```powershell
+curl.exe -fIL --connect-timeout 8 --max-time 20 '<URL de descarga que aparece no rexistro>'
+```
+
+Se a primeira resposta é `302` e o destino esgota o tempo, comproba que a rede
+deixa saír por HTTPS a `update.code.visualstudio.com` e
+`vscode.download.prss.microsoft.com`. Nun centro con proxy, usa a configuración
+do sistema que indique a administración. Dev Containers descarga o servidor
+no equipo local e despois cópiao ao contedor. [Requisitos de rede de Dev Containers](https://code.visualstudio.com/docs/devcontainers/faq#_what-are-the-connectivity-requirements-for-the-vs-code-server-when-it-is-running-in-a-container).
+
+Para seguir editando os ficheiros da copia activa mentres se resolve a descarga,
+usa `daw-code -Local` desde Windows e `daw-web-shell` para executar PHP ou
+Composer. Para retomar a depuración no contedor, conecta con `daw-code` e escolle
+**Dev Containers: Reopen in Container** cando a descarga volva funcionar.
 
 Se `daw-start` non se recoñece, abre un terminal novo ou executa de novo o instalador.
 Se un porto está ocupado, cambia o valor correspondente no `.env` e executa `daw-start`.

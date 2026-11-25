@@ -23,7 +23,7 @@ fi
 echo "==> Instalando dependencias"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl git wget > /dev/null
+apt-get install -y -qq ca-certificates curl git python3 wget > /dev/null
 
 echo "==> Engadindo o repositorio oficial de Docker"
 install -m 0755 -d /etc/apt/keyrings

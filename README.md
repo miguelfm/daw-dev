@@ -18,8 +18,9 @@ servidores nin bases de datos no equipo.
 - **Linux (Arch Linux, Debian, Ubuntu, Fedora...):** Docker Engine + plugin `compose`. O teu usuario debe pertencer ao grupo `docker` para executar sen `sudo` (ex. en Arch: `sudo pacman -S docker docker-compose`, `sudo systemctl enable --now docker.service`, `sudo usermod -aG docker $USER`).
 - **Windows 11:** WSL2 con Debian e Docker Engine, sen Docker Desktop. Guías:
   [preparación dos equipos (administración)](docs/wsl2-administracion.md),
-  [instalación e uso (alumnado)](docs/wsl2-alumnado.md) e
-  [guía rápida de inicio para imprimir/PDF](docs/guia-inicio-alumnado.md).
+  [instalación e uso](docs/wsl2-alumnado.md),
+  [lanzadores e acceso aos ficheiros](docs/windows11-contedores.md) e
+  [guía rápida da aula](docs/guia-inicio-alumnado.md).
 - **Aulas con contas persoais:** [despregamento remoto desde o profesor, modelo Debian, execución paralela e soporte para aulas compartidas](docs/aula-windows11.md).
 - **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
   para xestionar Docker desde o navegador en <https://localhost:9443>.
@@ -89,7 +90,11 @@ En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para ex
 `daw-start` (só servidor web), `daw-start-db` (BD e web),
 `daw-start-all` (web, BD e phpMyAdmin), `daw-start-doc` (documentación sen conexión), `daw-stop`,
 `daw-status`, `daw-logs` e `daw-code` (apertura directa en VS Code con soporte Dev Containers) desde PowerShell ou CMD.
-Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md).
+`daw-web-root` amosa as rutas de Windows e Debian da raíz web de Apache.
+`daw-web-root -Open` abre o cartafol no Explorador de ficheiros.
+`daw-web-shell` entra no contedor web e `daw-wsl-shell` abre Debian no cartafol do proxecto.
+Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md) e a
+[comparación das rutas do cartafol web en Windows e Debian](docs/windows11-contedores.md#abrir-a-raíz-web-no-explorador-de-ficheiros).
 
 | Para…                                   | Comando                                         |
 |-----------------------------------------|-------------------------------------------------|
@@ -161,7 +166,7 @@ o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-conte
 
 ### Atallos daw para a terminal
 
-En Linux podes instalar os lanzadores para Bash, Zsh e Fish desde a raíz do proxecto
+En Linux e macOS podes instalar os lanzadores para Bash, Zsh e Fish desde a raíz do proxecto
 (require Bash, Python 3 e, para Angular, o cliente OpenSSH):
 
 ```bash
@@ -169,7 +174,8 @@ bash scripts/install-daw-commands.sh
 ```
 
 Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o contedor web;
-`daw-shell` abre a súa terminal. `daw-start-angular` prepara a chave SSH persoal
+`daw-web-shell` abre a súa terminal e `daw-web-root` amosa a ruta nativa da raíz web.
+`daw-start-angular` prepara a chave SSH persoal
 e a conexión `dwcc-angular`, e inicia só Angular. `daw-stop` para tamén Angular.
 `daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code; para traballar dentro
 do contedor, usa **Dev Containers: Reopen in Container**.
@@ -193,7 +199,9 @@ terminal para cargar os nomes actualizados.
 | `daw-stop-doc` | Para só os servizos da documentación sen conexión (`daw-doc`). |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
-| `daw-shell` | Abre unha terminal interactiva bash no contedor web co usuario `ad`. |
+| `daw-web-shell` | Abre Bash no contedor web como `ad`. `daw-shell` segue funcionando como alias. |
+| `daw-wsl-shell` | Desde Windows, abre Debian no cartafol do proxecto. En Linux ou macOS xa estás no sistema anfitrión ao abrir o terminal. |
+| `daw-web-root` | Amosa a ruta nativa en Linux e macOS. En Windows con WSL amosa a ruta do Explorador seguida da de Debian. |
 | `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
 | `daw-help` | Mostra os comandos dispoñibles. |
 
@@ -254,6 +262,7 @@ segundo o ficheiro que editaches.
 En PowerShell definimos funcións para incluír os argumentos do comando. Estes atallos executan Docker
 dentro de Debian, como na [guía do alumnado](docs/wsl2-alumnado.md), e non requiren Docker Desktop.
 Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou ruta, axústaas tamén.
+Para usar `daw-web-root` ou `daw-wsl-shell`, instala [os lanzadores de Windows](docs/windows11-contedores.md#instalar-os-comandos-no-path-do-usuario).
 
 ```powershell
 $script:DawCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'

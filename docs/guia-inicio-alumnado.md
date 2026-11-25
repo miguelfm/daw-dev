@@ -26,8 +26,9 @@ datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 ## Onde están os ficheiros
 
 - **`www`** é a raíz web. O acceso directo «DAW - Proxectos (www)» do
-  Escritorio abre o cartafol `\\wsl.localhost\Debian\home\ad\www`, que no
-  contedor é `/home/ad/html`. O ficheiro `www/u3/t1/index.php` ábrese en
+  Escritorio abre `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www`.
+  Tamén podes abrilo con `daw-web-root -Open`. No contedor é `/home/ad/html`.
+  O ficheiro `www/u3/t1/index.php` ábrese en
   `http://localhost/u3/t1/index.php`.
 - **`datos`** garda, como na MV, os ficheiros que unha aplicación le ou
   escribe fóra da raíz web. En Windows está en
@@ -53,6 +54,9 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
 | `daw-code` | Abre o proxecto en Visual Studio Code |
+| `daw-web-root -Open` | Abre a raíz web no Explorador |
+| `daw-wsl-shell` | Abre Debian no cartafol do proxecto |
+| `daw-web-shell` | Abre a terminal do contedor de Apache e PHP |
 | `daw-stop` | Para todos os contedores; ficheiros e datos quedan |
 | `daw-help` | Lista as ordes |
 
@@ -91,31 +95,20 @@ e `getenv('DB_PASSWORD')`.
 
 ## Abrir un terminal de Linux
 
-Desde PowerShell, esta orde abre un terminal en `Debian`:
+Desde PowerShell ou CMD, estas ordes abren terminais en sitios distintos:
 
 ```powershell
-wsl -d Debian --cd ~
+daw-wsl-shell
+daw-web-shell
 ```
 
-Entras como `ad` no teu directorio persoal, onde está `www`. Aquí hai Docker
-e o proxecto (`~/proxectos/daw-dev`). PHP e Composer están no contedor.
-Para entrar no contedor `web`, que ten que estar arrancado:
+`daw-wsl-shell` abre Debian no proxecto (`~/proxectos/daw-dev`). Aquí podes
+usar Docker e Git ou consultar `curl --manual`. Funciona tamén con Docker parado.
 
-```bash
-cd ~/proxectos/daw-dev
-docker compose exec -u ad web bash
-```
-
-Entras como `ad` en `/home/ad/html`, a raíz web da aula. Tes `php`, `composer`, `git`, o cliente `mariadb` e `nano`,
-coas mesmas directivas de PHP ca Apache, e as rutas da MV: por exemplo,
-`cd /home/ad/html/u3/t1`. Un `exit` sae do contedor e outro, de `Debian`.
-
-::: warning
-
-Sen `-u ad` entras como `root`, e os ficheiros que crees así quedan de
-`root`: desde Windows non poderás gardar cambios neles.
-
-:::
+`daw-web-shell` entra no contedor web como `ad`. A raíz web da aula é
+`/home/ad/html`. Aquí tes PHP e Composer, e podes executar as tarefas que
+usan as rutas da máquina virtual da aula. Arranca o contedor con `daw-start`
+antes de entrar. Escribe `exit` para volver á terminal anterior.
 
 ## Contrasinais
 
@@ -136,8 +129,7 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 
 Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
 
-1. Executa `daw-code`. VS Code abre o proxecto,
-   `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev`.
+1. Executa `daw-code`. VS Code conéctase a Debian e abre o proxecto.
 2. Preme `F1` e escolle **Dev Containers: Reopen in Container**.
 3. VS Code ábrese de novo dentro do contedor `web`, co proxecto en
    `/workspace` e o código en `/workspace/www`. O terminal integrado

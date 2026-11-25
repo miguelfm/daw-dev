@@ -32,8 +32,12 @@ $commands = [ordered]@{
     'daw-stop-doc' = 'stop-doc'
     'daw-status' = 'status'
     'daw-logs' = 'logs'
+    'daw-web-shell' = 'shell'
     'daw-shell' = 'shell'
+    'daw-wsl-shell' = 'wsl-shell'
     'daw-code' = 'code'
+    'daw-web-root' = 'web-root'
+    'daw-www' = 'www'
     'daw-help' = 'help'
 }
 foreach ($entry in $commands.GetEnumerator()) {

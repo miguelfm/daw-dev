@@ -211,7 +211,7 @@ function New-DawShortcut {
     $path=Join-Path $desktop 'DAW - Proxectos (www).lnk'
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
-    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\www"
+    $link.TargetPath="\\wsl.localhost\$Distribution\home\ad\proxectos\daw-dev\www"
     $link.Description='Cartafol de proxectos web DAW Dev'
     $link.Save()
     if(-not(Test-Path -LiteralPath $path)){throw 'Non se confirmou o acceso directo.'}
