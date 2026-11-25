@@ -3,6 +3,59 @@
 Resumo para continuar noutro equipo: que se fixo, que decisións están
 tomadas, en que estado queda o paquete da aula e que falta.
 
+## Comprobación no posto docente A34EQ100 (23/11/2026)
+
+Os atallos de PowerShell e CMD usan a copia de Windows
+`%USERPROFILE%\Projects\daw-dev` (rama `feat/angular-wsl`, commit `82f8927`)
+e o Docker Engine de Debian en WSL2. A copia nativa
+`/home/ad/proxectos/daw-dev` está en `main` (`30a35a5`). As dúas usan o
+mesmo proxecto Compose e o mesmo volume externo `dwcs_db_data`. Os
+cartafoles `www` das dúas copias conteñen ficheiros distintos.
+
+| Contedor | Contido comprobado | Acceso desde o equipo |
+|---|---|---|
+| `daw-dev-web` | PHP 8.6.0, Apache, Composer, `mbstring` e Xdebug 3.6.0alpha1 | `http://localhost/index.php` |
+| `daw-dev-db` | MariaDB 12.3.3 co volume existente `dwcs_db_data` | `localhost:3306` desde o equipo e `db:3306` desde PHP |
+| `daw-dev-phpmyadmin` | phpMyAdmin | `http://localhost:8081` |
+| `daw-dev-angular` | Node.js 26.13.1, Angular CLI 22.3.0, usuario `node` | `http://localhost:4200` con `ng serve --host 0.0.0.0`, porto 5173 para Vite |
+
+- `daw-start` arranca PHP, `daw-start-all` engade a BD e phpMyAdmin, e
+  `daw-start-angular` arranca Angular. `daw-code-proxecto` abre `angular`
+  e `www` no mesmo espazo de traballo de VS Code. Desde Angular, o servidor
+  PHP está en `http://web`.
+- As prácticas e solucións de DWCS sincronizáronse desde
+  `%USERPROFILE%\Documents\docencia` a `www/dwcs`. Quedaron dispoñibles en
+  `http://localhost/dwcs/` durante a proba.
+- Pasaron `scripts/comprobar.sh` (incluída a conexión de Xdebug no porto
+  9003) e as 45 probas de PowerShell. Tamén se comprobou a escritura no
+  cartafol de Angular e o acceso a PHP pola rede de Compose. Ao rematar
+  paráronse os catro contedores de DAW.
+- O paquete docente `daw-aula-paquete-20261111-final` leva os scripts
+  vixentes, a imaxe de Angular sen SSH e a nova `daw-dev-php86.tar.gz`.
+  Comprobáronse as sumas SHA-256 do manifesto. A variable de usuario
+  `DAW_ANGULAR_ARCHIVE` apunta á imaxe dese paquete. A copia protexida de
+  `C:\ProgramData\DAW-Aula` conserva a revisión anterior e a súa actualización
+  require permisos de administración.
+
+## Despregamento na Aula 134 (23/11/2026)
+
+Distribuíuse o paquete de PHP 8.6 e Angular aos 33 postos do inventario
+(`A34EQ01` a `A34EQ33`). En cada posto comprobáronse as sumas SHA-256 do
+paquete, a revisión `12B6C4B9EE44…` dos ficheiros do proxecto e a entrada
+**DAW Dev → Activar DAW Dev** no menú Inicio.
+
+| Estado da conta | Postos |
+|---|---|
+| Proxecto e atallos actualizados (13) | `03–09`, `11–12`, `15–17`, `21` |
+| Activación inicial pendente (2) | `14` e `18`, con sesión aberta e sen Debian-DAW rexistrado |
+| Activación pendente ao iniciar sesión (18) | `01–02`, `10`, `13`, `19–20`, `22–33` |
+
+As contas pendentes poden aplicar o paquete desde o menú Inicio. O
+despregamento conservou os proxectos e as bases de datos existentes, e
+executouse sen reiniciar os postos nin os contedores. No `A34EQ31`
+restableceuse WinRM e verificouse que as súas regras de acceso se limitan
+ao posto docente.
+
 ## Onde está o traballo
 
 - Rama `feat/angular-wsl`, no [PR #3](https://github.com/miguelfm/daw-dev/pull/3)
