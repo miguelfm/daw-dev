@@ -406,6 +406,15 @@ teñen esas etiquetas en Docker, verifica o paquete e carga os arquivos novos
 con `docker load -i` antes de executar `daw-start-doc`. O lanzador reutiliza as
 imaxes locais cando xa están cargadas.
 
+#### Pendentes de documentación sen conexión
+
+- [ ] Empaquetar en inglés a documentación de Laravel 13.x e comprobar a lingua do menú e
+  das páxinas na imaxe que se distribúa á aula.
+- [ ] Atopar un xeito reproducible de gardar en caché as páxinas das referencias de HTTP e HTML
+  en DevDocs e deixalas dispoñibles no despregamento da aula. Nun perfil novo, tras preparar a
+  documentación, cortar o acceso a Internet e comprobar que a busca abre páxinas de ambas as
+  referencias. Valorar outras referencias segundo se vaian precisando nas clases.
+
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).
 
