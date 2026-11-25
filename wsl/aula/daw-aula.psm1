@@ -428,7 +428,7 @@ function New-DawProjectStage {
     }
     $repo=Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($Source)))
     $sharedPaths=@(
-        '.gitignore','.vscode/settings.json','Dockerfile','README.md',
+        '.gitignore','.vscode/settings.json','.devcontainer/compose.devcontainer.yaml','Dockerfile','README.md',
         'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
         'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/comprobar.sh',
         'docker/mariadb/saude.sh'

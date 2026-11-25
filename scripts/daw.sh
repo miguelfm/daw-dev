@@ -103,11 +103,17 @@ case "$ACTION" in
     start)
         docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps web "$@"
         ;;
-    start-all)
-        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "$@"
-        ;;
-    start-db)
-        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 db web "$@"
+    start-db|start-all)
+        running_web=$(docker compose "${COMPOSE_ARGS[@]}" ps --status running --quiet web)
+        services=()
+        if [[ -n $running_web ]]; then
+            # Keep a running Dev Container attached while starting the database services.
+            services=(db)
+            if [[ $ACTION == start-all ]]; then services+=(phpmyadmin); fi
+        elif [[ $ACTION == start-db ]]; then
+            services=(db web)
+        fi
+        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "${services[@]}" "$@"
         ;;
     migrar-env)
         # Para daw.ps1, que arranca os contedores desde Windows

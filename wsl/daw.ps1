@@ -6,11 +6,13 @@
     [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser,
     [switch]$Open,
     [switch]$Local,
+    [switch]$Container,
     [string]$PackageDirectory,
     [switch]$SkipVSCode
 )
 
 $ErrorActionPreference = 'Stop'
+$classroomPackage = if ($env:DAW_AULA_PACKAGE) { $env:DAW_AULA_PACKAGE } else { Join-Path $env:ProgramData 'DAW-Aula' }
 if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
 $wslArgs = @('-d', $Distribution)
 if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
@@ -52,6 +54,66 @@ function Initialize-AngularKey {
     ([IO.File]::ReadAllText("$key.pub")).Trim()
 }
 
+function Get-DawDevContainerCommand([string]$CodeExe, [string]$CodeCommand) {
+    $extensions = Join-Path $env:USERPROFILE '.vscode\extensions'
+    $extension = Get-ChildItem -LiteralPath $extensions -Directory -Filter 'ms-vscode-remote.remote-containers-*' -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'dev-containers-user-cli\bin\devcontainer.cmd') -PathType Leaf } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $extension) { throw 'The Dev Containers extension is required for daw-code -Container.' }
+    $cliLine = [regex]::Match([IO.File]::ReadAllText($CodeCommand), '%~dp0([^"%]*?resources\\app\\out\\cli\.js)')
+    if (-not $cliLine.Success) { throw 'Could not determine the current VS Code app directory.' }
+    $cliPath = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $CodeCommand) $cliLine.Groups[1].Value))
+    if (-not (Test-Path -LiteralPath $cliPath -PathType Leaf)) { throw 'The current VS Code CLI was not found.' }
+    $appRoot = Split-Path -Parent (Split-Path -Parent $cliPath)
+    # The official Dev Containers CLI reads these files next to its Windows shim.
+    # Keep a DAW-specific shim so the extension's usual CLI is left to VS Code.
+    $directory = Join-Path $env:APPDATA 'Code\User\globalStorage\ms-vscode-remote.remote-containers\daw-cli-bin'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $metadata = @{
+        'vscode-app-root' = $appRoot
+        'vscode-path' = $CodeExe
+        'vscode-quality' = 'stable'
+        'remote-containers-path' = $extension.FullName
+    }
+    foreach ($entry in $metadata.GetEnumerator()) {
+        [IO.File]::WriteAllText((Join-Path $directory $entry.Key), $entry.Value, (New-Object Text.UTF8Encoding($false)))
+    }
+    $shim = Join-Path $directory 'devcontainer.cmd'
+    Copy-Item -LiteralPath (Join-Path $extension.FullName 'dev-containers-user-cli\bin\devcontainer.cmd') -Destination $shim -Force
+    return $shim
+}
+
+function Initialize-DawCodeCache([string]$CodeCommand, [switch]$ForContainer) {
+    $cacheDirectory = Join-Path $classroomPackage 'vscode-server'
+    $installer = Join-Path $cacheDirectory 'instalar.ps1'
+    if ($Distribution -ne 'Debian-DAW' -or -not (Test-Path -LiteralPath $installer -PathType Leaf)) { return }
+    $result = & $installer -Distribution $Distribution -CodeCommand $CodeCommand -AllowMissing
+    if (-not $ForContainer) { return }
+    $match = [regex]::Match(($result -join ' '), '\b(?:Ready|Installed) ([0-9a-f]{40})\b')
+    if (-not $match.Success) { return }
+    $commit = $match.Groups[1].Value
+    $manifest = Get-Content -LiteralPath (Join-Path $cacheDirectory 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $entry = $manifest | Where-Object Commit -eq $commit | Select-Object -First 1
+    if (-not $entry -or $entry.Sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'The classroom VS Code Server checksum is missing.' }
+    # Dev Containers uses a separate Windows download cache from Remote - WSL.
+    $directory = Join-Path $env:TEMP "vsch\serverCache\$commit"
+    $archive = Join-Path $directory 'vscode-server-linux-x64.tar.gz'
+    if ((Test-Path -LiteralPath $archive -PathType Leaf) -and (Get-FileHash -LiteralPath $archive).Hash -eq $entry.Sha256) { return }
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $pending = $archive + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        Copy-Item -LiteralPath (Join-Path $cacheDirectory "$commit.tar.gz") -Destination $pending
+        if ((Get-FileHash -LiteralPath $pending).Hash -ne $entry.Sha256) { throw 'The Dev Containers cache checksum does not match.' }
+        if (Test-Path -LiteralPath $archive -PathType Leaf) {
+            [IO.File]::Replace($pending, $archive, ($pending + '.previous'))
+        } else {
+            [IO.File]::Move($pending, $archive)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $pending) { Remove-Item -LiteralPath $pending -Force }
+    }
+}
+
 # Repón os lanzadores daw-* que falten e o PATH, sen tocar os existentes: unha instalación
 # anterior recibe así as ordes novas (como daw-activate) ao usar calquera delas.
 $launcherInstaller = Join-Path $PSScriptRoot 'install-daw-commands.ps1'
@@ -84,7 +146,9 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-web-shell: open Bash in the Apache/PHP web container as user ad.'
         Write-Output '  daw-shell: alias for daw-web-shell.'
         Write-Output '  daw-wsl-shell: open Debian in WSL at the project directory without starting Docker.'
-        Write-Output '  daw-code: open the project in VS Code; add -Local to edit in Windows without VS Code Server.'
+        Write-Output '  daw-code: open the project directly in VS Code.'
+        Write-Output '  daw-code -Container: open the project directly in its PHP Dev Container.'
+        Write-Output '  daw-code -Local: edit in Windows without VS Code Server.'
         Write-Output '  daw-web-root: show the Windows and Debian paths to the Apache web root.'
         Write-Output '                Add -Open to open the Windows path in File Explorer.'
         Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
@@ -100,34 +164,36 @@ switch ($Action.ToLowerInvariant()) {
         exit $LASTEXITCODE
     }
     'code' {
+        if ($Local -and $Container) { throw 'Choose either -Local or -Container.' }
+        $codeCmd = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
+        if (-not (Test-Path -LiteralPath $codeCmd -PathType Leaf)) {
+            $command = Get-Command code.cmd -ErrorAction SilentlyContinue
+            if (-not $command) { throw 'Non se atopou VS Code no equipo.' }
+            $codeCmd = $command.Source
+        }
+        $codeExe = Join-Path (Split-Path -Parent (Split-Path -Parent $codeCmd)) 'Code.exe'
+        if (-not (Test-Path -LiteralPath $codeExe -PathType Leaf)) { throw 'Non se atopou Code.exe.' }
+
         $targetPath = $ProjectPath
         $useWslRemote = $ProjectPath.StartsWith('/') -and -not $Local
+        if ($ProjectPath.StartsWith('/')) {
+            & wsl.exe @wslArgs --exec test -d $ProjectPath
+            if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
+            $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+        }
+        if ($useWslRemote) { Initialize-DawCodeCache $codeCmd -ForContainer:$Container }
+        if ($Container) {
+            $devContainer = Get-DawDevContainerCommand $codeExe $codeCmd
+            & $devContainer open $targetPath --disable-telemetry
+            exit $LASTEXITCODE
+        }
         $codeArgs = if ($useWslRemote) {
-            @('--remote', ('"wsl+' + $Distribution + '"'), ('"' + $ProjectPath.TrimEnd('/') + '/"'))
+            $path = ($ProjectPath -split '/' | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+            @('--folder-uri', "vscode-remote://wsl+$Distribution$path")
         } else {
-            if ($ProjectPath.StartsWith('/')) {
-                & wsl.exe @wslArgs --exec test -d $ProjectPath
-                if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
-                $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
-            }
             '"' + $targetPath + '"'
         }
-        $codeCmd = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
-        if (-not (Test-Path -LiteralPath $codeCmd)) {
-            $cmdCheck = Get-Command code -ErrorAction SilentlyContinue
-            if ($cmdCheck) { $codeCmd = $cmdCheck.Source }
-        }
-        if (Test-Path -LiteralPath $codeCmd) {
-            Start-Process -FilePath $codeCmd -ArgumentList $codeArgs
-            Write-Output "VS Code aberto no proxecto: $targetPath"
-            if ($Local) {
-                Write-Output 'Local editing in Windows. Use daw-web-shell for PHP and Composer.'
-            } else {
-                Write-Output "Para traballar no contedor, preme F1 e selecciona: Dev Containers: Reopen in Container"
-            }
-        } else {
-            Write-Error "Non se atopou VS Code no equipo."
-        }
+        Start-Process -FilePath $codeExe -ArgumentList $codeArgs -WorkingDirectory $env:USERPROFILE
         exit 0
     }
     'wsl-shell' {
@@ -205,6 +271,15 @@ if ($Action.ToLowerInvariant().StartsWith('start')) {
     # Un .env anterior ao 24-11-2026 leva o contrasinal por defecto anterior de MariaDB.
     & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env
     if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB password in .env.' }
+}
+if ($Action -in 'start-db', 'start-all') {
+    $runningWeb = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --status running --quiet web
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($runningWeb) {
+        # Preserve the running web container, including VS Code's Dev Container configuration.
+        $composeArgs = $startArgs + @('db')
+        if ($Action -eq 'start-all') { $composeArgs += 'phpmyadmin' }
+    }
 }
 if ($Action.ToLowerInvariant() -eq 'start-angular') {
     # A chave pública vai ao proxecto (docker/angular/chave.pub); os proxectos, a angular/.

@@ -4,7 +4,7 @@
     "name": "DAW Dev PHP",
     "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
     "service": "web",
-    "runServices": ["web", "db", "phpmyadmin"],
+    "runServices": ["web"],
     "workspaceFolder": "/workspace",
     "remoteUser": "ad",
     "shutdownAction": "stopCompose",

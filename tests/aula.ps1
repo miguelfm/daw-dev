@@ -263,7 +263,7 @@ exit 0
         $stage=Join-Path $script:Temp 'stage'
         $m=New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage
         $paths=@($m.Files|ForEach-Object {$_.Path})
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','.vscode/settings.json','docs/guia-inicio-alumnado.pdf','scripts/daw.sh','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
+        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.devcontainer/compose.devcontainer.yaml','.vscode/launch.json','.vscode/settings.json','docs/guia-inicio-alumnado.pdf','scripts/daw.sh','docker/aula/zz-aula.ini','docker/aula/000-default.conf','datos/LEME.txt')){Assert ($p -in $paths) "Missing $p"}
         Assert ((@($m.Files|Where-Object {$_.Mode -eq 'CreateOnly'}|ForEach-Object {$_.Path}) -join ',') -eq 'datos/LEME.txt')
         Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
         Throws {New-DawProjectStage (Join-Path $script:Repo 'wsl/aula') $stage} 'xa existe'
@@ -295,6 +295,8 @@ exit 0
         $diff=@(0..($repo.Count-1)|Where-Object {$repo[$_] -ne $overlay[$_]})
         Assert ($diff.Count -eq 1)
         Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
+        $config = ($overlay | Where-Object { $_ -notmatch '^\s*//' }) -join [char]10 | ConvertFrom-Json
+        Assert (($config.runServices -join ',') -eq 'web') 'A rebuilt Dev Container should start only the web service.'
     }
     Test 'extra Docker images in the package are registered, verified and copied' {
         $dest=Join-Path $script:Temp 'package-images'

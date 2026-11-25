@@ -3,6 +3,8 @@ services:
   web:
     # Dev Containers reutiliza a imaxe web construída ou descargada previamente.
     build: !reset null
+    # O editor pode arrincar o servidor web antes de que se precise MariaDB.
+    depends_on: !reset null
     volumes:
       # O proxecto completo en /workspace (www/ segue montado en /var/www/html)
       - .:/workspace:cached

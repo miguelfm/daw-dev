@@ -53,7 +53,8 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-start-doc` | Arranca a documentación sen conexión |
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
-| `daw-code` | Abre o proxecto en Visual Studio Code |
+| `daw-code` | Abre directamente o proxecto en Visual Studio Code |
+| `daw-code -Container` | Abre directamente o proxecto no Dev Container de PHP |
 | `daw-web-root -Open` | Abre a raíz web no Explorador |
 | `daw-wsl-shell` | Abre Debian no cartafol do proxecto |
 | `daw-web-shell` | Abre a terminal do contedor de Apache e PHP |
@@ -127,16 +128,17 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 
 ## Traballar con Visual Studio Code
 
-Para programar dentro do contedor, coa súa versión de PHP e o seu terminal:
+Executa `daw-code -Container` para abrir o proxecto no contedor de PHP.
+O proxecto está en `/workspace` e o código en `/workspace/www`. O terminal
+integrado (`Ctrl+ñ`) abre no contedor como `ad`.
 
-1. Executa `daw-code`. VS Code conéctase a Debian e abre o proxecto.
-2. Preme `F1` e escolle **Dev Containers: Reopen in Container**.
-3. VS Code ábrese de novo dentro do contedor `web`, co proxecto en
-   `/workspace` e o código en `/workspace/www`. O terminal integrado
-   (`Ctrl+ñ`) xa é o do contedor, como `ad`.
+Se xa tes aberta a copia de Debian, podes premer `F1` e escoller
+**Dev Containers: Reopen in Container** na xanela actual.
 
-Ao abrir o proxecto no contedor arrancan tamén MariaDB e phpMyAdmin, e ao
-pechar VS Code páranse os contedores.
+Ao abrir ou reconstruír o Dev Container arranca o servidor web. Cando
+precises MariaDB, executa `daw-start-db` desde PowerShell. Para usar tamén
+phpMyAdmin, executa `daw-start-all`. Podes facelo coa xanela de VS Code
+aberta no contedor.
 
 Xdebug só depura as peticións que o piden, como na MV:
 
