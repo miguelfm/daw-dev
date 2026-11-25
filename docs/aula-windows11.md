@@ -289,7 +289,11 @@ Dev** no menú Inicio común. Calquera usuario a executa cando a necesita, sen a
 de sesión, e os usuarios doutros módulos só ven a entrada no menú.
 
 Nunha conta cos lanzadores instalados, `daw-activate` executa o mesmo
-activador desde PowerShell ou CMD. Antes de instalar os lanzadores, tamén
+activador desde PowerShell ou CMD. Desde esta versión, a copia de
+`%LOCALAPPDATA%\daw-dev-launcher` leva tamén o instalador, e calquera orde
+`daw-*` repón os lanzadores que falten e o PATH: as contas activadas antes
+reciben as ordes novas ao repetir unha vez **Activar DAW Dev** cun paquete
+actualizado, e despois xa non o necesitan. Antes de instalar os lanzadores, tamén
 podes chamar ao script do paquete desde PowerShell:
 
 ```powershell

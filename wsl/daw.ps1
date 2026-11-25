@@ -52,6 +52,17 @@ function Initialize-AngularKey {
     ([IO.File]::ReadAllText("$key.pub")).Trim()
 }
 
+# Repón os lanzadores daw-* que falten e o PATH, sen tocar os existentes: unha instalación
+# anterior recibe así as ordes novas (como daw-activate) ao usar calquera delas.
+$launcherInstaller = Join-Path $PSScriptRoot 'install-daw-commands.ps1'
+if ($env:USERPROFILE -and -not $env:DAW_SKIP_LAUNCHER_REPAIR -and (Test-Path -LiteralPath $launcherInstaller -PathType Leaf)) {
+    $repairArgs = @{ Distribution = $Distribution; Repair = $true }
+    if ($ProjectPath.StartsWith('/')) { $repairArgs.LinuxProjectPath = $ProjectPath }
+    if ($LinuxUser) { $repairArgs.LinuxUser = $LinuxUser }
+    try { & $launcherInstaller @repairArgs | Out-Null }
+    catch { Write-Warning "Could not restore the missing daw-* launchers: $($_.Exception.Message)" }
+}
+
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
         Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'

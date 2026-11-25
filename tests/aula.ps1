@@ -5,6 +5,8 @@ $script:ModulePath=Join-Path $script:Repo 'wsl/aula/daw-aula.psm1'
 $script:Temp=Join-Path ([IO.Path]::GetTempPath()) ('daw-tests-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $script:Temp|Out-Null
 $script:Count=0
+# daw.ps1 repón os lanzadores en .local\bin: nas probas, só no perfil temporal da súa.
+$env:DAW_SKIP_LAUNCHER_REPAIR='1'
 function Assert($Condition,[string]$Message='Assertion failed'){if(-not $Condition){throw $Message}}
 function Throws([scriptblock]$Body,[string]$Pattern='.'){
     $caught=$false
@@ -40,6 +42,46 @@ exit 0
         Assert ($LASTEXITCODE -eq 0 -and $result -eq 'Debian-Proba|True|True')
         Throws { & $launcher -Action activate -PackageDirectory (Join-Path $package 'missing') } 'not been deployed'
     }
+    if($IsWindows -ne $false){Test 'any daw command restores missing launchers and PATH without mixing installs' {
+        $saved=@{USERPROFILE=$env:USERPROFILE;LOCALAPPDATA=$env:LOCALAPPDATA;Path=$env:Path;Skip=$env:DAW_SKIP_LAUNCHER_REPAIR;SkipPath=$env:DAW_SKIP_USER_PATH}
+        $launcher=Join-Path $script:Repo 'wsl/daw.ps1'
+        try{
+            Remove-Item Env:DAW_SKIP_LAUNCHER_REPAIR
+            $env:DAW_SKIP_USER_PATH='1'
+            $enc=[Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+            function Get-Bin([string]$Name){$p=Join-Path $script:Temp $Name;$env:USERPROFILE=$p;$env:LOCALAPPDATA=Join-Path $p 'AppData\Local';$b=Join-Path $p '.local\bin';New-Item -ItemType Directory -Path $b -Force|Out-Null;$b}
+            # Os lanzadores anteriores a -Distribution (Debian por defecto) reciben os que faltan.
+            $bin=Get-Bin 'repair old'
+            $old="@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$launcher"" -Action start %*`r`nexit /b %ERRORLEVEL%`r`n"
+            [IO.File]::WriteAllText((Join-Path $bin 'daw-start.cmd'),$old,$enc)
+            $null=& $launcher -Action help
+            Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-start.cmd'),$enc) -ceq $old) 'Replaced an existing launcher'
+            $activate=[IO.File]::ReadAllText((Join-Path $bin 'daw-activate.cmd'),$enc)
+            Assert ($activate.Contains("-File ""$launcher"" -Action activate -Distribution ""Debian"" %*")) 'daw-activate not restored'
+            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 19)
+            Assert (($env:Path -split ';') -contains $bin) 'PATH not restored'
+            # Sen ningún lanzador, restáuranse todos.
+            $bin=Get-Bin 'repair empty'
+            $null=& $launcher -Action help -Distribution 'Debian-Proba'
+            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 19)
+            Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-www.cmd'),$enc).Contains('-Distribution "Debian-Proba"'))
+            # Variante da aula: a copia do launcher leva o instalador e mantén a ruta e o usuario.
+            $bin=Get-Bin 'repair aula'
+            $installer=Join-Path $script:Repo 'wsl/install-daw-commands.ps1'
+            $null=& $installer -Distribution 'Debian' -LinuxProjectPath '/home/ad/proxectos/daw-dev' -LinuxUser ad
+            $copy=Join-Path $env:LOCALAPPDATA 'daw-dev-launcher'
+            Assert (Test-Path -LiteralPath (Join-Path $copy 'install-daw-commands.ps1')) 'Installer not copied with the launcher'
+            Remove-Item -LiteralPath (Join-Path $bin 'daw-activate.cmd')
+            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'Debian' -ProjectPath '/home/ad/proxectos/daw-dev' -LinuxUser ad
+            Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-activate.cmd'),$enc).Contains('-File "%LOCALAPPDATA%\daw-dev-launcher\daw.ps1" -Action activate -Distribution "Debian" -ProjectPath "/home/ad/proxectos/daw-dev" -LinuxUser ad %*'))
+            # Lanzadores doutra distribución: non se mesturan.
+            Remove-Item -LiteralPath (Join-Path $bin 'daw-activate.cmd')
+            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'Outra' -ProjectPath '/home/ad/proxectos/daw-dev' -LinuxUser ad
+            Assert (-not (Test-Path -LiteralPath (Join-Path $bin 'daw-activate.cmd'))) 'Mixed launchers of another install'
+        }finally{
+            $env:USERPROFILE=$saved.USERPROFILE;$env:LOCALAPPDATA=$saved.LOCALAPPDATA;$env:Path=$saved.Path;$env:DAW_SKIP_LAUNCHER_REPAIR=$saved.Skip;$env:DAW_SKIP_USER_PATH=$saved.SkipPath
+        }
+    }}
     Test 'native quoted arguments, errors and timeout' {
         $exe=(Get-Process -Id $PID).Path
         $f=Join-Path $script:Temp 'quoted script.ps1';[IO.File]::WriteAllText($f,'param([string]$Value) $Value | ConvertTo-Json -Compress')

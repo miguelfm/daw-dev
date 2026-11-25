@@ -32,6 +32,12 @@ A opción `ExecutionPolicy Bypass` aplícase ao proceso que executa o script.
 Os lanzadores chaman a `wsl/daw.ps1` do repositorio. Se moves a copia, volve
 executar o instalador desde a nova raíz.
 
+Cada orde `daw-*` repón tamén os lanzadores que falten e o cartafol no PATH,
+sen substituír os existentes: despois dun `git pull` que engade unha orde nova,
+como `daw-activate`, chega con executar calquera delas (por exemplo, `daw-help`)
+e abrir un terminal novo. Non se fai nada se os lanzadores existentes apuntan a
+outra copia ou a outra distribución.
+
 ### Copia do proxecto en Debian
 
 En PowerShell, axusta `$project` á ruta Linux da túa copia. Este exemplo copia
