@@ -220,6 +220,33 @@ actualiza o paquete con `actualizar-paquete.ps1`, cópiao aos postos e volve exe
 **Activar DAW Dev** na conta do alumno. `ActualizarProxecto` aplica os ficheiros de
 Debian. A activación instala os lanzadores e actualiza o acceso directo.
 
+#### Proposta para migrar o proxecto a `~/daw`
+
+A ruta proposta en `Debian-DAW` é `/home/ad/daw` (`~/daw`). Cada proxecto adicional pode ter o
+seu propio cartafol baixo `/home/ad`. Nunha proba illada, a ruta antiga como ligazón simbólica
+permitiu abrir o proxecto con `wsl --cd`, conservou o nome `daw-dev` e o volume `daw-dev_db_data`
+en Compose e resolveu a montaxe de `www` na ruta nova.
+
+1. Publicar primeiro un paquete que recoñeza ambas as rutas. O instalador, o actualizador e os
+   lanzadores deben usar a mesma regra para resolver a raíz. Conservar o modelo Debian e as súas
+   comprobacións de orixe e SHA256 para actualizar as contas existentes sobre a súa instalación.
+2. Nas instalacións novas, usar `~/daw`. Nas contas existentes, usar o bloqueo `instalacion.lock`
+   da conta e mover o proxecto validado completo, incluídos `.env`, `www/`, `datos/`, `angular/` e
+   as copias locais, conservando os permisos e a configuración de Compose. Deixar
+   `~/proxectos/daw-dev` como ligazón simbólica a `~/daw` e validar que `~/www` apunta á raíz web.
+   Se hai un contedor ou un espazo de traballo aberto, ou se ambas as rutas conteñen cartafoles
+   distintos, aprazar o traslado e rexistrar o motivo. Se falla o traslado, recuperar a ruta
+   anterior. Unha conta xa migrada debe poder repetir a actualización sen mover datos de novo.
+3. Actualizar os lanzadores e o acceso directo na activación. Probar unha conta nova e outra con
+   ficheiros e datos de MariaDB antes de distribuír por lotes. En cada piloto, comprobar dúas
+   actualizacións seguidas, `daw-code -Container`, a montaxe en `/workspace`, `~/www`, o acceso
+   directo e a persistencia dos datos. Rexistrar o resultado por conta de Windows.
+
+Para o uso diario, documentar `~/daw` para o proxecto, `~/www` para o código web e `~/daw/datos`
+para os datos dos exercicios. En Windows, propor **DAW - Web** como nome do acceso directo do
+Escritorio e usar `daw-web-root -Open` nas instrucións. Desde o editor no contedor, usar `www/`
+e `datos/` respecto de `/workspace`.
+
 #### Actualizar a PHP 8.6 nos equipos da aula
 
 Nas contas xa instaladas, `ActualizarProxecto` conserva `www/`, `datos/` e o volume de MariaDB.
