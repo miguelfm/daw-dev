@@ -406,8 +406,10 @@ function ConvertTo-DawDeployStatus {
     param($Result)
     if(-not $Result){return 'Erro'}
     if($Result.Success){return 'OK'}
-    if([string]$Result.Error -match 'única sesión de alumno'){return 'Sen alumno'}
-    if([string]$Result.Error -match 'aínda non activou DAW Dev'){return 'Sen activar'}
+    # Só unha mensaxe dunha liña que empece pola frase: un erro que cite o código do módulo
+    # (varias liñas) contén tamén estas frases.
+    if([string]$Result.Error -cmatch '^Precísase unha única sesión de alumno conectada[^\r\n]*$'){return 'Sen alumno'}
+    if([string]$Result.Error -cmatch '^(Verificación \S+ fallou: )?Esta conta aínda non activou DAW Dev[^\r\n]*$'){return 'Sen activar'}
     return 'Erro'
 }
 function Invoke-DawUserTask {

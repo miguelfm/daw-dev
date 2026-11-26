@@ -512,6 +512,11 @@ exit 0
         Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Precísase unha única sesión de alumno conectada.'})) -eq 'Sen alumno')
         Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Verificación x fallou: Esta conta aínda non activou DAW Dev (falta a distribución linux).'})) -eq 'Sen activar')
         Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Web e MariaDB: timeout'})) -eq 'Erro')
+        # Unha ParameterBindingException cita o módulo enteiro, que contén as dúas frases (A31EQ01, 26-11-2026).
+        $quoted="No se puede enlazar el parámetro 'ScriptBlock'. No se puede convertir el valor `"$([IO.File]::ReadAllText($script:ModulePath))`" al tipo ScriptBlock."
+        Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error=$quoted})) -eq 'Erro') 'An error quoting the module must not look like a missing student'
+        # Nos postos, o módulo cárgase desde un ficheiro temporal: New-Module rexeita o bloque nalgúns.
+        foreach($f in 'manage.ps1','deploy.ps1'){Assert (-not([IO.File]::ReadAllText((Join-Path $script:Repo "windows/classroom/$f")) -match 'New-Module\s+-ScriptBlock')) "$f must load the module from a file"}
         Assert ((ConvertTo-DawDeployStatus $null) -eq 'Erro')
         $deploy=Join-Path $script:Repo 'windows/classroom/deploy.ps1'
         Throws {& $deploy -PackageDirectory (Join-Path $script:Temp 'none') -SkipCopy} 'SkipCopy só'

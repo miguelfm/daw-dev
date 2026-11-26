@@ -195,10 +195,13 @@ foreach ($n in $Number) {
                         Write-Host "[$computer] Non se reiniciou automaticamente. Revisa RestartRequired."
                     }
                     'CopyPackage' {
-                        $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-classroom.psm1'))
+                        # Como en UpdateProject, desde un ficheiro temporal: con New-Module, A31EQ01
+                        # tamén rexeitou o bloque (ParameterBindingException, 26-11-2026).
                         $removed = Invoke-Command -Session $session -ScriptBlock {
                             param($source)
-                            New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
+                            $file = Join-Path $env:TEMP ('daw-classroom-' + [guid]::NewGuid().ToString('N') + '.psm1')
+                            try { [IO.File]::WriteAllText($file, $source, (New-Object Text.UTF8Encoding($true))); Import-Module $file -Force }
+                            finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
                             Initialize-DawPackageDirectory
                         } -ArgumentList $moduleSource
                         # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
