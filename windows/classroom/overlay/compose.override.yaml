@@ -11,6 +11,9 @@ services:
       # Os ficheiros que len ou escriben as tarefas, fóra da raíz web
       - ./data:/home/ad/data
       - ./docker/classroom/zz-classroom.ini:/usr/local/etc/php/conf.d/zz-classroom.ini:ro
+      # Extensións de VS Code do Dev Container: a activación instálaas desde o paquete, sen
+      # Internet, e consérvanse aínda que se volva crear o contedor.
+      - vscode-extensions:/home/ad/.vscode-server/extensions
     command:
       - bash
       - -c
@@ -25,3 +28,8 @@ services:
         sed -i 's/^umask 002$$/umask 022/' /etc/apache2/envvars
         install -d -m 1733 /var/lib/php/sessions
         exec apache2-foreground
+
+volumes:
+  vscode-extensions:
+    # Nome fixo: install-user.ps1 énchea antes de crear o contedor.
+    name: daw-vscode-extensions

@@ -546,7 +546,7 @@ exit 0
     }
     Test 'deploy.ps1 builds and completes the package before copying it' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/deploy.ps1'))
-        $order=@("& `$build -OutputDirectory `$PackageDirectory -Resume","& `$build -OutputDirectory `$PackageDirectory -Distribution `$model",'$manifest = Assert-DawPackage $PackageDirectory','check-remote.ps1',"'add-doc-images.ps1'",'Add-DawAngularImage $name','Get-DawPostCodeCommits $reachable',"'add-vscode-server.ps1'",'-Action CopyPackage','-Action Verify')|ForEach-Object {$t.IndexOf($_)}
+        $order=@("& `$build -OutputDirectory `$PackageDirectory -Resume","& `$build -OutputDirectory `$PackageDirectory -Distribution `$model",'$manifest = Assert-DawPackage $PackageDirectory','check-remote.ps1',"'add-doc-images.ps1'",'Add-DawAngularImage $name',"'add-vscode-extensions.ps1'",'Get-DawPostCodeCommits $reachable',"'add-vscode-server.ps1'",'-Action CopyPackage','-Action Verify')|ForEach-Object {$t.IndexOf($_)}
         Assert (-not($order -contains -1)) 'Missing deploy step'
         Assert (($order -join ',') -eq (@($order|Sort-Object) -join ',')) "deploy.ps1 steps out of order: $($order -join ',')"
         Assert ($t.Contains('$prepare = -not ($SkipPrepare -or $SkipCopy)') -and $t.Contains('Import-Module $file -Force')) 'Package preparation must be optional and load the module from a file'
@@ -595,6 +595,32 @@ foreach(`$n in `$Number){
         $windows.Wsl=$false;Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'Preparar')
         $windows.Virtualization=$false;Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'Erro')
         Throws {& (Join-Path $dir 'deploy.ps1') -PackageDirectory $pkg -RestartComputers} 'RestartComputers só'
+    }
+    Test 'PHP extensions for VS Code are package files installed offline at activation' {
+        $devcontainer=([IO.File]::ReadAllLines((Join-Path $script:Repo '.devcontainer/devcontainer.json'))|Where-Object {$_ -notmatch '^\s*//'}) -join "`n"|ConvertFrom-Json
+        Assert ((@($devcontainer.customizations.vscode.extensions) -join ',') -eq ((Get-DawCodeExtensionIds) -join ',')) 'The package extensions must be the Dev Container ones'
+        $override=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/overlay/compose.override.yaml'))
+        Assert ($override.Contains('vscode-extensions:/home/ad/.vscode-server/extensions') -and $override.Contains("name: $(Get-DawCodeExtensionsVolume)"))
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'Dockerfile')).Contains('/home/ad/.vscode-server/extensions')) 'The image must own the extensions directory'
+        $dest=Join-Path $script:Temp 'package-extensions';New-Item -ItemType Directory -Path $dest|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
+        $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model')
+        $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/workspace';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        $vsix=Join-Path $script:Temp 'x.vsix';[IO.File]::WriteAllText($vsix,'PK vsix')
+        Throws {Add-DawPackageCodeExtension $dest $vsix 'Not Valid'} 'non válida'
+        $entry=Add-DawPackageCodeExtension $dest $vsix 'xdebug.php-debug'
+        $null=Add-DawPackageCodeExtension $dest $vsix 'xdebug.php-debug'
+        $m=Assert-DawPackage $dest
+        Assert (@(Get-DawPackageCodeExtensions $m).Count -eq 1 -and $entry.File -eq 'vscode-extension-xdebug.php-debug.vsix' -and $entry.File -in @(Get-DawPackageFiles $m))
+        [IO.File]::WriteAllText((Join-Path $dest $entry.File),'tampered')
+        Throws {Assert-DawPackage $dest} 'extensión de VS Code'
+        $script=Get-DawCodeExtensionsInstallScript
+        foreach($s in '--network none','--pull never','--server-data-dir','chown','--install-extension'){Assert ($script.Contains($s)) "Missing in the install script: $s"}
+        Assert (-not $script.Contains("`r"))
+        $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
+        Assert ($install.IndexOf('Initialize-DawCodeServer') -lt $install.IndexOf('Install-DawPackageCodeExtensions $Distribution $server.Commit')) 'Extensions need the VS Code Server first'
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/verify-user.ps1')).Contains("Test-DawStep 'Extensións de PHP'"))
     }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))

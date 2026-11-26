@@ -9,6 +9,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `add-doc-images.ps1` | Descarga da última release de daw-doc as imaxes da documentación e rexístraas no paquete |
+| `add-vscode-extensions.ps1` | Engade ao paquete os `.vsix` das extensións de PHP do Dev Container, que a activación instala sen Internet |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `deploy.ps1` | Constrúe e completa o paquete (VS Code Server dos postos, documentación e Angular), prepara Windows con `-PrepareWindows` (WinRM, WSL e reinicios), instálao en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
 | `install-package.ps1` | Instala o paquete no propio equipo, como administrador e sen WinRM (por exemplo, no do profesor) |
@@ -69,7 +70,7 @@ Véxase [actualizar os ficheiros dos proxectos xa importados](../../docs/aula-wi
 
 | Ficheiro | Efecto |
 |---|---|
-| `compose.override.yaml` | Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `data/` en `/home/ad/data`; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733 |
+| `compose.override.yaml` | Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `data/` en `/home/ad/data`; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733; o volume `daw-vscode-extensions` coas extensións de VS Code do Dev Container |
 | `docker/classroom/zz-classroom.ini` | PHP como nun servidor Debian: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
 | `data/README.txt` | Crea `data/` co usuario `ad`, non con `root` |
 | `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |

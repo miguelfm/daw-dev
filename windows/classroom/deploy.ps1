@@ -9,8 +9,9 @@ Prepara o paquete DAW Dev, instálao en todos os equipos dunha aula e comproba o
    WinRM nos que non responden (PsExec), instala WSL nos que o precisan e, con RestartComputers,
    reinicia os que o necesitan e non teñen ninguén con sesión iniciada.
 3. Completa o paquete co que lle falte para traballar sen Internet: o VS Code Server dos
-   commits de VS Code instalados nos postos, as imaxes da documentación (da release de
-   daw-doc) e a de Angular (de ghcr.io, gardada co Docker da distribución modelo). Só
+   commits de VS Code instalados nos postos, as extensións de VS Code para PHP (do
+   Marketplace), as imaxes da documentación (da release de daw-doc) e a de Angular (de
+   ghcr.io, gardada co Docker da distribución modelo). Só
    descarga o que falta: repetilo co mesmo paquete non descarga nada.
 4. CopyPackage nos postos que responden, en paralelo: retira o paquete anterior, copia o
    novo e comproba o SHA256 de cada ficheiro no posto.
@@ -223,6 +224,13 @@ if ($prepare) {
         Write-Host "   ${name}: descargando con Docker na distribución modelo..."
         try { Add-DawAngularImage $name } catch { Write-Warning "Non se engadiu ${name}: $($_.Exception.Message)" }
     }
+    $extensions = @(Get-DawPackageCodeExtensions (Assert-DawPackage $PackageDirectory) | ForEach-Object Id)
+    $missingExtensions = @(Get-DawCodeExtensionIds | Where-Object { $_ -notin $extensions })
+    if ($missingExtensions.Count) {
+        Write-Host "   Extensións de VS Code: descargando $($missingExtensions -join ', ')..."
+        try { & (Join-Path $PSScriptRoot 'add-vscode-extensions.ps1') -PackageDirectory $PackageDirectory -Id $missingExtensions | Out-Null }
+        catch { Write-Warning "Non se engadiron as extensións de VS Code: $($_.Exception.Message)" }
+    }
     if ($reachable.Count) {
         $servers = @(Get-DawPackageCodeServers (Assert-DawPackage $PackageDirectory) | ForEach-Object Commit)
         foreach ($commit in @(Get-DawPostCodeCommits $reachable | Where-Object { $_ -notin $servers })) {
@@ -238,6 +246,10 @@ foreach ($name in Get-DawPackageImageNames) {
     if ($name -notin $images) { Write-Warning "O paquete non ten ${name}: sen Internet, a orde que a usa non funcionará." }
 }
 if (-not @(Get-DawPackageCodeServers $manifest).Count) { Write-Warning 'O paquete non ten VS Code Server: VS Code descargarao en cada conta (add-vscode-server.ps1).' }
+$extensions = @(Get-DawPackageCodeExtensions $manifest | ForEach-Object Id)
+foreach ($id in Get-DawCodeExtensionIds) {
+    if ($id -notin $extensions) { Write-Warning "O paquete non ten a extensión ${id}: sen Internet, o Dev Container quedará sen ela (add-vscode-extensions.ps1)." }
+}
 
 function Merge-DawResults($Results, [string]$Field) {
     foreach ($result in @($Results)) {

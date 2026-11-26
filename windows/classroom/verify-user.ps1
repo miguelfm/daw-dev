@@ -91,6 +91,16 @@ try{
             Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','test','-x',"/home/ad/.vscode-server/bin/$commit/node")|Out-Null
             "listo $commit"
         }
+        Test-DawStep 'Extensións de PHP' {
+            $wsl=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','sh','-c','ls ~/.vscode-server/extensions 2>/dev/null || true'))
+            $volume=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','docker','run','--rm','--pull','never','--network','none','--entrypoint','ls','-v',"$(Get-DawCodeExtensionsVolume):/e",(Get-DawWebImage),'/e'))
+            foreach($id in Get-DawCodeExtensionIds){
+                foreach($place in @(@{Name='WSL';List=$wsl},@{Name='Dev Container';List=$volume})){
+                    if(-not($place.List|Where-Object {$_.Trim() -like "$id-*"})){throw "Falta $id en $($place.Name)."}
+                }
+            }
+            (Get-DawCodeExtensionIds) -join ', '
+        }
     }
     $failed=@($status.Checks|Where-Object {-not $_.Ok})
     if($failed.Count){throw (($failed|ForEach-Object {"$($_.Name): $($_.Detail)"}) -join ' | ')}

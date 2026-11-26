@@ -36,6 +36,13 @@ with tempfile.TemporaryDirectory(prefix='daw-code-server-') as tmp:
             env=env, check=True)
     assert b'\r' not in script.read_bytes()
     subprocess.run(['bash', '-n', str(script)], check=True)
+    if not os.environ.get('DAW_CODE_SERVER_SCRIPT'):
+        extensions = base / 'extensions.sh'
+        env = dict(os.environ, DAW_TEST_MODULE=str(repo / 'windows/classroom/daw-classroom.psm1'), DAW_TEST_OUTPUT=str(extensions))
+        subprocess.run([pwsh, '-NoProfile', '-Command',
+            'Import-Module $env:DAW_TEST_MODULE -Force; [IO.File]::WriteAllText($env:DAW_TEST_OUTPUT,(Get-DawCodeExtensionsInstallScript),(New-Object Text.UTF8Encoding($false)))'],
+            env=env, check=True)
+        subprocess.run(['bash', '-n', str(extensions)], check=True)
     count = 0
 
     def fixture(name, with_node=True):

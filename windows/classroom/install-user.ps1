@@ -34,7 +34,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeServer=$null;CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -89,6 +89,8 @@ try{
             $server=Initialize-DawCodeServer -Distribution $Distribution -Code (Find-DawCode) -PackageDirectory $PackageDirectory -ForContainer
             $status.CodeServer="$($server.Status) $($server.Commit)"
             if($server.Status -eq 'Missing'){Write-Warning "O paquete non ten VS Code Server para o commit $($server.Commit): VS Code descargarao."}
+            # As extensións de PHP do paquete, en WSL e no volume do Dev Container, sen Internet.
+            else{$status.PhpExtensions=@(Install-DawPackageCodeExtensions $Distribution $server.Commit $PackageDirectory)}
         }catch{
             $status.CodeServer="Error: $($_.Exception.Message)"
             Write-Warning "Non se preparou VS Code Server: $($_.Exception.Message)"

@@ -24,6 +24,10 @@ function Get-DawWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
 function Get-DawModelArchive { 'linux.tar.gz' }
 # Imaxes Docker que deben ir no paquete para usar Angular e a documentación sen Internet
 # (as mesmas que carga daw.ps1).
+# Extensións de VS Code para PHP (as de .devcontainer/devcontainer.json): o paquete leva os .vsix
+# e a activación instálaas sen Internet en WSL e no volume do Dev Container.
+function Get-DawCodeExtensionIds { @('xdebug.php-debug','bmewburn.vscode-intelephense-client') }
+function Get-DawCodeExtensionsVolume { 'daw-vscode-extensions' }
 function Get-DawPackageImageNames {
     @('ghcr.io/miguelfm/dwcc-angular:22','ghcr.io/miguelfm/daw-doc-php:en','ghcr.io/miguelfm/daw-doc-devdocs:latest','ghcr.io/miguelfm/daw-doc-laravel:13.x')
 }
@@ -513,6 +517,10 @@ function Assert-DawPackage {
         $path=Join-Path $Directory $server.File
         if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $server.Sha256.ToUpperInvariant()){throw "SHA256 de VS Code Server non coincide: $($server.File)"}
     }
+    foreach($extension in @(Get-DawPackageCodeExtensions $manifest)){
+        $path=Join-Path $Directory $extension.File
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extension.Sha256.ToUpperInvariant()){throw "SHA256 da extensión de VS Code non coincide: $($extension.File)"}
+    }
     return $manifest
 }
 function Get-DawPackageImages {
@@ -563,6 +571,68 @@ function Add-DawPackageCodeServer {
     Write-DawState (Join-Path $Directory 'manifest.json') $manifest
     Assert-DawPackage $Directory|Out-Null
     return $entry
+}
+function Get-DawCodeExtensionFile { param([string]$Id) "vscode-extension-$Id.vsix" }
+function Get-DawPackageCodeExtensions {
+    param($Manifest)
+    if(-not $Manifest.PSObject.Properties['CodeExtensions']){return @()}
+    foreach($extension in @($Manifest.CodeExtensions)){
+        if([string]$extension.Id -cnotmatch '^[a-z0-9-]+\.[a-z0-9-]+$' -or [string]$extension.File -cne (Get-DawCodeExtensionFile $extension.Id) -or [string]$extension.Sha256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'Extensión de VS Code do manifesto non recoñecida.'}
+        $extension
+    }
+}
+function Add-DawPackageCodeExtension {
+    # No profesor: copia o .vsix ao paquete e rexístrao co seu SHA256.
+    param([string]$Directory,[string]$Archive,[string]$Id)
+    if($Id -cnotmatch '^[a-z0-9-]+\.[a-z0-9-]+$'){throw "Extensión de VS Code non válida: $Id"}
+    $manifest=Assert-DawPackage $Directory
+    $file=Get-DawCodeExtensionFile $Id
+    $target=Join-Path $Directory $file
+    if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
+    $entry=[pscustomobject]@{Id=$Id;File=$file;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
+    $extensions=@(Get-DawPackageCodeExtensions $manifest|Where-Object {$_.Id -ne $Id})+$entry
+    $manifest|Add-Member NoteProperty CodeExtensions $extensions -Force
+    Write-DawState (Join-Path $Directory 'manifest.json') $manifest
+    Assert-DawPackage $Directory|Out-Null
+    return $entry
+}
+function Get-DawCodeExtensionsInstallScript {
+    # Como ad, sen rede: instala os .vsix co VS Code Server do commit, en WSL (Remote - WSL) e
+    # no volume do Dev Container. O volume énchese cun contedor da imaxe web: root deixa o volume
+    # a nome de ad e ad instala nel.
+    $text=@'
+set -euo pipefail
+commit=$1
+pkg=$(wslpath -u "$2")
+image=$3
+volume=$4
+shift 4
+server=$HOME/.vscode-server/bin/$commit
+[[ -x $server/bin/code-server ]] || { echo "Falta VS Code Server $commit." >&2; exit 1; }
+files=()
+for f in "$@"; do
+    [[ -f $pkg/$f ]] || { echo "Falta $f no paquete." >&2; exit 1; }
+    "$server/bin/code-server" --install-extension "$pkg/$f" >&2
+    files+=("/pkg/$f")
+done
+docker run --rm --pull never --network none --user root --entrypoint sh -v "$volume:/extensions" "$image" \
+    -c 'chown "$(id -u ad):$(id -g ad)" /extensions'
+docker run --rm --pull never --network none --user ad --entrypoint sh \
+    -v "$volume:/home/ad/.vscode-server/extensions" -v "$server:/server:ro" -v "$pkg:/pkg:ro" "$image" \
+    -c 'for v in "$@"; do /server/bin/code-server --install-extension "$v" --extensions-dir /home/ad/.vscode-server/extensions --server-data-dir /tmp/daw-vscode-data >&2; done' sh "${files[@]}"
+echo ready
+'@
+    Expand-DawScriptTemplate $text
+}
+function Install-DawPackageCodeExtensions {
+    # As extensións do paquete, co VS Code Server xa instalado para o commit (Initialize-DawCodeServer).
+    param([string]$Distribution,[string]$Commit,[string]$PackageDirectory=(Get-DawPackageDirectory))
+    $manifest=Get-Content -LiteralPath (Join-Path $PackageDirectory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
+    $files=@(Get-DawPackageCodeExtensions $manifest|ForEach-Object {$_.File})
+    if(-not $files.Count){return @()}
+    $arguments=@('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawCodeExtensionsInstallScript),'daw-code-extensions',$Commit,$PackageDirectory,(Get-DawWebImage),(Get-DawCodeExtensionsVolume))+$files
+    Invoke-DawNative 'wsl.exe' $arguments 900|Out-Null
+    @(Get-DawPackageCodeExtensions $manifest|ForEach-Object {$_.Id})
 }
 function Get-DawCodeCommit {
     # O commit do VS Code instalado, de product.json, sen abrir VS Code.
@@ -675,7 +745,7 @@ function Update-DawPackage {
 # equipo (install-package.ps1): preparar o destino, copiar os ficheiros e completalo.
 function Get-DawPackageFiles {
     param($Manifest)
-    @('manifest.json')+@(Get-DawSetupFiles)+@($Manifest.Image)+@(Get-DawPackageImages $Manifest|ForEach-Object {$_.File})+@(Get-DawPackageCodeServers $Manifest|ForEach-Object {$_.File})
+    @('manifest.json')+@(Get-DawSetupFiles)+@($Manifest.Image)+@(Get-DawPackageImages $Manifest|ForEach-Object {$_.File})+@(Get-DawPackageCodeServers $Manifest|ForEach-Object {$_.File})+@(Get-DawPackageCodeExtensions $Manifest|ForEach-Object {$_.File})
 }
 function Reset-DawPackageFileAcl {
     # Cada ficheiro só herda a ACL protexida do paquete, sen ACL explícitas dunha copia anterior.

@@ -173,6 +173,7 @@ cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar
 3. Completa o paquete co que lle falte para traballar sen Internet:
    - o VS Code Server de cada commit de VS Code instalado nos postos que responden, lido por
      WinRM (`add-vscode-server.ps1`);
+   - as extensións de VS Code para PHP do Dev Container (`add-vscode-extensions.ps1`);
    - as imaxes da documentación, da última release de daw-doc (`add-doc-images.ps1`);
    - a imaxe de Angular, descargada de ghcr.io co Docker da distribución modelo do paquete.
 
@@ -443,6 +444,20 @@ conta (`Installed`, `Ready` ou `Missing` co commit).
 Os postos teñen unha directiva que impide actualizar VS Code, así que o commit só cambia cando
 a administración actualiza VS Code nos postos. Daquela, executa de novo `add-vscode-server.ps1`
 co commit novo e `CopyPackage`. As contas reciben o servidor no seguinte `daw-code`.
+
+#### Extensións de PHP sen Internet
+
+As extensións do Dev Container (`xdebug.php-debug` e Intelephense) descárganse do Marketplace
+ao abrir o contedor e, sen máis, pérdense cando o contedor se volve crear. Na aula:
+
+- o paquete leva os seus `.vsix` (`add-vscode-extensions.ps1`, ou `deploy.ps1` se faltan);
+- a activación instálaos sen Internet, co VS Code Server do paquete, en `~/.vscode-server` da
+  distribución (Remote - WSL) e no volume `daw-vscode-extensions`;
+- `compose.override.yaml` monta ese volume en `/home/ad/.vscode-server/extensions` do contedor
+  web, así que o Dev Container as atopa xa instaladas e consérvaas aínda que se volva crear.
+
+`-Verify` comproba que están nos dous sitios. A imaxe web crea ese directorio a nome de `ad`;
+a activación axusta tamén o propietario do volume.
 
 ### Contrasinais
 
