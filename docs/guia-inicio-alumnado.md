@@ -88,7 +88,7 @@ guía *Angular con DAW Dev (DWCC)*.
 | phpMyAdmin | `http://localhost:8081/` | `daw-start-all` |
 | MariaDB | `localhost`, porto `3306` | `daw-start-db` |
 | Manual de PHP | `http://localhost:8080/` | `daw-start-doc` |
-| DevDocs (HTML e CSS) | `http://localhost:5042/` | `daw-start-doc` |
+| MDN: HTML, HTTP, CSS | `http://localhost:5042/` | `daw-start-doc` |
 | Documentación de Laravel | `http://localhost:8088/` | `daw-start-doc` |
 
 Só se pode acceder a eles desde o propio computador. MariaDB ten dous

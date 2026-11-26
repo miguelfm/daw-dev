@@ -100,8 +100,8 @@ services:
         bind:
           create_host_path: false
 
-  # Documentación sen conexión do proxecto daw-doc: o manual de PHP, DevDocs (HTML
-  # e CSS) e Laravel. O perfil fai que só arranquen con daw-start-doc.
+  # Documentación sen conexión do proxecto daw-doc: o manual de PHP, a referencia
+  # de HTML, HTTP e CSS de MDN e Laravel. O perfil fai que só arranquen con daw-start-doc.
   doc-php:
     profiles: ["doc"]
     container_name: daw-doc-php

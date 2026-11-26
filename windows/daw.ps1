@@ -125,7 +125,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
         Write-Output '  daw-start-db: start MariaDB and the web service together.'
         Write-Output '  daw-start-angular: start the Angular container; connect VS Code by SSH to dwcc-angular.'
-        Write-Output '  daw-start-doc: start the offline PHP manual (8080), DevDocs (5042) and Laravel docs (8088).'
+        Write-Output '  daw-start-doc: start the offline PHP manual (8080), MDN reference for HTML, HTTP and CSS (5042) and Laravel docs (8088).'
         Write-Output '  Other running containers are left running.'
         Write-Output '  daw-stop: stop DAW Dev containers, Angular and the docs included, without deleting data.'
         Write-Output '  daw-stop-all: stop all containers: development, documentation and Angular.'
@@ -311,7 +311,7 @@ if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') 
     Write-Output 'open /home/node/proxectos and run: ng serve --host 0.0.0.0  (http://localhost:4200)'
 }
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-doc') {
-    Write-Output 'PHP manual: http://localhost:8080/   DevDocs: http://localhost:5042/   Laravel: http://localhost:8088/'
+    Write-Output 'PHP manual: http://localhost:8080/   MDN: http://localhost:5042/   Laravel: http://localhost:8088/'
 }
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all', 'start-angular', 'start-doc')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.

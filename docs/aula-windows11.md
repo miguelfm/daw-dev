@@ -376,7 +376,7 @@ MariaDB usa `abc123..` para `dwcs` e `root`. As contas de Linux non teñen contr
 ### Documentación sen conexión (daw-doc)
 
 O perfil `doc` de `compose.yaml` arranca o manual de PHP (<http://localhost:8080/>),
-DevDocs con HTML e CSS (<http://localhost:5042/>) e a documentación de Laravel 13.x
+a referencia de HTML, HTTP e CSS de MDN (<http://localhost:5042/>) e a documentación de Laravel 13.x
 (<http://localhost:8088/>), coas imaxes do proxecto
 [daw-doc](https://github.com/miguelfm/daw-doc). Serven para os exames e as clases sen
 Internet. As imaxes constrúense no profesor, en Linux ou WSL, e cada unha vai ao
@@ -418,10 +418,12 @@ imaxes locais cando xa están cargadas.
 - [x] Empaquetar en inglés a documentación de Laravel 13.x e comprobar a lingua do menú e
   das páxinas na imaxe que se distribúa á aula. Desde o 26/11/2026 os contidos, o menú, a
   portada e a busca do manual de PHP e de Laravel están en inglés.
-- [ ] Atopar un xeito reproducible de gardar en caché as páxinas das referencias de HTTP e HTML
-  en DevDocs e deixalas dispoñibles no despregamento da aula. Nun perfil novo, tras preparar a
-  documentación, cortar o acceso a Internet e comprobar que a busca abre páxinas de ambas as
-  referencias. Valorar outras referencias segundo se vaian precisando nas clases.
+- [x] Atopar un xeito reproducible de gardar en caché as páxinas das referencias de HTTP e HTML
+  en DevDocs e deixalas dispoñibles no despregamento da aula. Desde o 26/11/2026 a imaxe
+  `daw-doc-devdocs` é un sitio estático co contido de MDN en inglés que prepara DevDocs, sen a
+  súa aplicación, que só funciona desde devdocs.io. Leva as páxinas de HTML, HTTP e CSS e a
+  busca Pagefind, e comprobouse cun navegador sen acceso a Internet. Para engadir outras referencias,
+  `DEVDOCS_LANGS` en daw-doc.
 
 Para localizar atrasos na instalación de dependencias, na compilación ou no arranque,
 segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angular-wsl2-virtualbox.md).

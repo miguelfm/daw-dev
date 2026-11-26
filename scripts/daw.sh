@@ -48,7 +48,7 @@ Comandos dispoñibles:
   daw-start-db   Arranca a base de datos MariaDB e o servizo web xuntos.
   daw-start-angular  Arranca Angular e prepara o acceso SSH dwcc-angular.
   daw-start-doc  Arranca a documentación sen conexión: manual de PHP (8080),
-                 DevDocs (5042) e Laravel (8088).
+                 referencia de MDN (5042) e Laravel (8088).
   daw-code       Abre o proxecto no perfil DWCS - PHP de VS Code.
   daw-web-root   Amosa a ruta da raíz web de Apache no sistema anfitrión.
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
@@ -133,7 +133,7 @@ case "$ACTION" in
     start-doc)
         docker compose "${COMPOSE_ARGS[@]}" --profile doc up -d --wait --wait-timeout 300 \
             doc-php doc-devdocs doc-laravel "$@"
-        printf '%s\n' 'Manual de PHP: http://localhost:8080/' 'DevDocs:       http://localhost:5042/' \
+        printf '%s\n' 'Manual de PHP: http://localhost:8080/' 'MDN:           http://localhost:5042/' \
             'Laravel:       http://localhost:8088/'
         ;;
     start-angular)

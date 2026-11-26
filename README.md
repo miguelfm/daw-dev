@@ -193,7 +193,7 @@ terminal para cargar os nomes actualizados.
 | `daw-start` | Arranca só `daw-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
 | `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
 | `daw-start-db` | Arranca a base de datos e o web. |
-| `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, DevDocs en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
+| `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, a referencia de HTML, HTTP e CSS de MDN en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
 | `daw-stop-all` | Para todos os contedores: desenvolvemento, documentación sen conexión e Angular. |
 | `daw-stop-doc` | Para só os servizos da documentación sen conexión (`daw-doc`). |
