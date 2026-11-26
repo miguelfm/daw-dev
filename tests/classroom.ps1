@@ -477,6 +477,38 @@ exit 0
         $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
         Assert ($install.Contains('Initialize-DawCodeServer -Distribution $Distribution -Code (Find-DawCode)'))
     }
+    Test 'deploy.ps1 copies to every computer and verifies the connected accounts' {
+        Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$true;Error=$null})) -eq 'OK')
+        Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Precísase unha única sesión de alumno conectada.'})) -eq 'Sen alumno')
+        Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Verificación x fallou: Esta conta aínda non activou DAW Dev (falta a distribución linux).'})) -eq 'Sen activar')
+        Assert ((ConvertTo-DawDeployStatus ([pscustomobject]@{Success=$false;Error='Web e MariaDB: timeout'})) -eq 'Erro')
+        Assert ((ConvertTo-DawDeployStatus $null) -eq 'Erro')
+        $deploy=Join-Path $script:Repo 'windows/classroom/deploy.ps1'
+        Throws {& $deploy -PackageDirectory (Join-Path $script:Temp 'none') -SkipCopy} 'SkipCopy só'
+        $t=[IO.File]::ReadAllText($deploy)
+        Assert ($t.Contains('-Action CopyPackage') -and $t.Contains('-Action Verify') -and -not $t.Contains('InstallUser')) 'deploy.ps1 must not activate accounts'
+        $manage=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
+        Assert ($manage.Contains("'Verify'") -and $manage.Contains('Invoke-DawStudentVerify'))
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1'))
+        foreach($name in Get-DawPackageImageNames){Assert ($daw.Contains("'$name'")) "daw.ps1 does not load $name"}
+        Assert ('verify-user.ps1' -in @(Get-DawSetupFiles))
+    }
+    Test 'verify-user.ps1 uses the account launchers and only stops what it started' {
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/verify-user.ps1'))
+        $package=$t.IndexOf('Assert-DawPackage $PackageDirectory');$marker=$t.IndexOf('Test-DawModelMarker $Distribution');$start=$t.IndexOf("Invoke-DawLauncher 'start-db'")
+        Assert ($package -gt 0 -and $package -lt $marker -and $marker -lt $start)
+        foreach($s in "Invoke-DawLauncher 'start-doc'","if(-not `$wasRunning){try{Invoke-DawLauncher 'stop-all'}","'http://localhost/'","'http://localhost:5042/'",'aínda non activou DAW Dev'){Assert ($t.Contains($s)) "Missing: $s"}
+        Assert ($t -notmatch 'Remove-Daw|--unregister|--import|install-daw-commands') 'Verification must not change the installation'
+    }
+    Test 'the previous daw-activate reaches the new activation' {
+        $shim=Get-DawLegacyActivatorScript
+        Assert ($shim.Contains("& 'C:\ProgramData\DAW-Dev\activate.ps1' -SkipVSCode:`$SenVSCode -NoPause:`$SenPausa"))
+        $e=$null;$null=[Management.Automation.Language.Parser]::ParseInput($shim,[ref]$null,[ref]$e)
+        Assert ($e.Count -eq 0) "$e"
+        Assert ((Get-DawLegacyInstall).Activator -eq 'activar-dawdev.ps1')
+        $module=[IO.File]::ReadAllText($script:ModulePath)
+        Assert ($module.Contains('Set-DawProtectedAcl $dir')) 'The transitional activator must not be writable by users'
+    }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
@@ -643,7 +675,7 @@ exit 0
         Throws {Invoke-DawProjectOverlay 'linux' 'C:\ProgramData\DAW-Dev\project' $manifest} 'non informou'
     }
     # The installer and the project updater share the task runner; both must keep its guarantees.
-    foreach($kind in @('install','project')){
+    foreach($kind in @('install','project','verify')){
     foreach($mode in @('success','stale','corrupt','failure','policy','silent')){
         Test "student task correlation and cleanup: $kind $mode" {
             $root=Join-Path $script:Temp ('task-'+$kind+'-'+$mode)
@@ -651,10 +683,10 @@ exit 0
             & $script:M {
                 param($root,$mode,$kind)
                 $script:Profile=$root;$script:Mode=$mode;$script:Trace=@();$script:Principal=$null;$script:Command=''
-                $script:StateFile=if($kind -eq 'install'){'install-state.json'}else{'project-state.json'}
+                $script:StateFile=@{install='install-state.json';project='project-state.json';verify='verify-state.json'}[$kind]
                 function script:Get-DawStudent {[pscustomobject]@{SID='S-1-5-21-123';Profile=$script:Profile}}
                 function script:Assert-DawProjectOverlay {param($Directory) if($Directory -ne 'C:\ProgramData\DAW-Dev\project'){throw 'Unexpected stage'};[pscustomobject]@{Revision='r'}}
-                function script:Test-Path {param($LiteralPath) if($LiteralPath -eq 'C:\ProgramData\DAW-Dev\daw-classroom.psm1'){return $true};Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath}
+                function script:Test-Path {param($LiteralPath) if($LiteralPath -in @('C:\ProgramData\DAW-Dev\daw-classroom.psm1','C:\ProgramData\DAW-Dev\verify-user.ps1')){return $true};Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath}
                 function script:New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) $script:Principal=@{User=$UserId;Logon=$LogonType;Level=$RunLevel};[pscustomobject]$script:Principal}
                 function script:New-ScheduledTaskAction {param($Execute,$Argument) $script:Execute=$Execute;$script:Command=$Argument;[pscustomobject]@{Command=$Argument}}
                 function script:New-ScheduledTaskSettingsSet {param([switch]$Hidden,$ExecutionTimeLimit,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) [pscustomobject]@{Hidden=$true}}
@@ -676,7 +708,7 @@ exit 0
                 function script:Stop-ScheduledTask {param($TaskName,$ErrorAction) $script:Trace+='stopped'}
                 function script:Unregister-ScheduledTask {param($TaskName,$Confirm,$ErrorAction) $script:Trace+='removed'}
             } $root $mode $kind
-            $call=if($kind -eq 'install'){{Invoke-DawStudentInstall 1}}else{{Invoke-DawProjectUpdate 1 -Restart}}
+            $call=@{install={Invoke-DawStudentInstall 1};project={Invoke-DawProjectUpdate 1 -Restart};verify={Invoke-DawStudentVerify 1}}[$kind]
             $old=$env:SystemRoot;if(-not $old){$env:SystemRoot=$script:Temp}
             try{
                 switch($mode){
@@ -692,7 +724,7 @@ exit 0
                     # conhost --headless devolve 0 aínda que PowerShell morra sen escribir o estado.
                     'silent' {
                         & $script:M {function script:Start-ScheduledTask {param($TaskName) $script:Trace+='started'}}
-                        $call=if($kind -eq 'install'){{Invoke-DawStudentInstall 30}}else{{Invoke-DawProjectUpdate 30 -Restart}}
+                        $call=@{install={Invoke-DawStudentInstall 30};project={Invoke-DawProjectUpdate 30 -Restart};verify={Invoke-DawStudentVerify 30}}[$kind]
                         Throws $call 'rematou sen informar'
                     }
                 }
@@ -702,7 +734,7 @@ exit 0
             Assert ($principal.User -eq 'S-1-5-21-123' -and $principal.Logon -eq 'Interactive' -and $principal.Level -eq 'Limited')
             Assert (((& $script:M {$script:Trace}) -join ',') -eq 'registered,started,stopped,removed')
             $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(((& $script:M {$script:Command}) -split ' ')[-1]))
-            $expected=if($kind -eq 'install'){"^& 'C:\\ProgramData\\DAW-Dev\\install-user\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev'$"}else{"^& 'C:\\ProgramData\\DAW-Dev\\project\\update-project\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev\\project' -Restart$"}
+            $expected=if($kind -eq 'verify'){"^& 'C:\\ProgramData\\DAW-Dev\\verify-user\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev'$"}elseif($kind -eq 'install'){"^& 'C:\\ProgramData\\DAW-Dev\\install-user\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev'$"}else{"^& 'C:\\ProgramData\\DAW-Dev\\project\\update-project\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev\\project' -Restart$"}
             Assert ($decoded -match $expected) ('Unexpected task command: '+$decoded)
         }
     }

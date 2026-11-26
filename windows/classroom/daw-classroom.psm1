@@ -13,7 +13,7 @@ function Get-DawStateDirectory {
     Join-Path $env:LOCALAPPDATA (Split-Path -Leaf (Get-DawStateRelativePath))
 }
 function Get-DawStateFiles {
-    [pscustomobject]@{Lock='install.lock';Install='install-state.json';InstallLog='install.log';Project='project-state.json';ProjectLog='project.log';PendingRestore='web-restore.txt'}
+    [pscustomobject]@{Lock='install.lock';Install='install-state.json';InstallLog='install.log';Project='project-state.json';ProjectLog='project.log';Verify='verify-state.json';VerifyLog='verify.log';PendingRestore='web-restore.txt'}
 }
 # Descargas do profesor (PsExec, MSI de WSL).
 function Get-DawToolsDirectory { Join-Path (Get-DawStateDirectory) 'tools' }
@@ -22,6 +22,11 @@ function Get-DawDistribution { 'linux' }
 function Get-DawLinuxProjectPath { '/home/ad/workspace' }
 function Get-DawWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
 function Get-DawModelArchive { 'linux.tar.gz' }
+# Imaxes Docker que deben ir no paquete para usar Angular e a documentación sen Internet
+# (as mesmas que carga daw.ps1).
+function Get-DawPackageImageNames {
+    @('ghcr.io/miguelfm/dwcc-angular:22','ghcr.io/miguelfm/daw-doc-php:en','ghcr.io/miguelfm/daw-doc-devdocs:latest','ghcr.io/miguelfm/daw-doc-laravel:13.x')
+}
 # O modelo leva este ficheiro: só se reinstala ou actualiza unha distribución que o teña.
 function Get-DawModelMarker { [pscustomobject]@{Path='/etc/daw-dev-model';Value='daw-dev-v2'} }
 # A instalación anterior (paquete DAW-Aula, distribución Debian, proxecto en ~/proxectos/daw-dev).
@@ -32,7 +37,7 @@ function Get-DawLegacyInstall {
         LauncherDirectory='daw-dev-launcher';Shortcut='DAW - Proxectos (www).lnk'
         ProjectPaths=@('/home/ad/proxectos/daw-dev','/home/alumno/proxectos/daw-dev')
         Distribution='Debian';MarkerPath='/etc/daw-aula-modelo';Marker='daw-aula-v1'
-        RunValue='DAWAula';AutoStartCommand="& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'"
+        RunValue='DAWAula';AutoStartCommand="& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'";Activator='activar-dawdev.ps1'
     }
 }
 function ConvertTo-DawWslPath {
@@ -251,8 +256,36 @@ function Remove-DawLegacyPackage {
         if($items|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}){throw "$dir contén ligazóns ou junctions; conservouse."}
         Remove-Item -LiteralPath $dir -Recurse -Force
         $removed+=$dir
+        # O daw-activate das contas sen activar aínda chama ao activador anterior: queda só
+        # este, protexido, e leva á activación nova.
+        New-Item -ItemType Directory -Path $dir|Out-Null
+        Set-DawProtectedAcl $dir
+        [IO.File]::WriteAllText((Join-Path $dir $legacy.Activator),(Get-DawLegacyActivatorScript),(New-Object Text.UTF8Encoding($true)))
     }
     return $removed
+}
+function Get-DawLegacyActivatorScript {
+    # Os lanzadores anteriores chaman a activar-dawdev.ps1 cos parámetros de entón.
+    @"
+# Transición: o daw-activate das contas anteriores a DAW Dev chama a este ficheiro.
+param([string]`$Distribution,[switch]`$SenVSCode,[switch]`$SenPausa)
+& '$(Get-DawPackageDirectory)\activate.ps1' -SkipVSCode:`$SenVSCode -NoPause:`$SenPausa
+exit `$LASTEXITCODE
+"@.Replace("`n","`r`n")
+}
+function Set-DawProtectedAcl {
+    # Como o paquete: escritura só para SYSTEM e Administradores; lectura e execución para Usuarios.
+    param([string]$Path)
+    $acl=New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true,$false)
+    $admins=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    $acl.SetOwner($admins)
+    foreach($sid in 'S-1-5-18','S-1-5-32-544','S-1-5-32-545'){
+        $rights=if($sid -eq 'S-1-5-32-545'){'ReadAndExecute'}else{'FullControl'}
+        $identity=New-Object Security.Principal.SecurityIdentifier($sid)
+        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity,$rights,'ContainerInherit,ObjectInherit','None','Allow')))
+    }
+    Set-Acl -LiteralPath $Path -AclObject $acl
 }
 function Find-DawCode {
     foreach($path in @((Join-Path $env:LOCALAPPDATA 'Programs\Microsoft VS Code\Code.exe'),(Join-Path $env:ProgramFiles 'Microsoft VS Code\Code.exe'),(Join-Path ${env:ProgramFiles(x86)} 'Microsoft VS Code\Code.exe'))){
@@ -334,6 +367,23 @@ function Invoke-DawStudentInstall {
     if($WithoutCode){$arguments+=' -SkipVSCode'}
     Invoke-DawUserTask 'InstallUser' "$target\install-user.ps1" $arguments (Get-DawStateFiles).Install 'Instalación' $TimeoutSeconds
 }
+function Invoke-DawStudentVerify {
+    # Comproba a contorna na conta do alumno conectado (verify-user.ps1), sen elevación.
+    param([int]$TimeoutSeconds=1800)
+    $target=Get-DawPackageDirectory
+    if(-not(Test-Path -LiteralPath "$target\verify-user.ps1")){throw 'Falta o paquete DAW Dev no equipo: executar antes CopyPackage.'}
+    Invoke-DawUserTask 'Verify' "$target\verify-user.ps1" "-PackageDirectory '$target'" (Get-DawStateFiles).Verify 'Verificación' $TimeoutSeconds
+}
+function ConvertTo-DawDeployStatus {
+    # Resultado dun posto en deploy.ps1: OK, Sen alumno (non hai unha única sesión), Sen activar
+    # (a conta conectada aínda non activou DAW Dev) ou Erro.
+    param($Result)
+    if(-not $Result){return 'Erro'}
+    if($Result.Success){return 'OK'}
+    if([string]$Result.Error -match 'única sesión de alumno'){return 'Sen alumno'}
+    if([string]$Result.Error -match 'aínda non activou DAW Dev'){return 'Sen activar'}
+    return 'Erro'
+}
 function Invoke-DawUserTask {
     # Runs a package script as the single connected student and waits for the state of THIS request.
     param([string]$Name,[string]$Script,[string]$Arguments,[string]$StateFile,[string]$Label,[int]$TimeoutSeconds=1800)
@@ -396,7 +446,7 @@ function Invoke-DawBoundedJobs {
         return $results
     }finally{foreach($job in $jobs){Stop-Job $job -ErrorAction SilentlyContinue;Remove-Job $job -Force -ErrorAction SilentlyContinue}}
 }
-function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','install-user.ps1','autostart.ps1','activate.ps1','daw-classroom.psm1') }
+function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','install-user.ps1','verify-user.ps1','autostart.ps1','activate.ps1','daw-classroom.psm1') }
 function Set-DawStartMenuShortcut {
     # Activación manual para calquera usuario: unha entrada no menú Inicio común, nada no inicio de sesión.
     param([string]$Directory=(Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\DAW Dev'),[string]$Package=(Get-DawPackageDirectory))

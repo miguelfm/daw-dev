@@ -141,6 +141,37 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 
 ## 4. Copiar aos equipos e activar por usuario
 
+### Instalar en toda a aula: `deploy.ps1`
+
+`deploy.ps1` instala o paquete en todos os equipos dunha aula. Non activa as contas: cada alumno
+activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar DAW Dev**) ou con `daw-activate`
+se xa ten as ordes `daw-*`.
+
+```powershell
+# Primeiro nun posto; despois, a aula completa
+.\windows\classroom\deploy.ps1 -Classroom 34 -Number 16 -PackageDirectory C:\DAW-Paquete-2026
+.\windows\classroom\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026
+
+# Cando os alumnos activaron DAW Dev e seguen conectados
+.\windows\classroom\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026 -Verify -SkipCopy
+```
+
+1. Valida o paquete local e avisa se lle faltan VS Code Server ou as imaxes de Angular e da
+   documentación.
+2. Diagnostica os postos (`Check`) e continúa só cos que responden por WinRM.
+3. `CopyPackage` neles, de 5 en 5 (`-ThrottleLimit`), co SHA256 de cada ficheiro comprobado no posto.
+4. Con `-Verify`, executa `Verify` na conta conectada de cada posto: comproba o paquete da
+   distribución, Docker, o proxecto, os lanzadores, `daw-start-db` con `http://localhost/`,
+   `daw-start-doc` cos portos 8080, 5042 e 8088, e VS Code Server. Usa os lanzadores da conta e,
+   se a contorna non estaba en marcha, párase ao rematar.
+
+Amosa unha táboa por posto (`Package` e `Verify`: `OK`, `Erro`, `Sen alumno` ou `Sen activar`) e
+gárdaa en CSV en `%LOCALAPPDATA%\DAW-Dev\tools\deploy-<aula>-<data>.csv`. Ao final indica a orde
+para repetir só os postos con erro. Non reinicia equipos, non activa contas nin usa `-Reinstall`.
+Os postos apagados quedan sen resposta: acéndeos con `power-on.ps1` e repite con `-Number`.
+
+### Accións por separado
+
 ```powershell
 .\windows\classroom\manage.ps1 -Action CopyPackage -Classroom 31 -Number 1 -PackageDirectory C:\DAW-Paquete-2026
 ```
@@ -246,10 +277,12 @@ O contedor xa non imita a MV de DWCS: os enunciados usan `/home/ad/data`.
    `WWW_DIR` no `.env`) se copia automaticamente, como se explica no punto 4.
 2. Constrúe un paquete novo con `build-package.ps1` (os paquetes de DAW-Aula non valen) e engade
    as imaxes adicionais con `add-package-image.ps1`, como nas seccións seguintes.
-3. `CopyPackage` en cada posto. Retira o paquete anterior e o seu autoarranque, e deixa
-   **Activar DAW Dev** no menú Inicio, que agora executa `activate.ps1`.
-4. Cada conta executa **Activar DAW Dev**, ou o profesor `InstallUser` co alumno
-   conectado. A primeira vez retira a instalación anterior da conta: a distribución `Debian`
+3. `deploy.ps1` (ou `CopyPackage`) en cada posto. Retira o paquete anterior e o seu
+   autoarranque, e deixa **Activar DAW Dev** no menú Inicio, que agora executa `activate.ps1`. No
+   lugar do paquete anterior queda só `activar-dawdev.ps1`, protexido contra escritura, para que o
+   `daw-activate` das contas anteriores leve á activación nova.
+4. Cada alumno activa DAW Dev na súa conta: **Activar DAW Dev** no menú Inicio ou `daw-activate`
+   (tamén o das contas anteriores). O profesor pode usar `InstallUser` co alumno conectado. A primeira vez retira a instalación anterior da conta: a distribución `Debian`
    (só se ten o marcador `/etc/daw-aula-modelo` do modelo anterior; unha Debian persoal
    consérvase), `%LOCALAPPDATA%\DAW-Aula`, `%LOCALAPPDATA%\daw-dev-launcher` e o acceso directo
    vello. Antes de eliminar a distribución copia o contido da súa raíz web en
@@ -258,8 +291,8 @@ O contedor xa non imita a MV de DWCS: os enunciados usan `/home/ad/data`.
    de Documentos consérvase. Se a activación falla despois de copiar, a seguinte restaura a copia
    pendente (`%LOCALAPPDATA%\DAW-Dev\web-restore.txt`).
 
-As contas que non se activen conservan a súa Debian anterior ata que o fagan, pero os seus
-lanzadores xa non atopan o paquete: deben usar **Activar DAW Dev**. Proba primeiro nun posto
+As contas que non se activen conservan a súa Debian anterior ata que o fagan, e as súas ordes
+`daw-*` seguen usándoa; `daw-activate` ou **Activar DAW Dev** pásaas á instalación nova. Proba primeiro nun posto
 cunha conta nova e outra coa instalación anterior, e comproba `daw-start`, `daw-code -Container`,
 o acceso directo e que a distribución `Debian` desapareceu.
 

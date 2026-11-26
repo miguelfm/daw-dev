@@ -9,6 +9,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
+| `deploy.ps1` | Instala o paquete en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
 | `manage.ps1` | Accións nos postos por WinRM; `-ThrottleLimit` atende varios á vez |
 | `check-remote.ps1`, `enable-winrm.ps1` | Diagnóstico e activación de WinRM, desde `manage.ps1` |
 | `power-on.ps1`, `power-off.ps1` | Acendido por Wake-on-LAN (`a31-macs.csv`) e apagado da aula |
@@ -16,6 +17,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `activate.ps1` | «Activar DAW Dev» do menú Inicio: `install-user.ps1` e despois `update-project.ps1` |
 | `install-user.ps1` | Instala DAW Dev na conta que o executa, sen elevación |
 | `update-project.ps1` | Copia os ficheiros do proxecto (`overlay/`) na distribución da conta |
+| `verify-user.ps1` | Comproba a contorna na conta, cos seus lanzadores (acción `Verify`); non cambia a instalación |
 | `autostart.ps1` | Instalación no inicio de sesión, só coa opción `-AutoStart` de `CopyPackage` |
 
 ## Rutas e nomes
@@ -40,7 +42,8 @@ alumnado gárdao antes. A copia de Documentos consérvase; se a instalación fal
 restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
 - `CopyPackage` retira do posto o paquete anterior (`C:\ProgramData\DAW-Aula`) e o
-  seu autoarranque (`Run\DAWAula`).
+  seu autoarranque (`Run\DAWAula`). Alí deixa só `activar-dawdev.ps1`, coa ACL do paquete: o
+  `daw-activate` das contas anteriores chámao e leva a `activate.ps1`.
 - A primeira activación de cada conta retira a instalación anterior desa conta:
   - a distribución `Debian`, só se ten o marcador do modelo anterior (`/etc/daw-aula-modelo`);
   - `%LOCALAPPDATA%\DAW-Aula` e `%LOCALAPPDATA%\daw-dev-launcher`;
