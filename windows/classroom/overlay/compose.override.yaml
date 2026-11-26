@@ -14,6 +14,16 @@ services:
       # Extensións de VS Code do Dev Container: a activación instálaas desde o paquete, sen
       # Internet, e consérvanse aínda que se volva crear o contedor.
       - vscode-extensions:/home/ad/.vscode-server/extensions
+    post_start:
+      # Se a imaxe non trae ~/.vscode-server (as anteriores ao 26-11-2026), Docker créao como root
+      # para montar o volume e VS Code, como ad, non pode crear bin/ nin data/. Compose remata este
+      # paso antes de que daw-start ou Dev Containers usen o contedor, sexa cal sexa a imaxe.
+      - user: root
+        command:
+          - sh
+          - -c
+          # Entre comiñas: sen elas, YAML lería «ad: ...» como un mapa.
+          - 'mkdir -p /home/ad/.vscode-server/extensions && chown ad: /home/ad/.vscode-server /home/ad/.vscode-server/extensions'
     command:
       - bash
       - -c

@@ -204,6 +204,9 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/data' in targets and '/var/www/html' in targets and '/home/ad/html' not in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']
+        # Any image: Docker creates the missing ~/.vscode-server as root to mount the extensions volume.
+        hooks = web.get('post_start') or []
+        assert any(h.get('user') == 'root' and 'chown ad: /home/ad/.vscode-server /home/ad/.vscode-server/extensions' in ' '.join(h['command']) for h in hooks), hooks
         count += 1; print('PASS real docker compose accepts the classroom project files')
     else:
         print('SKIP real docker compose: docker is not installed')

@@ -457,7 +457,12 @@ ao abrir o contedor e, sen máis, pérdense cando o contedor se volve crear. Na 
   web, así que o Dev Container as atopa xa instaladas e consérvaas aínda que se volva crear.
 
 `-Verify` comproba que están nos dous sitios. A imaxe web crea ese directorio a nome de `ad`;
-a activación axusta tamén o propietario do volume.
+a activación axusta tamén o propietario do volume. Cunha imaxe anterior ao 26-11-2026, Docker
+crea `/home/ad/.vscode-server` como `root` para montar o volume, e VS Code non podería instalar
+o servidor (`mkdir: cannot create directory '/home/ad/.vscode-server/bin': Permission denied`).
+Por iso `compose.override.yaml` ten un paso `post_start` que deixa ese directorio a nome de
+`ad` cada vez que arranca o contedor. Compose remátao antes de que `daw-start` ou Dev Containers
+usen o contedor, sexa cal sexa a imaxe.
 
 ### Contrasinais
 

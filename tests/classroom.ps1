@@ -602,6 +602,8 @@ foreach(`$n in `$Number){
         $override=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/overlay/compose.override.yaml'))
         Assert ($override.Contains('vscode-extensions:/home/ad/.vscode-server/extensions') -and $override.Contains("name: $(Get-DawCodeExtensionsVolume)"))
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'Dockerfile')).Contains('/home/ad/.vscode-server/extensions')) 'The image must own the extensions directory'
+        # With an image that lacks ~/.vscode-server, Docker creates it as root to mount the volume.
+        Assert ($override -match '(?s)\n    post_start:\r?\n( +#[^\n]*\n)*      - user: root\r?\n        command:.*chown ad: /home/ad/\.vscode-server /home/ad/\.vscode-server/extensions') 'The override must give ad the VS Code Server directory with any image'
         $dest=Join-Path $script:Temp 'package-extensions';New-Item -ItemType Directory -Path $dest|Out-Null
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
         $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model')
