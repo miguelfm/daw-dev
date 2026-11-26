@@ -433,26 +433,18 @@ O perfil `doc` de `compose.yaml` arranca o manual de PHP (<http://localhost:8080
 a referencia de HTML, HTTP e CSS de MDN (<http://localhost:5042/>) e a documentación de Laravel 13.x
 (<http://localhost:8088/>), coas imaxes do proxecto
 [daw-doc](https://github.com/miguelfm/daw-doc). Serven para os exames e as clases sen
-Internet. As imaxes constrúense no profesor, en Linux ou WSL, e cada unha vai ao
-paquete co seu SHA256:
-
-```bash
-# No repositorio de daw-doc, con Internet: deixa os tres .tar.gz en dist/
-scripts/empaquetar.sh
-```
+Internet. As imaxes publícanse como arquivos dunha
+[release de daw-doc](https://github.com/miguelfm/daw-doc/releases), e van ao paquete co seu SHA256:
 
 ```powershell
 $paquete = 'C:\DAW-Paquete-2026'
-.\windows\classroom\update-package.ps1 -PackageDirectory $paquete
-foreach ($p in @(
-    @('daw-doc-php.tar.gz', 'ghcr.io/miguelfm/daw-doc-php:en'),
-    @('daw-doc-devdocs.tar.gz', 'ghcr.io/miguelfm/daw-doc-devdocs:latest'),
-    @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'))) {
-    .\windows\classroom\add-package-image.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
-}
-.\windows\classroom\manage.ps1 -Action CopyPackage -PackageDirectory $paquete -Classroom 34 -Number 16
-.\windows\classroom\manage.ps1 -Action UpdateProject -Classroom 34 -Number 16
+.\windows\classroom\add-doc-images.ps1 -PackageDirectory $paquete
+.\windows\classroom\deploy.ps1 -Classroom 34 -Number 16 -PackageDirectory $paquete
 ```
+
+`add-doc-images.ps1` descarga sen login a última release (ou a de `-Tag`), comproba o SHA256 de
+cada arquivo con `SHA256SUMS` e que garda a imaxe que carga `daw.ps1`, e rexístraa no paquete. Sen
+Internet no equipo do profesor, `add-package-image.ps1` rexistra os arquivos copiados doutro xeito.
 
 `UpdateProject` leva o `compose.yaml` co perfil `doc`, e **Activar DAW Dev**, a
 orde `daw-start-doc`. A primeira vez en cada conta, `daw-start-doc` carga as imaxes que
@@ -461,8 +453,8 @@ segundos. Como os outros servizos, os portos só escoitan en `127.0.0.1`, e
 `daw-stop-doc` para só a documentación. Os tres arquivos ocupan arredor de 125 MB: cada un leva
 a súa copia da capa de nginx.
 
-Para renovar a documentación, volve xerar os arquivos no repositorio de
-`daw-doc` e rexístraos no paquete con `add-package-image.ps1`. Nas contas que xa
+Para renovar a documentación, xera os arquivos en `daw-doc` con `scripts/empaquetar.sh`, publícaos
+nunha release nova (véxase o README de daw-doc) e rexístraos no paquete con `add-doc-images.ps1`. Nas contas que xa
 teñen esas etiquetas en Docker, verifica o paquete e carga os arquivos novos
 con `docker load -i` antes de executar `daw-start-doc`. O lanzador reutiliza as
 imaxes locais cando xa están cargadas.

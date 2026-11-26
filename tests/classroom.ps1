@@ -522,6 +522,14 @@ exit 0
         $module=[IO.File]::ReadAllText($script:ModulePath)
         Assert ($module.Contains('Set-DawProtectedAcl $dir')) 'The transitional activator must not be writable by users'
     }
+    Test 'add-doc-images.ps1 verifies each release archive before registering it' {
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/add-doc-images.ps1'))
+        $sha=$t.IndexOf('Get-FileHash -LiteralPath $path');$tags=$t.IndexOf('manifest.json');$add=$t.IndexOf('Add-DawPackageImage $PackageDirectory')
+        Assert ($sha -gt 0 -and $sha -lt $tags -and $tags -lt $add) 'SHA256 and image name must be checked before registering'
+        Assert ($t.Contains("Get-DawPackageImageNames | Where-Object { `$_ -match '/daw-doc-[a-z]+:' }") -and $t.Contains("'SHA256SUMS'"))
+        $docs=@(Get-DawPackageImageNames|Where-Object {$_ -match '/daw-doc-[a-z]+:'})
+        Assert ((($docs|ForEach-Object {(($_ -split '/')[-1] -split ':')[0]+'.tar.gz'}) -join ',') -eq 'daw-doc-php.tar.gz,daw-doc-devdocs.tar.gz,daw-doc-laravel.tar.gz')
+    }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))

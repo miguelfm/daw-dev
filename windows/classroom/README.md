@@ -8,6 +8,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `build-package.ps1` | Crea o modelo e o paquete da aula (executa `setup-model.sh` no modelo) |
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
+| `add-doc-images.ps1` | Descarga da última release de daw-doc as imaxes da documentación e rexístraas no paquete |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `deploy.ps1` | Instala o paquete en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
 | `install-package.ps1` | Instala o paquete no propio equipo, como administrador e sen WinRM (por exemplo, no do profesor) |
