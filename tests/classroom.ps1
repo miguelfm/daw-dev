@@ -530,6 +530,27 @@ exit 0
         $docs=@(Get-DawPackageImageNames|Where-Object {$_ -match '/daw-doc-[a-z]+:'})
         Assert ((($docs|ForEach-Object {(($_ -split '/')[-1] -split ':')[0]+'.tar.gz'}) -join ',') -eq 'daw-doc-php.tar.gz,daw-doc-devdocs.tar.gz,daw-doc-laravel.tar.gz')
     }
+    Test 'the VS Code commits of a computer come from every installation' {
+        $saved=@{PF=$env:ProgramFiles;PF86=${env:ProgramFiles(x86)}}
+        try{
+            $env:ProgramFiles='/pf';${env:ProgramFiles(x86)}=$null
+            & $script:M {
+                function script:Get-CimInstance {param($ClassName) [pscustomobject]@{LocalPath='/users/a';Special=$false},[pscustomobject]@{LocalPath='/users/b';Special=$false},[pscustomobject]@{LocalPath='/sys';Special=$true}}
+                function script:Test-Path {param($LiteralPath,$PathType) $LiteralPath -match '^/(pf|users/b)/'}
+                function script:Get-DawCodeCommit {param($Code) if($Code -match '^/pf/'){'a'*40}else{'b'*40}}
+            }
+            $commits=@(Get-DawInstalledCodeCommits)
+            Assert (($commits -join ',') -eq (('a'*40)+','+('b'*40))) ($commits -join ',')
+        }finally{$env:ProgramFiles=$saved.PF;${env:ProgramFiles(x86)}=$saved.PF86}
+    }
+    Test 'deploy.ps1 builds and completes the package before copying it' {
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/deploy.ps1'))
+        $order=@("& `$build -OutputDirectory `$PackageDirectory -Resume","& `$build -OutputDirectory `$PackageDirectory -Distribution `$model",'$manifest = Assert-DawPackage $PackageDirectory','check-remote.ps1',"'add-doc-images.ps1'",'Add-DawAngularImage $name','Get-DawPostCodeCommits $reachable',"'add-vscode-server.ps1'",'-Action CopyPackage','-Action Verify')|ForEach-Object {$t.IndexOf($_)}
+        Assert (-not($order -contains -1)) 'Missing deploy step'
+        Assert (($order -join ',') -eq (@($order|Sort-Object) -join ',')) "deploy.ps1 steps out of order: $($order -join ',')"
+        Assert ($t.Contains('$prepare = -not ($SkipPrepare -or $SkipCopy)') -and $t.Contains('Import-Module $file -Force')) 'Package preparation must be optional and load the module from a file'
+        Assert ($t.Contains("'DAW-Model-' + (Get-Date") ) 'A new build must not reuse an existing model distribution'
+    }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))

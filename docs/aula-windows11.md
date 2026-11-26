@@ -143,9 +143,9 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 
 ### Instalar en toda a aula: `deploy.ps1`
 
-`deploy.ps1` instala o paquete en todos os equipos dunha aula. Non activa as contas: cada alumno
-activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar DAW Dev**) ou con `daw-activate`
-se xa ten as ordes `daw-*`.
+`deploy.ps1` prepara o paquete e instálao en todos os equipos dunha aula. Non activa as contas:
+cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar DAW Dev**) ou con
+`daw-activate` se xa ten as ordes `daw-*`. O profesor precisa Internet, WSL2 e Git.
 
 ```powershell
 # Primeiro nun posto; despois, a aula completa
@@ -156,11 +156,19 @@ se xa ten as ordes `daw-*`.
 .\windows\classroom\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026 -Verify -SkipCopy
 ```
 
-1. Valida o paquete local e avisa se lle faltan VS Code Server ou as imaxes de Angular e da
-   documentación.
+1. Se o paquete non existe, constrúeo con `build-package.ps1` (tarda un bo anaco); se a construción
+   quedou a medias, continúaa. Despois valídao.
 2. Diagnostica os postos (`Check`) e continúa só cos que responden por WinRM.
-3. `CopyPackage` neles, de 5 en 5 (`-ThrottleLimit`), co SHA256 de cada ficheiro comprobado no posto.
-4. Con `-Verify`, executa `Verify` na conta conectada de cada posto: comproba o paquete da
+3. Completa o paquete co que lle falte para traballar sen Internet:
+   - o VS Code Server de cada commit de VS Code instalado nos postos que responden, lido por
+     WinRM (`add-vscode-server.ps1`);
+   - as imaxes da documentación, da última release de daw-doc (`add-doc-images.ps1`);
+   - a imaxe de Angular, descargada de ghcr.io co Docker da distribución modelo do paquete.
+
+   Só descarga o que falta. Se algo non se pode engadir, avisa e continúa. `-SkipPrepare` usa o
+   paquete tal como está.
+4. `CopyPackage` neles, de 5 en 5 (`-ThrottleLimit`), co SHA256 de cada ficheiro comprobado no posto.
+5. Con `-Verify`, executa `Verify` na conta conectada de cada posto: comproba o paquete da
    distribución, Docker, o proxecto, os lanzadores, `daw-start-db` con `http://localhost/`,
    `daw-start-doc` cos portos 8080, 5042 e 8088, e VS Code Server. Usa os lanzadores da conta e,
    se a contorna non estaba en marcha, párase ao rematar.
@@ -296,8 +304,9 @@ O contedor xa non imita a MV de DWCS: os enunciados usan `/home/ad/data`.
    de datos) fóra da distribución, por exemplo en OneDrive ou nun repositorio Git. A reinstalación
    elimina a distribución anterior con todo o seu contido. Só a raíz web (`www`, ou a que indique
    `WWW_DIR` no `.env`) se copia automaticamente, como se explica no punto 4.
-2. Constrúe un paquete novo con `build-package.ps1` (os paquetes de DAW-Aula non valen) e engade
-   as imaxes adicionais con `add-package-image.ps1`, como nas seccións seguintes.
+2. Indica a `deploy.ps1` un directorio novo para o paquete: constrúeo e complétao (os paquetes de
+   DAW-Aula non valen). Tamén se pode facer a man con `build-package.ps1`, `add-vscode-server.ps1`,
+   `add-doc-images.ps1` e `add-package-image.ps1`, como nas seccións seguintes.
 3. `deploy.ps1` (ou `CopyPackage`) en cada posto. Retira o paquete anterior e o seu
    autoarranque, e deixa **Activar DAW Dev** no menú Inicio, que agora executa `activate.ps1`. No
    lugar do paquete anterior queda só `activar-dawdev.ps1`, protexido contra escritura, para que o
@@ -393,7 +402,8 @@ Compose non para os servizos dun perfil.
 
 Ao abrir o proxecto en WSL ou no Dev Container, VS Code necesita o VS Code Server do seu
 mesmo commit. Se o descarga, a rede da aula pode esgotar o tempo («Retrying to download VS
-Code Server»). Por iso o paquete leva o servidor de cada commit de VS Code que haxa nos postos:
+Code Server»). Por iso o paquete leva o servidor de cada commit de VS Code que haxa nos postos.
+`deploy.ps1` le eses commits nos postos e engade os que falten; a man:
 
 1. No profesor, co commit do VS Code dos postos: a segunda liña de `code --version` nun posto,
    ou o que amosa `-Action Status` en `CodeServer` (`Missing <commit>`). O VS Code do profesor

@@ -550,6 +550,19 @@ function Get-DawCodeCommit {
     if([string]$data.commit -cnotmatch '^[0-9a-f]{40}$' -or $data.quality -ne 'stable'){throw "VS Code sen commit estable recoñecido: $product"}
     return [string]$data.commit
 }
+function Get-DawInstalledCodeCommits {
+    # Os commits do VS Code instalado neste equipo: para todos os usuarios e no perfil de cada un.
+    $paths=@()
+    foreach($root in @($env:ProgramFiles,${env:ProgramFiles(x86)})|Where-Object {$_}){$paths+=Join-Path $root 'Microsoft VS Code\Code.exe'}
+    foreach($userProfile in @(Get-CimInstance Win32_UserProfile|Where-Object {-not $_.Special})){
+        $paths+=Join-Path $userProfile.LocalPath 'AppData\Local\Programs\Microsoft VS Code\Code.exe'
+    }
+    $commits=foreach($path in $paths){
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
+        try{Get-DawCodeCommit $path}catch{Write-Warning "Non se leu o commit de $path`: $($_.Exception.Message)"}
+    }
+    @($commits|Sort-Object -Unique)
+}
 function Get-DawCodeServerInstallScript {
     # Como ad: extrae o servidor nas rutas que usan Remote - WSL e a CLI de VS Code.
     $text=@'
