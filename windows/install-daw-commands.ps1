@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $binPath = Join-Path $env:USERPROFILE '.local\bin'
 $scriptPath = Join-Path $PSScriptRoot 'daw.ps1'
 # Copia local dos lanzadores da aula, en %LOCALAPPDATA%.
-$launcherName = 'daw-dev-launcher'
+$launcherName = 'DAW-Dev\launcher'
 if ($Distribution -notmatch '^[a-zA-Z0-9._-]+$') { throw 'Invalid WSL distribution name.' }
 if ($LinuxProjectPath) {
     if ($LinuxProjectPath -notmatch '^/[a-zA-Z0-9_./-]+$' -or $LinuxProjectPath -match '(^|/)\.\.(/|$)') {

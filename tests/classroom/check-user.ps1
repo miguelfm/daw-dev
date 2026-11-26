@@ -7,17 +7,17 @@ Executar sen elevación DESPOIS de instalar o modelo. Usa a configuración prede
 da aula. Crea e elimina unha táboa de proba. Ao rematar deixa os contedores parados.
 #>
 [CmdletBinding()]
-param([string]$Distribution = 'Debian')
+param([string]$Distribution = 'linux', [string]$PackageDirectory = 'C:\ProgramData\DAW-Dev')
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'A proba debe executarse sen elevación.' }
-$stateDir = Join-Path $env:LOCALAPPDATA 'DAW-Aula'
+$stateDir = Join-Path $env:LOCALAPPDATA 'DAW-Dev'
 New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
-Start-Transcript -LiteralPath (Join-Path $stateDir 'proba.log') -Append | Out-Null
+Start-Transcript -LiteralPath (Join-Path $stateDir 'test.log') -Append | Out-Null
 $report = [ordered]@{ User = [Security.Principal.WindowsIdentity]::GetCurrent().Name; WindowsAdmin = $false; Success = $false; Error = $null }
 $token = [Guid]::NewGuid().ToString('N')
-$project = '/home/ad/proxectos/daw-dev'
+$project = '/home/ad/workspace'
 $fixture = (& wsl.exe -d $Distribution -u ad --exec wslpath -a -u (Join-Path $PSScriptRoot 'db-persistence.sh')) -join ''
 $fixture = $fixture.Trim()
 function Invoke-NativeChecked([scriptblock]$Command) {
@@ -55,7 +55,7 @@ try {
     Invoke-NativeChecked { & wsl.exe -d $Distribution -u ad --exec bash $fixture clean $token }
     $before = ((& wsl.exe -d $Distribution -u ad --exec cat /etc/machine-id) -join '').Trim()
     # Reinstalar os lanzadores non debe alterar a distribución nin o seu identificador.
-    & (Join-Path $PSScriptRoot 'instalar-alumno.ps1') -PackageDirectory $PSScriptRoot
+    & (Join-Path $PackageDirectory 'install-user.ps1') -PackageDirectory $PackageDirectory -Distribution $Distribution
     $after = ((& wsl.exe -d $Distribution -u ad --exec cat /etc/machine-id) -join '').Trim()
     if ($before -ne $after) { throw 'Reexecutar a instalación substituíu a distribución.' }
     $report.ReinstallPreservedDistribution = $true
@@ -69,6 +69,6 @@ try {
 } catch { $report.Error = $_.Exception.Message; throw }
 finally {
     $report.CheckedUtc = [DateTime]::UtcNow.ToString('o')
-    $report | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stateDir 'proba.json') -Encoding UTF8
+    $report | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stateDir 'test.json') -Encoding UTF8
     Stop-Transcript | Out-Null
 }

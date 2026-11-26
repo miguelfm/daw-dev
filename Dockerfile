@@ -64,7 +64,6 @@ RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" ad) \
     && chmod 0440 /etc/sudoers.d/ad \
     && chmod 0755 /home/ad \
     && echo "umask 002" >> /home/ad/.bashrc \
-    && install -d -o ad -g www-data -m 2775 /home/ad/html \
     && chown -R ad:www-data /var/www/html \
     && chmod -R 2775 /var/www/html
 

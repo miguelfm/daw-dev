@@ -2,23 +2,38 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Nomes e rutas do despregamento, nun só sitio. Os equipos xa instalados usan estes valores:
-# cambiar un deles precisa que os scripts acepten tamén o anterior mentres dure a transición.
-function Get-DawPackageDirectory { 'C:\ProgramData\DAW-Aula' }
+# Nomes e rutas do despregamento, nun só sitio. Cambiar un deles nun paquete novo obriga a
+# reinstalar as contas: install-user.ps1 retira antes a instalación anterior (-Reinstalar).
+function Get-DawPackageDirectory { 'C:\ProgramData\DAW-Dev' }
 # Estado, rexistros e bloqueo de cada conta, relativos ao seu perfil de Windows.
-function Get-DawStateRelativePath { 'AppData\Local\DAW-Aula' }
+function Get-DawStateRelativePath { 'AppData\Local\DAW-Dev' }
 function Get-DawStateDirectory {
     param([string]$UserProfile)
     if($UserProfile){return Join-Path $UserProfile (Get-DawStateRelativePath)}
     Join-Path $env:LOCALAPPDATA (Split-Path -Leaf (Get-DawStateRelativePath))
 }
 function Get-DawStateFiles {
-    [pscustomobject]@{Lock='instalacion.lock';Install='estado.json';InstallLog='instalacion.log';Project='proxecto-estado.json';ProjectLog='proxecto.log'}
+    [pscustomobject]@{Lock='install.lock';Install='install-state.json';InstallLog='install.log';Project='project-state.json';ProjectLog='project.log'}
 }
 # Descargas do profesor (PsExec, MSI de WSL).
-function Get-DawToolsDirectory { Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools' }
-function Get-DawLinuxProjectPath { '/home/ad/proxectos/daw-dev' }
+function Get-DawToolsDirectory { Join-Path (Get-DawStateDirectory) 'tools' }
+# Nome xenérico: a distribución pode cambiar sen cambiar as rutas nin as guías.
+function Get-DawDistribution { 'linux' }
+function Get-DawLinuxProjectPath { '/home/ad/workspace' }
 function Get-DawWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
+function Get-DawModelArchive { 'linux.tar.gz' }
+# O modelo leva este ficheiro: só se reinstala ou actualiza unha distribución que o teña.
+function Get-DawModelMarker { [pscustomobject]@{Path='/etc/daw-dev-model';Value='daw-dev-v2'} }
+# A instalación anterior (paquete DAW-Aula, distribución Debian, proxecto en ~/proxectos/daw-dev).
+# CopiarModelo retira o paquete e cada conta retira o seu ao activar DAW Dev.
+function Get-DawLegacyInstall {
+    [pscustomobject]@{
+        PackageDirectory='C:\ProgramData\DAW-Aula';StateRelativePath='AppData\Local\DAW-Aula';Lock='instalacion.lock'
+        LauncherDirectory='daw-dev-launcher';Shortcut='DAW - Proxectos (www).lnk'
+        Distribution='Debian';MarkerPath='/etc/daw-aula-modelo';Marker='daw-aula-v1'
+        RunValue='DAWAula';AutoStartCommand="& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'"
+    }
+}
 function ConvertTo-DawWslPath {
     # Ruta de Linux vista desde Windows: \\wsl.localhost\<distribución>\...
     param([string]$Distribution,[string]$LinuxPath)
@@ -33,9 +48,7 @@ function ConvertTo-DawAdminSharePath {
 function Expand-DawScriptTemplate {
     # Os scripts Bash levan marcadores __DAW_*__ para os valores anteriores.
     param([string]$Text)
-    $project=Get-DawLinuxProjectPath
-    if(-not $project.StartsWith('/home/ad/')){throw 'O proxecto debe estar en /home/ad.'}
-    $Text=$Text.Replace('__DAW_PROJECT_REL__',$project.Substring('/home/ad/'.Length)).Replace('__DAW_WEB_IMAGE__',(Get-DawWebImage))
+    $Text=$Text.Replace('__DAW_WEB_IMAGE__',(Get-DawWebImage))
     if($Text -match '__DAW_[A-Z_]+__'){throw "Marcador sen valor: $($Matches[0])"}
     $Text.Replace("`r",'')
 }
@@ -88,124 +101,88 @@ function Write-DawState {
         if(Test-Path -LiteralPath $Path){[IO.File]::Replace($temp,$Path,[NullString]::Value)}else{[IO.File]::Move($temp,$Path)}
     }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Force}}
 }
-function Assert-DawOrigin {
-    param([string]$Distribution,[string]$Marker,[string]$ExpectedSHA,[string]$OriginPath,[bool]$ImportedNow,[switch]$AdoptExisting)
-    # Read as root: this works with both old alumno and migrated ad models, without modifying either.
-    $actual=(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','cat','/etc/daw-aula-modelo')) -join ''
-    if($actual.Trim() -ne $Marker){throw 'A distribución non é un modelo DAW recoñecido. Conservouse sen modificar.'}
-    if(Test-Path -LiteralPath $OriginPath){
-        $old=(Get-Content -LiteralPath $OriginPath -Raw -Encoding UTF8).Trim()
-        if($old -ne $ExpectedSHA){throw 'Esta distribución procede doutro modelo. Conservouse sen modificar.'}
-    }elseif(-not $ImportedNow -and -not $AdoptExisting){
-        throw 'Distribución existente sen rexistro de orixe. Revisala e usar AdoptarExistente expresamente; conservouse sen modificar.'
+function Test-DawModelMarker {
+    # Só lectura, como root. Unha distribución que non arranca tampouco se recoñece.
+    param([string]$Distribution,[string]$Path=(Get-DawModelMarker).Path,[string]$Value=(Get-DawModelMarker).Value)
+    try{$actual=(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','cat',$Path)) -join ''}catch{return $false}
+    return $actual.Trim() -ceq $Value
+}
+function Remove-DawInstallDirectory {
+    # O directorio en que install-user.ps1 importou a distribución.
+    param([string]$Distribution)
+    $dir=Join-Path $env:LOCALAPPDATA "wsl\$Distribution"
+    if(-not(Test-Path -LiteralPath $dir)){return}
+    if((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw "$dir é unha ligazón; conservouse."}
+    Remove-Item -LiteralPath $dir -Recurse -Force
+}
+function Remove-DawDistribution {
+    # Elimina a distribución, co seu proxecto e os seus volumes de Docker, só se ten o marcador.
+    param([string]$Distribution,[string]$MarkerPath=(Get-DawModelMarker).Path,[string]$Marker=(Get-DawModelMarker).Value)
+    if(-not(Test-DawModelMarker $Distribution $MarkerPath $Marker)){throw "A distribución $Distribution non é un modelo DAW recoñecido; conservouse."}
+    Invoke-DawNative 'wsl.exe' @('--unregister',$Distribution)|Out-Null
+    Remove-DawInstallDirectory $Distribution
+}
+function Remove-DawLegacyInstall {
+    # Na conta actual: a distribución, o estado, os lanzadores e o acceso directo anteriores.
+    # Unha Debian sen o marcador do modelo anterior é persoal e consérvase.
+    $legacy=Get-DawLegacyInstall
+    $removed=@()
+    if($legacy.Distribution -in @(Get-DawDistributions) -and (Test-DawModelMarker $legacy.Distribution $legacy.MarkerPath $legacy.Marker)){
+        Remove-DawDistribution $legacy.Distribution $legacy.MarkerPath $legacy.Marker
+        $removed+="wsl:$($legacy.Distribution)"
     }
+    foreach($dir in @((Join-Path $env:LOCALAPPDATA (Split-Path -Leaf $legacy.StateRelativePath)),(Join-Path $env:LOCALAPPDATA $legacy.LauncherDirectory))){
+        if(-not(Test-Path -LiteralPath $dir)){continue}
+        if((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw "$dir é unha ligazón; conservouse."}
+        Remove-Item -LiteralPath $dir -Recurse -Force
+        $removed+=$dir
+    }
+    $desktop=[Environment]::GetFolderPath('Desktop')
+    if($desktop){
+        $link=Join-Path $desktop $legacy.Shortcut
+        if(Test-Path -LiteralPath $link -PathType Leaf){Remove-Item -LiteralPath $link -Force;$removed+=$link}
+    }
+    return $removed
 }
-function Get-DawMigration {
-    # Only run after marker AND origin validation. No pkill, terminate, unregister or recursive chown.
-    $text=@'
-set -euo pipefail
-project_rel=__DAW_PROJECT_REL__
-old=no
-if id alumno >/dev/null 2>&1; then
-    old=yes
-    ! id ad >/dev/null 2>&1 || { echo 'Existen alumno e ad; revisar sen modificar.' >&2; exit 1; }
-    if pgrep -u alumno >/dev/null; then
-        echo 'O usuario alumno ten procesos activos. Gardar traballos e pechalos antes de migrar.' >&2; exit 1
-    elif [[ $? -ne 1 ]]; then
-        echo 'Non se puido comprobar se hai procesos activos; conservouse a conta.' >&2; exit 1
-    fi
-    [[ ! -e /home/ad && ! -L /home/ad ]] || { echo '/home/ad xa existe; conservouse.' >&2; exit 1; }
-    ! getent group ad >/dev/null || { echo 'O grupo ad xa existe; revisar.' >&2; exit 1; }
-    home=/home/alumno
-else
-    id ad >/dev/null
-    home=/home/ad
-fi
-[[ $(id -u "$( [[ $old == yes ]] && echo alumno || echo ad )") == 1000 ]] || { echo 'UID non recoñecido.' >&2; exit 1; }
-account=$( [[ $old == yes ]] && echo alumno || echo ad )
-[[ -d "$home" && ! -L "$home" && $(getent passwd "$account" | cut -d: -f6) == "$home" ]] || { echo 'Home do usuario non recoñecido; conservouse.' >&2; exit 1; }
-if [[ $old == yes ]] && getent group alumno >/dev/null; then
-    [[ $(getent group alumno | cut -d: -f3) == $(id -g alumno) ]] || { echo 'Grupo alumno non recoñecido.' >&2; exit 1; }
-fi
-[[ -f "$home/$project_rel/compose.yaml" ]] || { echo 'Falta o proxecto esperado.' >&2; exit 1; }
-if [[ -e "$home/www" || -L "$home/www" ]]; then
-    [[ -L "$home/www" && $(readlink "$home/www") == "/home/ad/$project_rel/www" ]] || { echo 'www contén datos ou outra ligazón; conservouse.' >&2; exit 1; }
-fi
-if [[ $old == no && ( -e /home/alumno || -L /home/alumno ) ]]; then
-    [[ -L /home/alumno && $(readlink /home/alumno) == /home/ad ]] || { echo '/home/alumno contén datos alleos; conservouse.' >&2; exit 1; }
-fi
-[[ -f /etc/wsl.conf && ! -L /etc/wsl.conf ]] || { echo 'Falta wsl.conf do modelo; conservouse.' >&2; exit 1; }
-if [[ -f /etc/wsl.conf ]]; then
-    sections=$(grep -cE '^[[:space:]]*\[user\][[:space:]]*([#;].*)?$' /etc/wsl.conf || true)
-    [[ $sections -le 1 ]] || { echo 'wsl.conf ten varias seccións user; conservouse.' >&2; exit 1; }
-fi
-launcher=/usr/local/bin/daw-aula-command
-if [[ -e $launcher || -L $launcher ]]; then
-    [[ -f $launcher && ! -L $launcher ]] || { echo 'Lanzador DAW non recoñecido; conservouse.' >&2; exit 1; }
-fi
-if [[ $old == yes ]]; then
-    usermod -l ad -d /home/ad -m alumno
-fi
-if getent group alumno >/dev/null && ! getent group ad >/dev/null; then
-    [[ $(getent group alumno | cut -d: -f3) == $(id -g ad) ]] || { echo 'Grupo alumno non recoñecido.' >&2; exit 1; }
-    groupmod -n ad alumno
-fi
-[[ -L /home/ad/www ]] || ln -s "/home/ad/$project_rel/www" /home/ad/www
-# Preserve every other section/key/comment; change only [user].default.
-temp=$(mktemp /etc/.wsl.conf.daw-XXXXXX)
-trap 'rm -f "$temp"' EXIT
-awk '
-BEGIN { inside=0; seen=0; written=0 }
-/^[[:space:]]*\[/ {
-    if (inside && !written) { print "default=ad"; written=1 }
-    inside=($0 ~ /^[[:space:]]*\[user\][[:space:]]*([#;].*)?$/)
-    if (inside) seen=1
-    print; next
-}
-inside && /^[[:space:]]*default[[:space:]]*=/ { if (!written) print "default=ad"; written=1; next }
-{ print }
-END { if (inside && !written) print "default=ad"; if (!seen) print "\n[user]\ndefault=ad" }
-' /etc/wsl.conf > "$temp"
-if ! cmp -s "$temp" /etc/wsl.conf; then
-    cp -p /etc/wsl.conf "/etc/wsl.conf.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
-    chmod --reference=/etc/wsl.conf "$temp"
-    mv "$temp" /etc/wsl.conf
-fi
-# Lanzador dos modelos coa conta alumno (antes de 2026-11-24); a ruta é a que tiñan entón.
-if [[ -f $launcher ]] && grep -Fxq 'cd /home/alumno/proxectos/daw-dev' "$launcher"; then
-    sed -i 's|^cd /home/alumno/proxectos/daw-dev$|cd /home/ad/proxectos/daw-dev|' "$launcher"
-fi
-# Só se retira a ligazón exacta creada por unha instalación DAW anterior.
-if [[ -L /home/alumno && $(readlink /home/alumno) == /home/ad ]]; then
-    rm -- /home/alumno
-fi
-# O contrasinal de MariaDB é abc123.., o da MV. Ata o 24-11-2026 o modelo
-# copiaba no .env o por defecto anterior: só se cambia ese valor exacto. O do
-# volume cámbiao a comprobación de saúde de MariaDB (docker/mariadb/healthcheck.sh).
-env=/home/ad/$project_rel/.env
-if [[ -f $env && ! -L $env ]] && grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env"; then
-    cp -p "$env" "$env.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
-    sed -i -E 's/^(DB_(ROOT_)?PASSWORD)=abc123\.$/\1=abc123../' "$env"
-fi
-'@
-    Expand-DawScriptTemplate $text
+
+function Get-DawRunCommand {
+    # A orde dun valor Run creado por estes scripts (powershell.exe -EncodedCommand), ou $null.
+    param([string]$Name)
+    $property=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $Name -ErrorAction SilentlyContinue
+    if(-not $property){return $null}
+    $value=$property.$Name
+    if($value -notmatch '^powershell\.exe .* -EncodedCommand ([A-Za-z0-9+/=]+)$'){throw "$Name ten unha orde allea; conservouse para revisión."}
+    [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]))
 }
 function Set-DawAutoStart {
     param([switch]$Enabled)
     $path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
-    $property=Get-ItemProperty -LiteralPath $path -Name DAWAula -ErrorAction SilentlyContinue
-    $existing=if($property){$property.DAWAula}else{$null}
-    $command="& '$(Get-DawPackageDirectory)\iniciar-usuario.ps1'"
-    if($existing -and $existing -notmatch '^powershell\.exe .* -EncodedCommand [A-Za-z0-9+/=]+$'){throw 'DAWAula ten unha orde allea; conservouse para revisión.'}
-    if($existing){
-        $encoded=($existing -split ' ')[-1]
-        $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
-        if($decoded -ne $command){throw 'DAWAula apunta a outro programa; conservouse.'}
-    }
+    $command="& '$(Get-DawPackageDirectory)\autostart.ps1'"
+    $existing=Get-DawRunCommand 'DAWDev'
+    if($existing -and $existing -ne $command){throw 'DAWDev apunta a outro programa; conservouse.'}
     if($Enabled){
         $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        New-ItemProperty -Path $path -Name DAWAula -Value "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded" -PropertyType String -Force|Out-Null
-    }elseif($existing){Remove-ItemProperty -LiteralPath $path -Name DAWAula -ErrorAction Stop}
+        New-ItemProperty -Path $path -Name DAWDev -Value "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded" -PropertyType String -Force|Out-Null
+    }elseif($existing){Remove-ItemProperty -LiteralPath $path -Name DAWDev -ErrorAction Stop}
+}
+function Remove-DawLegacyPackage {
+    # No posto, como administrador: o paquete e o autoarranque da instalación anterior.
+    $legacy=Get-DawLegacyInstall
+    $removed=@()
+    $existing=Get-DawRunCommand $legacy.RunValue
+    if($existing){
+        if($existing -ne $legacy.AutoStartCommand){throw "$($legacy.RunValue) apunta a outro programa; conservouse."}
+        Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $legacy.RunValue -ErrorAction Stop
+        $removed+="Run:$($legacy.RunValue)"
+    }
+    $dir=$legacy.PackageDirectory
+    if(Test-Path -LiteralPath $dir){
+        $items=@(Get-Item -LiteralPath $dir -Force)+@(Get-ChildItem -LiteralPath $dir -Recurse -Force)
+        if($items|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}){throw "$dir contén ligazóns ou junctions; conservouse."}
+        Remove-Item -LiteralPath $dir -Recurse -Force
+        $removed+=$dir
+    }
+    return $removed
 }
 function Find-DawCode {
     foreach($path in @((Join-Path $env:LOCALAPPDATA 'Programs\Microsoft VS Code\Code.exe'),(Join-Path $env:ProgramFiles 'Microsoft VS Code\Code.exe'),(Join-Path ${env:ProgramFiles(x86)} 'Microsoft VS Code\Code.exe'))){
@@ -248,11 +225,11 @@ function New-DawShortcut {
     param([string]$Distribution)
     $desktop=[Environment]::GetFolderPath('Desktop')
     if(-not $desktop -or -not(Test-Path -LiteralPath $desktop)){throw 'Non se atopou o Escritorio do alumno.'}
-    $path=Join-Path $desktop 'DAW - Proxectos (www).lnk'
+    $path=Join-Path $desktop 'DAW - Web.lnk'
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
     $link.TargetPath=ConvertTo-DawWslPath $Distribution ((Get-DawLinuxProjectPath)+'/www')
-    $link.Description='Cartafol de proxectos web DAW Dev'
+    $link.Description='Codigo web de DAW Dev (www)'
     $link.Save()
     if(-not(Test-Path -LiteralPath $path)){throw 'Non se confirmou o acceso directo.'}
     return $path
@@ -279,13 +256,13 @@ function Test-DawRequestState {
     return $State.Phase -eq 'Completed'
 }
 function Invoke-DawStudentInstall {
-    param([int]$TimeoutSeconds=1800,[switch]$AdoptExisting,[switch]$WithoutCode)
+    param([int]$TimeoutSeconds=1800,[switch]$Reinstall,[switch]$WithoutCode)
     $target=Get-DawPackageDirectory
-    if(-not(Test-Path -LiteralPath "$target\daw-aula.psm1")){throw 'Paquete antigo: actualizar os scripts de aula antes de instalar.'}
+    if(-not(Test-Path -LiteralPath "$target\daw-classroom.psm1")){throw 'Falta o paquete DAW Dev no equipo: executar antes CopiarModelo.'}
     $arguments="-PackageDirectory '$target'"
-    if($AdoptExisting){$arguments+=' -AdoptarExistente'}
+    if($Reinstall){$arguments+=' -Reinstalar'}
     if($WithoutCode){$arguments+=' -SenVSCode'}
-    Invoke-DawUserTask 'InstalarUsuario' "$target\instalar-alumno.ps1" $arguments (Get-DawStateFiles).Install 'Instalación' $TimeoutSeconds
+    Invoke-DawUserTask 'InstalarUsuario' "$target\install-user.ps1" $arguments (Get-DawStateFiles).Install 'Instalación' $TimeoutSeconds
 }
 function Invoke-DawUserTask {
     # Runs a package script as the single connected student and waits for the state of THIS request.
@@ -349,7 +326,7 @@ function Invoke-DawBoundedJobs {
         return $results
     }finally{foreach($job in $jobs){Stop-Job $job -ErrorAction SilentlyContinue;Remove-Job $job -Force -ErrorAction SilentlyContinue}}
 }
-function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','instalar-alumno.ps1','iniciar-usuario.ps1','activar-dawdev.ps1','daw-aula.psm1') }
+function Get-DawSetupFiles { @('daw.ps1','install-daw-commands.ps1','install-user.ps1','autostart.ps1','activate.ps1','daw-classroom.psm1') }
 function Set-DawStartMenuShortcut {
     # Activación manual para calquera usuario: unha entrada no menú Inicio común, nada no inicio de sesión.
     param([string]$Directory=(Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\DAW Dev'),[string]$Package=(Get-DawPackageDirectory))
@@ -358,7 +335,7 @@ function Set-DawStartMenuShortcut {
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
     $link.TargetPath=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $link.Arguments="-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $Package 'activar-dawdev.ps1')`""
+    $link.Arguments="-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $Package 'activate.ps1')`""
     $link.WorkingDirectory=$Package
     # Texto sen tiles: o módulo non leva BOM e Windows PowerShell 5.1 leríao como ANSI.
     $link.Description='Activa DAW Dev (WSL e Docker) na conta que o abre'
@@ -366,11 +343,21 @@ function Set-DawStartMenuShortcut {
     if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'Non se confirmou a entrada do menú Inicio.'}
     return $path
 }
+function Assert-DawManifest {
+    # O manifesto que escribe build-package.ps1; os paquetes de DAW-Aula non se recoñecen.
+    param($Manifest)
+    foreach($name in 'Schema','Marker','Image','Sha256','LinuxUser','LinuxProjectPath'){
+        if(-not $Manifest.PSObject.Properties[$name]){throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'}
+    }
+    if($Manifest.Schema -ne 2 -or $Manifest.Marker -cne (Get-DawModelMarker).Value -or $Manifest.Image -cne (Get-DawModelArchive) -or $Manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $Manifest.LinuxUser -cne 'ad' -or $Manifest.LinuxProjectPath -cne (Get-DawLinuxProjectPath)){
+        throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'
+    }
+}
 function Assert-DawPackage {
     param([string]$Directory)
     $manifest=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
-    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian.tar','debian.tar.gz','debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $manifest.LinuxUser -notin @('alumno','ad')){throw 'Manifesto de modelo non recoñecido.'}
-    if(-not $manifest.PSObject.Properties['SetupRevision'] -or $manifest.SetupRevision -ne 2 -or -not $manifest.PSObject.Properties['ScriptSha256']){throw 'Paquete antigo: actualizar os scripts con update-package.ps1, conservando a imaxe.'}
+    Assert-DawManifest $manifest
+    if(-not $manifest.PSObject.Properties['ScriptSha256']){throw 'O manifesto non ten os SHA256 dos scripts: actualizalos con update-package.ps1.'}
     foreach($name in Get-DawSetupFiles){
         $property=$manifest.ScriptSha256.PSObject.Properties[$name]
         if(-not $property -or $property.Value -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath (Join-Path $Directory $name) -Algorithm SHA256).Hash -ne $property.Value){throw "SHA256 do script non coincide: $name"}
@@ -409,7 +396,7 @@ function Update-DawPackage {
     param([string]$Directory,[string]$Source=$PSScriptRoot)
     $path=Join-Path $Directory 'manifest.json'
     $manifest=Get-Content -LiteralPath $path -Raw -Encoding UTF8|ConvertFrom-Json
-    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian.tar','debian.tar.gz','debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto non recoñecido; non se actualizaron scripts.'}
+    Assert-DawManifest $manifest
     if((Get-FileHash -LiteralPath (Join-Path $Directory $manifest.Image) -Algorithm SHA256).Hash -ne $manifest.Sha256){throw 'A imaxe non coincide; non se actualizaron scripts.'}
     $sources=@{}
     foreach($name in Get-DawSetupFiles){
@@ -427,7 +414,6 @@ function Update-DawPackage {
         if([IO.Path]::GetFullPath($sources[$name]) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $sources[$name] -Destination $target -Force}
         $hashes[$name]=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
     }
-    $manifest|Add-Member NoteProperty SetupRevision 2 -Force
     $manifest|Add-Member NoteProperty ScriptSha256 ([pscustomobject]$hashes) -Force
     Write-DawState $path $manifest
     Assert-DawPackage $Directory|Out-Null
@@ -436,8 +422,8 @@ function Update-DawPackage {
 # Project files staged in Get-DawProjectDirectory and copied into each student's
 # Get-DawLinuxProjectPath. The stage carries its own updater and module, so it does not
 # depend on the scripts of the model copied earlier.
-function Get-DawProjectDirectory { "$(Get-DawPackageDirectory)\proxecto" }
-function Get-DawProjectScripts { @('actualizar-proxecto.ps1','daw-aula.psm1') }
+function Get-DawProjectDirectory { "$(Get-DawPackageDirectory)\project" }
+function Get-DawProjectScripts { @('update-project.ps1','daw-classroom.psm1') }
 function Test-DawProjectPath {
     # Relative project path with '/', no '.' or '..' segments, never inside www.
     param([string]$Path)
@@ -452,7 +438,7 @@ function Get-DawProjectRevision {
     try{([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-','')}finally{$sha.Dispose()}
 }
 function New-DawProjectStage {
-    # On the teacher's computer: copy windows/classroom/overlay and the updater, with SHA256 manifest.
+    # On the teacher's computer: copy windows/classroom/overlay, the shared repository files and the updater, with SHA256 manifest.
     param([string]$Source,[string]$Destination)
     $files=Join-Path $Source 'overlay'
     if(-not(Test-Path -LiteralPath $files -PathType Container)){throw "Falta $files"}
@@ -470,7 +456,7 @@ function New-DawProjectStage {
     $sharedPaths=@(
         '.gitignore','.vscode/settings.json','.devcontainer/compose.devcontainer.yaml','Dockerfile','README.md',
         'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
-        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh',
+        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh','.vscode/launch.json',
         'scripts/keep-alive.sh','compose.yaml','docker/mariadb/healthcheck.sh',
         'docker/angular/.dockerignore','docker/angular/Dockerfile','docker/angular/entrypoint.sh'
     )
@@ -482,11 +468,11 @@ function New-DawProjectStage {
     foreach($relative in @($sources.Keys|Sort-Object)){
         $file=$sources[$relative]
         if(-not(Test-DawProjectPath $relative)){throw "Ruta non permitida no proxecto: $relative"}
-        $target=Join-Path (Join-Path $Destination 'ficheiros') ($relative.Replace('/',[IO.Path]::DirectorySeparatorChar))
+        $target=Join-Path (Join-Path $Destination 'files') ($relative.Replace('/',[IO.Path]::DirectorySeparatorChar))
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $target -Force
         # Data folders only receive new files; the student's own files are never replaced.
-        $mode=if($relative -match '^datos/'){'CreateOnly'}else{'Replace'}
+        $mode=if($relative -match '^data/'){'CreateOnly'}else{'Replace'}
         $entries+=[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash;Mode=$mode}
     }
     if(-not $entries.Count){throw 'O proxecto non ten ficheiros que copiar.'}
@@ -496,14 +482,14 @@ function New-DawProjectStage {
         Copy-Item -LiteralPath (Join-Path $Source $name) -Destination $target
         $scripts[$name]=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
     }
-    Write-DawState (Join-Path $Destination 'proxecto.json') ([ordered]@{Schema=1;Marker='daw-aula-v1';Revision=(Get-DawProjectRevision $entries);CreatedUtc=[DateTime]::UtcNow.ToString('o');Files=$entries;ScriptSha256=[pscustomobject]$scripts})
+    Write-DawState (Join-Path $Destination 'project.json') ([ordered]@{Schema=2;Marker=(Get-DawModelMarker).Value;Revision=(Get-DawProjectRevision $entries);CreatedUtc=[DateTime]::UtcNow.ToString('o');Files=$entries;ScriptSha256=[pscustomobject]$scripts})
     Assert-DawProjectOverlay $Destination
 }
 function Assert-DawProjectOverlay {
     param([string]$Directory)
-    $manifest=Get-Content -LiteralPath (Join-Path $Directory 'proxecto.json') -Raw -Encoding UTF8|ConvertFrom-Json
+    $manifest=Get-Content -LiteralPath (Join-Path $Directory 'project.json') -Raw -Encoding UTF8|ConvertFrom-Json
     foreach($name in @('Schema','Marker','Revision','Files','ScriptSha256')){if(-not $manifest.PSObject.Properties[$name]){throw 'Manifesto do proxecto non recoñecido.'}}
-    if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Revision -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto do proxecto non recoñecido.'}
+    if($manifest.Schema -ne 2 -or $manifest.Marker -cne (Get-DawModelMarker).Value -or $manifest.Revision -notmatch '^[a-fA-F0-9]{64}$'){throw 'Manifesto do proxecto non recoñecido.'}
     $files=@($manifest.Files)
     if(-not $files.Count){throw 'O manifesto do proxecto non ten ficheiros.'}
     $seen=@{}
@@ -511,7 +497,7 @@ function Assert-DawProjectOverlay {
         if(-not(Test-DawProjectPath ([string]$entry.Path)) -or $entry.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or $entry.Mode -cnotin @('Replace','CreateOnly')){throw "Entrada do proxecto non válida: $($entry.Path)"}
         if($seen.ContainsKey($entry.Path)){throw "Entrada repetida no proxecto: $($entry.Path)"}
         $seen[$entry.Path]=$true
-        $path=Join-Path (Join-Path $Directory 'ficheiros') (([string]$entry.Path).Replace('/',[IO.Path]::DirectorySeparatorChar))
+        $path=Join-Path (Join-Path $Directory 'files') (([string]$entry.Path).Replace('/',[IO.Path]::DirectorySeparatorChar))
         if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $entry.Sha256.ToUpperInvariant()){throw "SHA256 do proxecto non coincide: $($entry.Path)"}
     }
     if((Get-DawProjectRevision $files) -ne $manifest.Revision.ToUpperInvariant()){throw 'A revisión do proxecto non coincide co manifesto.'}
@@ -523,10 +509,12 @@ function Assert-DawProjectOverlay {
     return $manifest
 }
 function Assert-DawNoInstallRunning {
-    # An installer or updater holding its lock would read a half-replaced stage.
+    # An installer or updater holding its lock would read a half-replaced package or stage.
+    $legacy=Get-DawLegacyInstall
     foreach($userProfile in @(Get-CimInstance Win32_UserProfile|Where-Object {-not $_.Special})){
-        $lockPath=Join-Path (Get-DawStateDirectory $userProfile.LocalPath) (Get-DawStateFiles).Lock
-        if(Test-Path -LiteralPath $lockPath){
+        $locks=@((Join-Path (Get-DawStateDirectory $userProfile.LocalPath) (Get-DawStateFiles).Lock),(Join-Path (Join-Path $userProfile.LocalPath $legacy.StateRelativePath) $legacy.Lock))
+        foreach($lockPath in $locks){
+            if(-not(Test-Path -LiteralPath $lockPath)){continue}
             try{$handle=[IO.File]::Open($lockPath,'Open','ReadWrite','None');$handle.Dispose()}
             catch{throw ("Bloqueo de instalación non dispoñible ({0}): {1}. Revisar antes de copiar." -f $lockPath,$_.Exception.Message)}
         }
@@ -543,7 +531,7 @@ function Initialize-DawProjectDirectory {
     Assert-DawNoInstallRunning
     if(Test-Path -LiteralPath $target){
         # Only a previous stage of ours (or an empty directory) is replaced.
-        if(@(Get-ChildItem -LiteralPath $target -Force).Count -and -not(Test-Path -LiteralPath (Join-Path $target 'proxecto.json') -PathType Leaf)){throw "$target contén ficheiros alleos; conservouse."}
+        if(@(Get-ChildItem -LiteralPath $target -Force).Count -and -not(Test-Path -LiteralPath (Join-Path $target 'project.json') -PathType Leaf)){throw "$target contén ficheiros alleos; conservouse."}
         Remove-Item -LiteralPath $target -Recurse -Force
     }
     New-Item -ItemType Directory -Path $target|Out-Null
@@ -575,7 +563,7 @@ function Invoke-DawProjectUpdate {
     Assert-DawProjectOverlay $target|Out-Null
     $arguments="-PackageDirectory '$target'"
     if($Restart){$arguments+=' -Reiniciar'}
-    Invoke-DawUserTask 'ActualizarProxecto' "$target\actualizar-proxecto.ps1" $arguments (Get-DawStateFiles).Project 'Actualización do proxecto' $TimeoutSeconds
+    Invoke-DawUserTask 'ActualizarProxecto' "$target\update-project.ps1" $arguments (Get-DawStateFiles).Project 'Actualización do proxecto' $TimeoutSeconds
 }
 function Get-DawProjectOverlayScript {
     # Runs as ad. Arguments: source directory, optional image archive and SHA256, and file triples.
@@ -588,7 +576,7 @@ if [[ $1 == /* ]]; then src=$1; else src=$(wslpath -u "$1"); fi
 archive=$2 archive_sha=$3
 shift 3
 project=$PWD
-distro=${WSL_DISTRO_NAME:-Debian}
+distro=${WSL_DISTRO_NAME:-linux}
 [[ $distro =~ ^[A-Za-z0-9._-]+$ ]] || fail 'Nome da distribución WSL non válido.'
 [[ -f $project/compose.yaml && ! -L $project/compose.yaml ]] || fail 'Falta o proxecto esperado.'
 [[ -d $src && ! -L $src ]] || fail 'Falta o directorio dos ficheiros do proxecto.'
@@ -622,17 +610,8 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
 done
 backup=.daw-backup/$(date +%Y%m%d-%H%M%S)-$$
 tmp=
-env_tmp=
-trap '[[ -z $tmp ]] || rm -f -- "$tmp"; [[ -z $env_tmp ]] || rm -f -- "$env_tmp"' EXIT
+trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
 compose_args=(--project-directory "$project" -f "$compose")
-# O modelo anterior fixaba o PHP do proxecto en 8.5 no .env creado durante a instalación.
-if [[ $compose != "$project/compose.yaml" && -f .env && ! -L .env ]] \
-    && grep -Fxq 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php' .env \
-    && grep -Fxq 'PHP_VERSION=8.5' .env; then
-    env_tmp=$(mktemp "$project/.daw-env-XXXXXX")
-    sed '/^PHP_VERSION=8\.5$/d' .env > "$env_tmp"
-    compose_args+=(--env-file "$env_tmp")
-fi
 if [[ -n $override ]]; then
     compose_args+=(-f "$override")
 fi
@@ -680,7 +659,7 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
         action=substituido
     fi
     mkdir -p -- "$(dirname -- "$dest")"
-    tmp=$(mktemp "$(dirname -- "$dest")/.daw-proxecto-XXXXXX")
+    tmp=$(mktemp "$(dirname -- "$dest")/.daw-project-XXXXXX")
     if [[ $rel == .vscode/settings.json ]]; then
         sed "$replacement" "$src/$rel" > "$tmp"
     else
@@ -692,13 +671,6 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
     tmp=
     echo "$action $rel"
 done
-if [[ -n $env_tmp ]]; then
-    mkdir -p -- "$backup"
-    cp -p -- .env "$backup/.env"
-    chmod --reference=.env "$env_tmp"
-    mv -f -- "$env_tmp" .env
-    env_tmp=
-fi
 [[ ! -d $backup ]] || echo "copia $project/$backup"
 docker compose config --quiet || fail "Compose non acepta o proxecto actualizado. Ficheiros substituídos en $project/$backup"
 '@
@@ -706,7 +678,7 @@ docker compose config --quiet || fail "Compose non acepta o proxecto actualizado
 }
 function Invoke-DawProjectOverlay {
     param([string]$Distribution,[string]$Directory,$Manifest)
-    $arguments=@('-d',$Distribution,'-u','ad','--cd',(Get-DawLinuxProjectPath),'--exec','bash','-c',(Get-DawProjectOverlayScript),'daw-proxecto',[IO.Path]::Combine($Directory,'ficheiros'))
+    $arguments=@('-d',$Distribution,'-u','ad','--cd',(Get-DawLinuxProjectPath),'--exec','bash','-c',(Get-DawProjectOverlayScript),'daw-project',[IO.Path]::Combine($Directory,'files'))
     $package=Split-Path -Parent ([IO.Path]::GetFullPath($Directory))
     $packageManifest=Join-Path $package 'manifest.json'
     $image=$null

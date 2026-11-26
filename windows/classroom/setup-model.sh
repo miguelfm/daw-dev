@@ -2,15 +2,17 @@
 # Só se executa na distribución NOVA creada por build-package.ps1.
 set -euo pipefail
 action=${1:?install|images|seal}
-# Valores de daw-aula.psm1 (Get-DawLinuxProjectPath e Get-DawWebImage), desde build-package.ps1.
+# Valores de daw-classroom.psm1 (ruta do proxecto, imaxe web e marcador do modelo), desde build-package.ps1.
 project=${DAW_PROJECT:?Falta DAW_PROJECT: executar desde build-package.ps1}
 web_image=${DAW_WEB_IMAGE:?Falta DAW_WEB_IMAGE: executar desde build-package.ps1}
+marker_file=${DAW_MODEL_MARKER_FILE:?Falta DAW_MODEL_MARKER_FILE: executar desde build-package.ps1}
+marker=${DAW_MODEL_MARKER:?Falta DAW_MODEL_MARKER: executar desde build-package.ps1}
 [[ $(id -u) == 0 ]] || { echo 'Precisa root na distribución modelo.' >&2; exit 1; }
 . /etc/os-release
 [[ $ID == debian ]] || { echo 'O modelo debe ser Debian.' >&2; exit 1; }
 case "$action" in
 install)
-    [[ ! -e /etc/daw-aula-modelo ]] || { echo 'O modelo xa foi configurado.' >&2; exit 1; }
+    [[ ! -e $marker_file ]] || { echo 'O modelo xa foi configurado.' >&2; exit 1; }
     # O tar procede de git archive: exclúe .env, código do profesor e credenciais.
     [[ ! -e /home/ad && ! -L /home/ad ]] || { echo '/home/ad xa existe; precisa unha base limpa.' >&2; exit 1; }
     export DEBIAN_FRONTEND=noninteractive
@@ -21,7 +23,6 @@ install)
     mkdir -p "$project"
     tar -xf "${2:?sources.tar}" -C "$project"
     cp -a "$project/windows/classroom/overlay/." "$project/"
-    ln -s "$project/www" /home/ad/www
     cat > /etc/wsl.conf <<'EOF'
 [boot]
 systemd=true
@@ -34,15 +35,15 @@ EOF
            -e 's/^PMA_PORT=.*/PMA_PORT=127.0.0.1:8081/' \
            -e 's/^DB_PORT=.*/DB_PORT=127.0.0.1:3306/' "$project/.env"
     chown -R ad:ad /home/ad
-    # Comandos dispoñibles tamén dentro de Debian: os mesmos de scripts/daw.sh, que
+    # Comandos dispoñibles tamén dentro da distribución: os mesmos de scripts/daw.sh, que
     # escolle a orde polo nome da ligazón e resolve o proxecto desde a súa ruta real.
     for command in daw-start daw-star daw-start-all daw-start-db daw-stop daw-status daw-web-root daw-web-shell daw-shell; do
         ln -s "$project/scripts/daw.sh" "/usr/local/bin/$command"
     done
-    printf '%s\n' 'daw-aula-v1' > /etc/daw-aula-modelo
+    printf '%s\n' "$marker" > "$marker_file"
     ;;
 images)
-    [[ $(cat /etc/daw-aula-modelo) == daw-aula-v1 ]]
+    [[ $(cat "$marker_file") == "$marker" ]]
     systemctl enable --now docker.service containerd.service
     for ((i=0; i<60; i++)); do docker info >/dev/null 2>&1 && break; sleep 1; done
     docker info >/dev/null
@@ -61,7 +62,7 @@ images)
     [[ -z $(docker ps -aq) && -z $(docker volume ls -q) ]]
     ;;
 seal)
-    [[ $(cat /etc/daw-aula-modelo) == daw-aula-v1 ]]
+    [[ $(cat "$marker_file") == "$marker" ]]
     [[ -z $(docker ps -aq) && -z $(docker volume ls -q) ]]
     systemctl stop docker.socket docker.service containerd.service
     # Un identificador novo en cada importación; ningunha identidade do profesor.

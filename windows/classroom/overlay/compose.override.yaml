@@ -1,18 +1,16 @@
-# Aula de DWCS: o contedor web compórtase como a MV Debian da aula.
-# daw-start le este ficheiro porque está ao lado de compose.yaml;
+# Aula: Apache con permisos estritos, como nun servidor Debian, e os datos das
+# tarefas fóra da raíz web. daw-start le este ficheiro porque está ao lado de compose.yaml;
 # Dev Containers, porque o nomea .devcontainer/devcontainer.json.
 services:
   web:
     environment:
-      # Apache executa PHP como www-data, igual ca na MV
+      # Apache executa PHP como www-data, como en Debian
       APACHE_RUN_USER: www-data
       APACHE_RUN_GROUP: www-data
-    working_dir: /home/ad/html
     volumes:
-      # Os datos da MV quedan fóra da raíz web
-      - ./datos:/home/ad/datos
+      # Os ficheiros que len ou escriben as tarefas, fóra da raíz web
+      - ./data:/home/ad/data
       - ./docker/classroom/zz-classroom.ini:/usr/local/etc/php/conf.d/zz-classroom.ini:ro
-      - ./docker/classroom/000-default.conf:/etc/apache2/sites-available/000-default.conf:ro
     command:
       - bash
       - -c
@@ -22,7 +20,7 @@ services:
         if [ "$$grupo" != www-data ] && id -Gn www-data | tr ' ' '\n' | grep -Fxq "$$grupo"; then
           gpasswd -d www-data "$$grupo" || exit 1
         fi
-        # A máscara de Apache na MV, a de Debian: o que crea www-data
+        # A máscara de Apache en Debian: o que crea www-data
         # pódeno ler os demais, pero só el o cambia (a imaxe pon 002)
         sed -i 's/^umask 002$$/umask 022/' /etc/apache2/envvars
         install -d -m 1733 /var/lib/php/sessions

@@ -91,7 +91,7 @@ configuración de Compose, que resolve `WWW_DIR` (`./www` por defecto). Se cambi
 |---|---|---|
 | En Windows | `C:\Users\<usuario>\Projects\daw-dev\www` | `/mnt/c/Users/<usuario>/Projects/daw-dev/www` |
 | En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\proxectos\daw-dev\www` | `/home/<usuario>/proxectos/daw-dev/www` |
-| En Debian, co instalador da aula | `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www` | `/home/ad/proxectos/daw-dev/www` |
+| Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\workspace\www` | `/home/ad/workspace/www` |
 | En Debian, coa montaxe opcional descrita abaixo | `\\wsl.localhost\Debian\home\ad\www` | `/home/ad/www` |
 
 Para explorar Debian, pega `\\wsl.localhost\Debian\` na barra de enderezos.
@@ -99,10 +99,8 @@ Para explorar Debian, pega `\\wsl.localhost\Debian\` na barra de enderezos.
 podes executar `explorer.exe .` no cartafol que queiras abrir. Para os ficheiros
 gardados en `C:`, usa a ruta de Windows, que Debian ve baixo `/mnt/c/`.
 
-Dentro do contedor, Compose monta o cartafol web en `/var/www/html` e
-`/home/ad/html`. Apache serve desde `/var/www/html` na configuración base e desde
-`/home/ad/html` coa configuración da aula. Na terminal de Debian da aula tamén
-podes usar o enlace `~/www`.
+Dentro do contedor, Compose monta o cartafol web en `/var/www/html`, de onde
+serve Apache. Na aula, os datos das tarefas (`data/`) están en `/home/ad/data`.
 
 ### Ruta fixa opcional nunha instalación manual
 
@@ -117,8 +115,7 @@ o `www` da mesma copia. A ruta fixa é independente do nome da conta de Windows.
    anterior e executa `daw-start` para que Apache use a copia nova. Mantén o
    mesmo nome de proxecto e o mesmo volume de MariaDB no `.env`.
 2. En Debian, confirma que `/home/ad/www` está libre e que `/etc/fstab` carece
-   dunha entrada para ela. Se atopas a ligazón do modelo da aula, usa o acceso
-   da aula descrito arriba. Nunha instalación manual cunha ruta libre, crea o
+   dunha entrada para ela. Nunha instalación manual cunha ruta libre, crea o
    punto de montaxe e garda unha copia de `/etc/fstab`:
 
    ```bash

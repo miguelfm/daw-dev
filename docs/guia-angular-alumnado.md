@@ -46,8 +46,11 @@ conectar e o enderezo da aplicación.
 4. Abre un terminal (**Terminal → New Terminal**). É o do contedor, co
    usuario `node`.
 
-Desde Windows, os mesmos proxectos están no cartafol
-`\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\angular`.
+Desde Windows, os mesmos proxectos están no cartafol:
+
+```text
+\\wsl.localhost\linux\home\ad\workspace\angular
+```
 
 ## Crear e executar unha aplicación
 

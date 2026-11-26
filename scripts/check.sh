@@ -66,7 +66,7 @@ if [ "$(grep -c '✔' <<< "$E")" -ge 10 ] && ! grep -q '✘' <<< "$E"; then ok "
 SERVIDOR=$(grep -o 'Servidor web.*' <<< "$E" | awk -F'\t' '{print $2}' | sed 's/^ *//')
 
 seccion "Ferramentas no contedor"
-if docker compose exec -T -u ad web sh -ec 'test "$HOME" = /home/ad && test -d /home/ad/html && ! id dev >/dev/null 2>&1 && ! getent group dev && test ! -e /home/dev && test ! -L /home/dev'; then
+if docker compose exec -T -u ad web sh -ec 'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && ! getent group dev && test ! -e /home/dev && test ! -L /home/dev'; then
     ok "conta ad e directorio /home/ad"
 else
     fallo "a imaxe web non ten a conta ad limpa"

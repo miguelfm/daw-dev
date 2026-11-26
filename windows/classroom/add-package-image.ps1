@@ -15,7 +15,7 @@ param(
     [Parameter(Mandatory)][string]$Name
 )
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'daw-classroom.psm1') -Force
 if ($PSCmdlet.ShouldProcess($PackageDirectory, "Engadir $Name")) {
     Add-DawPackageImage $PackageDirectory $Archive $Name
 }

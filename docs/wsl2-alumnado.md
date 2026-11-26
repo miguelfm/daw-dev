@@ -8,8 +8,9 @@ e VS Code seguen sendo os de Windows.
 
 ## Se a aula usa a instalación automática
 
-Co [modelo de aula](aula-windows11.md), a primeira vez que inicias sesión prepárase **Debian** na túa
-conta. Agarda a que remate e abre unha terminal nova de PowerShell ou CMD:
+Co [modelo de aula](aula-windows11.md), escolle **DAW Dev → Activar DAW Dev** no menú Inicio: prepárase
+na túa conta a distribución **`linux`**, baseada en Debian. Agarda a que remate e abre unha terminal nova
+de PowerShell ou CMD:
 
 ```powershell
 daw-help
@@ -18,24 +19,25 @@ daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
 daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
 daw-web-root -Open   # Abre a raíz web no Explorador de ficheiros
-daw-wsl-shell   # Abre Debian no proxecto
+daw-wsl-shell   # Abre a distribución linux no proxecto
 daw-web-shell   # Abre o contedor de Apache e PHP
 ```
 
-No Explorador, o cartafol web da aula é `\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www`.
-Tamén podes abrilo desde o Escritorio co acceso directo **«DAW - Proxectos (www)»**.
+No Explorador, o proxecto da aula está en `\\wsl.localhost\linux\home\ad\workspace`, co código web en
+`www` e os datos das tarefas en `data`. O acceso directo **«DAW - Web»** do Escritorio abre `www`.
 
 Para traballar con **VS Code e Dev Containers** (recomendado):
 Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto e detectará a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
 
-Para entrar no proxecto directamente en Debian:
+Para entrar no proxecto directamente en WSL:
 
 ```powershell
-wsl -d Debian --cd /home/ad/proxectos/daw-dev
+wsl -d linux --cd /home/ad/workspace
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
-Co modelo xa tes Debian e Docker preparados: a instalación manual que segue é para outros equipos.
+Co modelo xa tes a distribución e Docker preparados: a instalación manual que segue, con Debian, é para
+outros equipos.
 
 ## 1. Instalación (só a primeira vez)
 

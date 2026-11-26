@@ -5,53 +5,73 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 
 | Script | Uso |
 |---|---|
-| `build-package.ps1` | Crea o modelo Debian e o paquete da aula (executa `setup-model.sh` no modelo) |
+| `build-package.ps1` | Crea o modelo e o paquete da aula (executa `setup-model.sh` no modelo) |
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `manage.ps1` | Accións nos postos por WinRM; `-ThrottleLimit` atende varios á vez |
 | `check-remote.ps1`, `enable-winrm.ps1` | Diagnóstico e activación de WinRM, desde `manage.ps1` |
 | `power-on.ps1`, `power-off.ps1` | Acendido por Wake-on-LAN (`a31-macs.csv`) e apagado da aula |
-| `daw-aula.psm1` | Funcións comúns. Vai no paquete, como os seguintes |
-| `instalar-alumno.ps1`, `activar-dawdev.ps1`, `iniciar-usuario.ps1`, `actualizar-proxecto.ps1` | Execútanse en cada posto. Conservan o nome porque os equipos xa despregados os chaman así |
+| `daw-classroom.psm1` | Funcións comúns. Vai no paquete, como os seguintes |
+| `activate.ps1` | «Activar DAW Dev» do menú Inicio: `install-user.ps1` e despois `update-project.ps1` |
+| `install-user.ps1` | Instala DAW Dev na conta que o executa, sen elevación |
+| `update-project.ps1` | Copia os ficheiros do proxecto (`overlay/`) na distribución da conta |
+| `autostart.ps1` | Instalación no inicio de sesión, só coa opción `-AutoInicio` de `CopiarModelo` |
 
-As rutas e os nomes que usan os postos están ao comezo de `daw-aula.psm1`: o paquete
-(`Get-DawPackageDirectory`), o estado de cada conta (`Get-DawStateDirectory`, `Get-DawStateFiles`),
-o proxecto en Debian (`Get-DawLinuxProjectPath`) e a imaxe web (`Get-DawWebImage`). Os scripts Bash
-recíbenos do módulo. Os equipos xa instalados usan eses valores: para cambiar un, os scripts deben
-aceptar tamén o anterior mentres dure a transición.
+## Rutas e nomes
+
+Están ao comezo de `daw-classroom.psm1` e os scripts Bash recíbenos do módulo:
+
+| Uso | Valor |
+|---|---|
+| Paquete no posto (`Get-DawPackageDirectory`) | `C:\ProgramData\DAW-Dev`, cos ficheiros do proxecto en `project\` |
+| Estado de cada conta (`Get-DawStateDirectory`) | `%LOCALAPPDATA%\DAW-Dev`: `install-state.json`, `project-state.json`, rexistros e `install.lock` |
+| Distribución WSL (`Get-DawDistribution`) | `linux`, co marcador `/etc/daw-dev-model` |
+| Proxecto (`Get-DawLinuxProjectPath`) | `/home/ad/workspace`, con `www/` e `data/`; en Windows, `\\wsl.localhost\linux\home\ad\workspace` |
+
+Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
+
+## Instalación limpa
+
+O alumnado garda antes o seu traballo: a instalación non fai copias.
+
+- `CopiarModelo` retira do posto o paquete anterior (`C:\ProgramData\DAW-Aula`) e o
+  seu autoarranque (`Run\DAWAula`).
+- A primeira activación de cada conta retira a instalación anterior desa conta:
+  - a distribución `Debian`, só se ten o marcador do modelo anterior (`/etc/daw-aula-modelo`);
+  - `%LOCALAPPDATA%\DAW-Aula` e `%LOCALAPPDATA%\daw-dev-launcher`;
+  - o acceso directo «DAW - Proxectos (www)».
+
+  Unha Debian persoal consérvase.
+- Se a conta xa ten a distribución `linux` do mesmo paquete, a activación consérvaa. Se é
+  doutro paquete, detense: con `-Reinstalar` (`daw-activate -Reinstall`, ou
+  `manage.ps1 -Action InstalarUsuario -Reinstalar`) elimínaa con todo o seu contido e
+  importa a nova.
 
 ## Ficheiros do proxecto (`overlay/`)
 
-`overlay/` contén o que `manage.ps1 -Action ActualizarProxecto` copia en
-`/home/ad/proxectos/daw-dev` de cada Debian xa importada, coa mesma ruta relativa.
-A copia leva tamén ficheiros do repositorio sen cambios, como `compose.yaml`,
-`docker/angular/`, os comandos de terminal e as guías do alumnado
-(`$sharedPaths` en `New-DawProjectStage`).
+`overlay/` contén o que `manage.ps1 -Action ActualizarProxecto` copia en `/home/ad/workspace`,
+coa mesma ruta relativa. A copia leva tamén ficheiros do repositorio sen cambios, como
+`compose.yaml`, `docker/angular/`, `.vscode/launch.json`, os comandos de terminal e as guías do
+alumnado (`$sharedPaths` en `New-DawProjectStage`).
 Véxase [actualizar os ficheiros dos proxectos xa importados](../../docs/aula-windows11.md#actualizar-os-ficheiros-dos-proxectos-xa-importados).
 
 ### O que contén agora
 
-O contedor web compórtase como a MV Debian da aula de DWCS, para que as rutas, os
-permisos e as directivas coincidan cos enunciados:
-
 | Ficheiro | Efecto |
 |---|---|
-| `compose.override.yaml` | Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `www` tamén en `/home/ad/html`, que é a raíz web; `datos/` en `/home/ad/datos`; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733 |
-| `docker/classroom/zz-classroom.ini` | Os valores do `99-dev.ini` de Apache na MV: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
-| `docker/classroom/000-default.conf` | `DocumentRoot /home/ad/html` |
-| `datos/LEME.txt` | Crea `datos/` co usuario `ad`, non con `root` |
+| `compose.override.yaml` | Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `data/` en `/home/ad/data`; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733 |
+| `docker/classroom/zz-classroom.ini` | PHP como nun servidor Debian: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
+| `data/README.txt` | Crea `data/` co usuario `ad`, non con `root` |
 | `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |
-| `.vscode/launch.json` | O do repositorio, que traduce tamén `/home/ad/html` a `www`: Apache serve desde esa ruta e Xdebug informa dela |
 
-`daw-start` le `compose.override.yaml` porque está ao lado de `compose.yaml`. Os
-cambios aplícanse ao recrear o contedor web: no seguinte `daw-start`, ou co
-`-Reiniciar` da acción. A [actualización a PHP 8.6](../../docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula)
-precarga a imaxe nova e retira do `.env` a versión 8.5 que fixaba o modelo anterior.
+O código web serve desde `/var/www/html`, como nas instalacións persoais. `daw-start` le
+`compose.override.yaml` porque está ao lado de `compose.yaml`. Os cambios aplícanse ao recrear
+o contedor web: no seguinte `daw-start`, ou co `-Reiniciar` da acción.
 
 ### Regras da copia
 
 - Non se copia nada en `www/` nin se borra ningún ficheiro.
-- En `datos/` só se crean ficheiros novos; os existentes son do alumnado e consérvanse.
+- En `data/` só se crean ficheiros novos; os existentes son do alumnado e consérvanse.
 - Os ficheiros que se substitúen gárdanse antes en `.daw-backup/<data>-<proceso>/`.
 - Antes de cambiar nada compróbanse os SHA256, as rutas (sen ligazóns no destino)
   e que Compose acepte o `compose.override.yaml` novo; ao rematar, o proxecto completo.

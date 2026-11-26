@@ -21,7 +21,7 @@ servidores nin bases de datos no equipo.
   [instalación e uso](docs/wsl2-alumnado.md),
   [lanzadores e acceso aos ficheiros](docs/windows11-contedores.md) e
   [guía rápida da aula](docs/guia-inicio-alumnado.md).
-- **Aulas con contas persoais:** [despregamento remoto desde o profesor, modelo Debian, execución paralela e soporte para aulas compartidas](docs/aula-windows11.md).
+- **Aulas con contas persoais:** [despregamento remoto desde o profesor, distribución `linux`, execución paralela e soporte para aulas compartidas](docs/aula-windows11.md).
 - **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
   para xestionar Docker desde o navegador en <https://localhost:9443>.
 - VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas. Se desexas executar o editor dentro do contedor, require a extensión **Dev Containers** (`ms-vscode-remote.remote-containers`).
@@ -339,9 +339,8 @@ ao 24-11-2026 levan o contrasinal por defecto anterior: as ordes `daw-start` cam
 o do `.env`, e MariaDB, ao arrancar, o dos usuarios `root` e `dwcs` que aínda o teñan
 (`docker/mariadb/healthcheck.sh`). Un contrasinal posto a man non se toca.
 
-As contas de Linux non teñen contrasinal, ao contrario ca na MV da aula, onde `ad`
-ten `abc123..`: no contedor, `ad` usa `sudo` sen contrasinal; na Debian da aula,
-a conta `ad` está bloqueada e non ten `sudo`.
+As contas de Linux non teñen contrasinal: no contedor, `ad` usa `sudo` sen contrasinal;
+na distribución `linux` da aula, a conta `ad` está bloqueada e non ten `sudo`.
 
 - **Dende PHP o servidor é `db`, non `localhost`.** As credenciais están tamén en variables de contorna:
 
@@ -485,8 +484,11 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
   [docs/wsl2-alumnado.md](docs/wsl2-alumnado.md).
 - **Credenciais:** son de exemplo e só para desenvolvemento local. Non hai que expoñer estes portos fóra do equipo.
 
-## Mantemento dos scripts de aula (13/11/2026)
+## Scripts de aula
 
-A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia de `manage.ps1 -ThrottleLimit` está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `windows/classroom/update-package.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
+Os scripts de `windows/classroom/` preparan o paquete DAW Dev e despregano nos postos por WinRM: validan o
+paquete e o modelo, conservan o modo baixo demanda, verifican o IDE e esperan o resultado real da tarefa do
+alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`, proxecto en `~/workspace`) substitúe
+sen migración a anterior: os paquetes antigos non se reutilizan. Véxase o [README dos scripts de aula](windows/classroom/README.md).
 
 Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/migration.py` e `tests/overlay.py`.

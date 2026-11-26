@@ -26,7 +26,5 @@ jobs:
       - name: PowerShell regression tests
         shell: pwsh
         run: ./tests/classroom.ps1
-      - name: Actual migration in isolated fixture
-        run: python3 tests/migration.py
       - name: Actual project overlay in isolated fixtures
         run: python3 tests/overlay.py

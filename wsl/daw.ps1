@@ -9,7 +9,8 @@ param(
     [switch]$Local,
     [switch]$Container,
     [string]$PackageDirectory,
-    [switch]$SkipVSCode
+    [switch]$SkipVSCode,
+    [switch]$Reinstall
 )
 $ErrorActionPreference = 'Stop'
 $windows = Join-Path (Split-Path -Parent $PSScriptRoot) 'windows'

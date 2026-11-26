@@ -5,10 +5,11 @@ Desprega DAW Dev desde o equipo 100. Por defecto aula 34, equipos 1-35.
 .DESCRIPTION
 Comprobar: só diagnóstico. HabilitarWinRM: bootstrap con PsExec asinado de Microsoft.
 PrepararWSL: características + MSI oficial (non reinicia). CopiarModelo: copia local
-protexida e baixo demanda (AutoInicio opt-in). InstalarUsuario: tarefa sen
-elevación na sesión activa. ActualizarProxecto: copia windows\classroom\overlay no
-proxecto da Debian do alumno conectado, sen tocar www (Reiniciar recrea o contedor
-web se está en marcha). Estado: consulta logs por perfil. Non almacena contrasinais.
+protexida e baixo demanda (AutoInicio opt-in); retira o paquete DAW-Aula anterior.
+InstalarUsuario: tarefa sen elevación na sesión activa (Reinstalar substitúe e borra
+unha distribución doutro paquete). ActualizarProxecto: copia windows\classroom\overlay no
+proxecto da conta conectada, sen tocar www (Reiniciar recrea o contedor web se está en
+marcha). Estado: consulta logs por perfil. Non almacena contrasinais.
 ThrottleLimit atende ata ese número de postos á vez en PrepararWSL, CopiarModelo e
 ActualizarProxecto; por defecto, un tras outro.
 .EXAMPLE
@@ -31,7 +32,7 @@ param(
     [string]$PackageDirectory,
     [string]$WslMsi,
     [switch]$AutoInicio,
-    [switch]$AdoptarExistente,
+    [switch]$Reinstalar,
     [switch]$SenVSCode,
     [switch]$Reiniciar,
     [ValidateRange(5,7200)][int]$TimeoutSeconds=1800,
@@ -41,10 +42,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
-Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'daw-classroom.psm1') -Force
 if ($ThrottleLimit -gt 1 -and $Action -notin @('PrepararWSL','CopiarModelo','ActualizarProxecto')) {
     throw 'ThrottleLimit só se usa con PrepararWSL, CopiarModelo e ActualizarProxecto.'
 }
+# Reinstalar borra a distribución da conta e Reiniciar só recrea o contedor web: non se confunden.
+if ($Reinstalar -and $Action -ne 'InstalarUsuario') { throw 'Reinstalar só se usa con InstalarUsuario.' }
+if ($Reiniciar -and $Action -ne 'ActualizarProxecto') { throw 'Reiniciar só se usa con ActualizarProxecto.' }
 if ($Action -eq 'Comprobar') {
     & (Join-Path $PSScriptRoot 'check-remote.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
     return
@@ -113,10 +117,10 @@ if ($ThrottleLimit -gt 1 -and $numbers.Count -gt 1) {
 $projectStage = $null
 if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
     # Preparado unha vez no profesor: ficheiros do proxecto, actualizador e módulo, con SHA256.
-    # CopiarModelo tamén os deixa no equipo para a activación manual (activar-dawdev.ps1).
-    $projectStage = Join-Path ([IO.Path]::GetTempPath()) ('daw-proxecto-' + [guid]::NewGuid().ToString('N'))
+    # CopiarModelo tamén os deixa no equipo para a activación manual (activate.ps1).
+    $projectStage = Join-Path ([IO.Path]::GetTempPath()) ('daw-project-' + [guid]::NewGuid().ToString('N'))
     $projectManifest = New-DawProjectStage $PSScriptRoot $projectStage
-    $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
+    $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-classroom.psm1'))
 }
 # Rutas nos postos e o seu equivalente desde o profesor por SMB (c$).
 $packageDir = Get-DawPackageDirectory
@@ -147,10 +151,10 @@ foreach ($n in $Numero) {
                 switch ($Action) {
                     'InstalarUsuario' {
                         $details = Invoke-Command -Session $session -ScriptBlock {
-                            param($seconds,$adopt,$withoutCode,$package)
-                            Import-Module (Join-Path $package 'daw-aula.psm1') -Force
-                            Invoke-DawStudentInstall -TimeoutSeconds $seconds -AdoptExisting:$adopt -WithoutCode:$withoutCode
-                        } -ArgumentList $TimeoutSeconds,$AdoptarExistente.IsPresent,$SenVSCode.IsPresent,$packageDir
+                            param($seconds,$reinstall,$withoutCode,$package)
+                            Import-Module (Join-Path $package 'daw-classroom.psm1') -Force
+                            Invoke-DawStudentInstall -TimeoutSeconds $seconds -Reinstall:$reinstall -WithoutCode:$withoutCode
+                        } -ArgumentList $TimeoutSeconds,$Reinstalar.IsPresent,$SenVSCode.IsPresent,$packageDir
                         if (-not $details -or -not $details.Success) { throw 'Non se confirmou a instalación da solicitude actual.' }
                     }
                     'ActualizarProxecto' {
@@ -159,7 +163,7 @@ foreach ($n in $Numero) {
                         # 18-11-2026); a causa non se aclarou.
                         Invoke-Command -Session $session -ScriptBlock {
                             param($source)
-                            $file = Join-Path $env:TEMP ('daw-aula-' + [guid]::NewGuid().ToString('N') + '.psm1')
+                            $file = Join-Path $env:TEMP ('daw-classroom-' + [guid]::NewGuid().ToString('N') + '.psm1')
                             try { [IO.File]::WriteAllText($file, $source, (New-Object Text.UTF8Encoding($true))); Import-Module $file -Force }
                             finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
                             Initialize-DawProjectDirectory
@@ -182,13 +186,14 @@ foreach ($n in $Numero) {
                         Write-Host "[$computer] Non se reiniciou automaticamente. Revisa RestartRequired."
                     }
                     'CopiarModelo' {
-                        $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
-                        Invoke-Command -Session $session -ScriptBlock {
+                        $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-classroom.psm1'))
+                        $removed = Invoke-Command -Session $session -ScriptBlock {
                             param($source)
                             New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
-                            # Prevent a new logon from starting the old installer during package replacement.
-                            Set-DawAutoStart
                             Assert-DawNoInstallRunning
+                            # Prevent a new logon from starting an installer during package replacement.
+                            Set-DawAutoStart
+                            Remove-DawLegacyPackage
                             $target = Get-DawPackageDirectory
                             if (Test-Path -LiteralPath $target) {
                                 $items = @((Get-Item -LiteralPath $target -Force)) + @(Get-ChildItem -LiteralPath $target -Recurse -Force)
@@ -228,7 +233,7 @@ foreach ($n in $Numero) {
                                 $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
                                 Set-Acl -LiteralPath $_.FullName -AclObject $acl
                             }
-                            Import-Module (Join-Path $target 'daw-aula.psm1') -Force
+                            Import-Module (Join-Path $target 'daw-classroom.psm1') -Force
                             Assert-DawPackage $target | Out-Null
                             Set-DawAutoStart -Enabled:$enableAuto
                             Initialize-DawProjectDirectory
@@ -243,6 +248,7 @@ foreach ($n in $Numero) {
                             if ($stage.Revision -ne $revision) { throw 'A revisión do proxecto copiado non coincide.' }
                             [pscustomobject]@{ Revision = $stage.Revision; Shortcut = Set-DawStartMenuShortcut }
                         } -ArgumentList $projectManifest.Revision
+                        $details | Add-Member NoteProperty Removed @($removed)
                     }
                     'Estado' {
                         $details = Invoke-Command -Session $session -ScriptBlock {

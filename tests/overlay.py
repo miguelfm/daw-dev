@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     if os.environ.get('DAW_OVERLAY_SCRIPT'):
         shutil.copy(os.environ['DAW_OVERLAY_SCRIPT'], script)
     else:
-        env = dict(os.environ, DAW_TEST_MODULE=str(repo / 'windows/classroom/daw-aula.psm1'), DAW_TEST_OUTPUT=str(script))
+        env = dict(os.environ, DAW_TEST_MODULE=str(repo / 'windows/classroom/daw-classroom.psm1'), DAW_TEST_OUTPUT=str(script))
         subprocess.run([pwsh, '-NoProfile', '-Command',
             'Import-Module $env:DAW_TEST_MODULE -Force; [IO.File]::WriteAllText($env:DAW_TEST_OUTPUT,(Get-DawProjectOverlayScript),(New-Object Text.UTF8Encoding($false)))'],
             env=env, check=True)
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         src = root / 'src'; shutil.copytree(overlay, src)
         # As in New-DawProjectStage, the stage also carries the repository Compose and Angular files.
         shutil.copy(repo / 'compose.yaml', src / 'compose.yaml'); shutil.copytree(repo / 'docker/angular', src / 'docker/angular')
-        project = root / 'home/ad/proxectos/daw-dev'
+        project = root / 'home/ad/workspace'
         (project / 'www').mkdir(parents=True); (project / '.devcontainer').mkdir()
         (project / 'compose.yaml').write_text('services: {}\n')
         (project / 'www/work.php').write_text('student work')
@@ -68,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         out = []
         for p in sorted(x for x in src.rglob('*') if x.is_file()):
             rel = str(p.relative_to(src))
-            out += [rel, digest(p), 'CreateOnly' if rel.startswith('datos/') else 'Replace']
+            out += [rel, digest(p), 'CreateOnly' if rel.startswith('data/') else 'Replace']
         return out
 
     def run(root, src, project, args=None, fail='', path=None, image='', archive=('-', '-')):
@@ -86,7 +86,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     root, src, project = fixture('fresh')
     r, calls = run(root, src, project); assert r.returncode == 0, r.stderr
     lines = {path: action for action, path in (l.split(' ', 1) for l in r.stdout.splitlines() if not l.startswith('copia '))}
-    assert lines['.devcontainer/devcontainer.json'] == 'substituido' and lines['compose.override.yaml'] == 'creado' and lines['datos/LEME.txt'] == 'creado', r.stdout
+    assert lines['.devcontainer/devcontainer.json'] == 'substituido' and lines['compose.override.yaml'] == 'creado' and lines['data/README.txt'] == 'creado', r.stdout
     for rel in lines:
         assert digest(project / rel) == digest(src / rel) and (project / rel).stat().st_mode & 0o777 == 0o644, rel
     saved = project / '.daw-backup' / backups(project)[0] / '.devcontainer/devcontainer.json'
@@ -103,8 +103,8 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
 
     root86, src86, project86 = fixture('php86-offline')
     env_file = project86 / '.env'
-    old_env = 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php\nPHP_VERSION=8.5\nWEB_PORT=127.0.0.1:80\n'
-    env_file.write_text(old_env)
+    env = 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php\nWEB_PORT=127.0.0.1:80\n'
+    env_file.write_text(env)
     env_file.chmod(0o600)
     archive = root86 / 'daw-dev-php86.tar.gz'
     archive.write_bytes(b'docker image archive')
@@ -114,14 +114,13 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     assert r.returncode != 0 and 'SHA256' in r.stderr and snapshot(project86) == before86, r.stderr
     r, calls = run(root86, src86, project86, image=image, archive=(str(archive), digest(archive)))
     assert r.returncode == 0 and ['image', 'load', '--input', str(archive)] in calls, r.stderr
-    assert calls[0][4] == str(src86 / 'compose.yaml') and '--env-file' in calls[0], calls
-    assert (project86 / '.daw-backup' / backups(project86)[0] / '.env').read_text() == old_env
+    assert calls[0][4] == str(src86 / 'compose.yaml') and '--env-file' not in calls[0], calls
     assert any(call[:1] == ['run'] and image in call for call in calls), calls
-    assert env_file.read_text() == old_env.replace('PHP_VERSION=8.5\n', '')
-    assert env_file.stat().st_mode & 0o777 == 0o600
+    # The .env belongs to the account: the copy never changes it.
+    assert env_file.read_text() == env and env_file.stat().st_mode & 0o777 == 0o600
     r, calls = run(root86, src86, project86, image=image)
     assert r.returncode == 0 and not any(call[:2] in (['image', 'load'], ['image', 'pull']) for call in calls), calls
-    count += 1; print('PASS PHP 8.6 is loaded from the verified archive and the old default is migrated once')
+    count += 1; print('PASS PHP 8.6 is loaded once from the verified archive and .env is kept')
 
     root, src, project = fixture('vscode-settings')
     (src / '.vscode').mkdir(exist_ok=True)
@@ -134,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     r, calls = run(root, src, project)
     assert r.returncode == 0, r.stderr
     settings = (project / '.vscode/settings.json').read_text()
-    distro = os.environ.get('WSL_DISTRO_NAME', 'Debian')
+    distro = os.environ.get('WSL_DISTRO_NAME', 'linux')
     assert settings == (repo / '.vscode/settings.json').read_text().replace('"Debian"', f'"{distro}"')
     assert os.access(project / 'scripts/daw.sh', os.X_OK)
     before = backups(project)
@@ -145,11 +144,11 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
 
     root, src, project = fixture('data-update')
     r, calls = run(root, src, project); assert r.returncode == 0, r.stderr
-    (project / 'datos/LEME.txt').write_text('notas do alumno')
+    (project / 'data/README.txt').write_text('notas do alumno')
     (project / 'compose.override.yaml').write_text('services: {}\n')
     r, calls = run(root, src, project); assert r.returncode == 0, r.stderr
-    assert 'conservado datos/LEME.txt' in r.stdout and 'substituido compose.override.yaml' in r.stdout, r.stdout
-    assert (project / 'datos/LEME.txt').read_text() == 'notas do alumno'
+    assert 'conservado data/README.txt' in r.stdout and 'substituido compose.override.yaml' in r.stdout, r.stdout
+    assert (project / 'data/README.txt').read_text() == 'notas do alumno'
     count += 1; print('PASS data files are never replaced; changed project files are')
 
     def rejected(name, prepare, expected, fail='', args=None):
@@ -175,7 +174,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         (project / 'docker').symlink_to(root / 'outside', target_is_directory=True)
     rejected('symlink', link, 'ligazón')
     def file_parent(root, src, project):
-        (project / 'datos').write_text('not a directory')
+        (project / 'data').write_text('not a directory')
     rejected('file-parent', file_parent, 'non é un directorio')
     rejected('compose-invalid', lambda r, s, p: None, 'non se cambiou nada', fail='pre')
     rejected('arguments', lambda r, s, p: ['compose.override.yaml', 'a' * 64], 'incorrecta')
@@ -191,7 +190,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
 
     docker = shutil.which('docker')
     if docker and subprocess.run([docker, 'compose', 'version'], capture_output=True).returncode == 0:
-        root = base / 'real'; project = root / 'home/ad/proxectos/daw-dev'
+        root = base / 'real'; project = root / 'home/ad/workspace'
         project.mkdir(parents=True)
         for name in ('compose.yaml', '.env.example', '.devcontainer'):
             (shutil.copytree if (repo / name).is_dir() else shutil.copy)(repo / name, project / name)
@@ -203,7 +202,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         web = json.loads(config.stdout)['services']['web']
         assert web['image'] == 'example.invalid/dwcs-php:8.6-ad' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
-        assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets
+        assert '/home/ad/data' in targets and '/var/www/html' in targets and '/home/ad/html' not in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']
         count += 1; print('PASS real docker compose accepts the classroom project files')
     else:

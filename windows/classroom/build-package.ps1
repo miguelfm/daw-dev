@@ -4,7 +4,7 @@
 Crea un modelo Debian limpo e un paquete para a aula, sen modificar Debian persoal.
 .DESCRIPTION
 Descarga a base Debian publicada no catálogo oficial de WSL, verifica SHA256,
-importa DAW-Modelo, instala Docker e precarga as tres imaxes de Compose.
+importa DAW-Model, instala Docker e precarga as tres imaxes de Compose.
 Require WSL2 xa preparado e git. Non require elevación Windows.
 Non modifica distribucións persoais. -Resume só continúa un modelo co seu checkpoint verificado.
 #>
@@ -14,14 +14,16 @@ param(
     [string]$BaseImagePath,
     [string]$DockerImagesArchive,
     [switch]$Resume,
-    [ValidatePattern('^DAW-Modelo[a-zA-Z0-9._-]*$')][string]$Distribution = 'DAW-Modelo'
+    [ValidatePattern('^DAW-Model[a-zA-Z0-9._-]*$')][string]$Distribution = 'DAW-Model'
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
-Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'daw-classroom.psm1') -Force
 $project = Get-DawLinuxProjectPath
-# setup-model.sh recibe a ruta do proxecto e a imaxe web do módulo.
-$setupEnv = @('env', "DAW_PROJECT=$project", "DAW_WEB_IMAGE=$(Get-DawWebImage)")
+# setup-model.sh recibe do módulo a ruta do proxecto, a imaxe web e o marcador do modelo.
+$marker = Get-DawModelMarker
+$setupEnv = @('env', "DAW_PROJECT=$project", "DAW_WEB_IMAGE=$(Get-DawWebImage)", "DAW_MODEL_MARKER_FILE=$($marker.Path)", "DAW_MODEL_MARKER=$($marker.Value)")
+$archive = Get-DawModelArchive
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $build = Join-Path $output 'build'
@@ -44,16 +46,13 @@ function Invoke-Model([string[]]$CommandArgs) {
 if ($Resume) {
     $checkpoint = Get-Content -LiteralPath $checkpointPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $registered = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss' | Get-ItemProperty | Where-Object DistributionName -eq $Distribution
-    if ($checkpoint.LinuxUser -ne 'ad') { throw 'Este punto de continuación corresponde a un modelo anterior. Crea un modelo novo cun directorio de saída novo.' }
+    if ($checkpoint.LinuxUser -ne 'ad' -or $checkpoint.LinuxProjectPath -ne $project) { throw 'Este punto de continuación corresponde a un modelo anterior. Crea un modelo novo cun directorio de saída novo.' }
     if ($checkpoint.Distribution -ne $Distribution -or $checkpoint.InstallDirectory -ne $distroDir -or
         -not $registered -or $registered.BasePath.TrimEnd('\') -ne $distroDir.TrimEnd('\') -or
         (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash -ne $checkpoint.SourcesSha256) {
         throw 'O punto de continuación non coincide co modelo creado por este script.'
     }
-    if ((Test-Path -LiteralPath (Join-Path $output 'debian.tar')) -or
-        (Test-Path -LiteralPath (Join-Path $output 'debian.tar.gz')) -or
-        (Test-Path -LiteralPath (Join-Path $output 'debian-daw.tar')) -or
-        (Test-Path -LiteralPath (Join-Path $output 'debian-daw.tar.gz'))) { throw 'Xa hai unha exportación. Non se sobrescribe.' }
+    if (Test-Path -LiteralPath (Join-Path $output $archive)) { throw 'Xa hai unha exportación. Non se sobrescribe.' }
     $base = @{ Amd64Url = @{ Url = $checkpoint.BaseUrl; Sha256 = $checkpoint.BaseSha256 } }
     $sourceCommit = $checkpoint.SourceCommit
 } else {
@@ -106,7 +105,7 @@ Invoke-Model @('tar','-xf',$linuxSources,'-C','/tmp','windows/classroom/setup-mo
 Invoke-Model ($setupEnv + @('bash','/tmp/windows/classroom/setup-model.sh','install',$linuxSources))
 $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 [ordered]@{
-    Distribution = $Distribution; LinuxUser = 'ad'; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
+    Distribution = $Distribution; LinuxUser = 'ad'; LinuxProjectPath = $project; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
     SourcesSha256 = (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256
 } | ConvertTo-Json | Set-Content -LiteralPath $checkpointPath -Encoding UTF8
@@ -130,19 +129,14 @@ for ($attempt = 1; $attempt -le 3; $attempt++) {
 Invoke-Model ($setupEnv + @('bash',"$project/windows/classroom/setup-model.sh",'seal'))
 & wsl.exe --terminate $Distribution
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido parar o modelo.' }
-$image = Join-Path $output 'debian.tar.gz'
+$image = Join-Path $output $archive
 & wsl.exe --export $Distribution $image --format tar.gz
 if ($LASTEXITCODE -ne 0) { throw 'Fallou a exportación do modelo.' }
-foreach ($file in 'instalar-alumno.ps1','iniciar-usuario.ps1','daw-aula.psm1') {
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination $output
-}
-foreach ($file in 'daw.ps1','install-daw-commands.ps1') {
-    Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) $file) -Destination $output
-}
+# Update-DawPackage copia despois os scripts do paquete e rexistra os seus SHA256.
 $manifest = [ordered]@{
-    Schema = 1; Marker = 'daw-aula-v1'; LinuxUser = 'ad'
-    LinuxProjectPath = $project
-    Image = 'debian.tar.gz'; Sha256 = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
+    Schema = 2; Marker = $marker.Value; LinuxUser = 'ad'
+    LinuxProjectPath = $project; Distribution = Get-DawDistribution
+    Image = $archive; Sha256 = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
     CreatedUtc = [DateTime]::UtcNow.ToString('o')
     SourceCommit = $sourceCommit; SourcesSha256 = (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256

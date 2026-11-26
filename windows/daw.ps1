@@ -8,12 +8,14 @@
     [switch]$Local,
     [switch]$Container,
     [string]$PackageDirectory,
-    [switch]$SkipVSCode
+    [switch]$SkipVSCode,
+    # daw-activate: substitúe a distribución doutro paquete e borra todo o seu contido.
+    [switch]$Reinstall
 )
 
 $ErrorActionPreference = 'Stop'
 # Ruta literal: a variable ProgramData non existe fóra de Windows (probas en Linux).
-$classroomPackage = if ($env:DAW_AULA_PACKAGE) { $env:DAW_AULA_PACKAGE } else { 'C:\ProgramData\DAW-Aula' }
+$classroomPackage = if ($env:DAW_PACKAGE_DIR) { $env:DAW_PACKAGE_DIR } else { 'C:\ProgramData\DAW-Dev' }
 if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
 $wslArgs = @('-d', $Distribution)
 if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
@@ -133,6 +135,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code'
         Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-activate | daw-help'
         Write-Output '  daw-activate: install or update the classroom setup from its deployed package.'
+        Write-Output '                -Reinstall replaces a distribution from another package and deletes all its files.'
         Write-Output '  daw-start: start only the web service without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
         Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
@@ -147,22 +150,22 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
         Write-Output '  daw-web-shell: open Bash in the Apache/PHP web container as user ad.'
         Write-Output '  daw-shell: alias for daw-web-shell.'
-        Write-Output '  daw-wsl-shell: open Debian in WSL at the project directory without starting Docker.'
+        Write-Output '  daw-wsl-shell: open the WSL distribution at the project directory without starting Docker.'
         Write-Output '  daw-code: open the project directly in VS Code.'
         Write-Output '  daw-code -Container: open the project directly in its PHP Dev Container.'
         Write-Output '  daw-code -Local: edit in Windows without VS Code Server.'
-        Write-Output '  daw-web-root: show the Windows and Debian paths to the Apache web root.'
+        Write-Output '  daw-web-root: show the Windows and WSL paths to the Apache web root.'
         Write-Output '                Add -Open to open the Windows path in File Explorer.'
         Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
         exit 0
     }
     'activate' {
         $package = if ($PackageDirectory) { $PackageDirectory } else { $classroomPackage }
-        $activator = Join-Path $package 'activar-dawdev.ps1'
+        $activator = Join-Path $package 'activate.ps1'
         if (-not (Test-Path -LiteralPath $activator -PathType Leaf)) {
             throw "The classroom package has not been deployed to $package."
         }
-        & $activator -Distribution $Distribution -SenVSCode:$SkipVSCode -SenPausa
+        & $activator -Distribution $Distribution -Reinstalar:$Reinstall -SenVSCode:$SkipVSCode -SenPausa
         exit $LASTEXITCODE
     }
     'code' {
@@ -231,7 +234,7 @@ if ($Action -in 'web-root', 'www') {
     $previousEncoding = [Console]::OutputEncoding
     try {
         [Console]::OutputEncoding = [Text.Encoding]::UTF8
-        $webRoots = @('/var/www/html', '/home/ad/html')
+        $webRoots = @('/var/www/html')
         $containers = @(& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --all --quiet web)
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -253,7 +256,7 @@ if ($Action -in 'web-root', 'www') {
             ($config -join "`n" | ConvertFrom-Json).services.web.volumes |
                 Where-Object { $_.type -eq 'bind' -and $_.target -cin $webRoots } | ForEach-Object { $_.source }
         }
-        if (-not $sources) { throw 'The web service has no host directory mounted at /var/www/html or /home/ad/html.' }
+        if (-not $sources) { throw 'The web service has no host directory mounted at /var/www/html.' }
         $paths = foreach ($source in ($sources | Select-Object -Unique)) {
             $windowsPath = & wsl.exe @wslArgs --exec wslpath -w $source
             if ($LASTEXITCODE -ne 0 -or -not $windowsPath) { throw "Could not translate the web directory to a Windows path: $source" }
@@ -330,8 +333,7 @@ if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
     Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList ($wslArgs + @(
         '--cd', ('"' + $ProjectPath + '"'),
-        # Un proxecto sen actualizar desde que keep-alive.sh pasou de wsl/ a scripts/ só ten o vello.
-        '--exec', 'bash', '-c', '"f=scripts/keep-alive.sh; [ -f $f ] || f=wsl/keep-alive.sh; exec bash $f"'
+        '--exec', 'bash', 'scripts/keep-alive.sh'
     )) | Out-Null
 }
 exit $composeExitCode

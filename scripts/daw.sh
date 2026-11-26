@@ -155,7 +155,7 @@ import os
 import subprocess
 import sys
 
-web_roots = {"/var/www/html", "/home/ad/html"}
+web_roots = {"/var/www/html"}
 compose = ("compose", "--project-directory", *sys.argv[1:])
 
 
