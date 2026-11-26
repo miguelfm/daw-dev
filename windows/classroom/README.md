@@ -10,6 +10,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `deploy.ps1` | Instala o paquete en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
+| `install-package.ps1` | Instala o paquete no propio equipo, como administrador e sen WinRM (por exemplo, no do profesor) |
 | `manage.ps1` | Accións nos postos por WinRM; `-ThrottleLimit` atende varios á vez |
 | `check-remote.ps1`, `enable-winrm.ps1` | Diagnóstico e activación de WinRM, desde `manage.ps1` |
 | `power-on.ps1`, `power-off.ps1` | Acendido por Wake-on-LAN (`a31-macs.csv`) e apagado da aula |

@@ -253,10 +253,22 @@ exit 0
         & $script:M {$script:Run['DAWAula']=Encode "& 'C:\outro\programa.ps1'"}
         Throws {Remove-DawLegacyPackage} 'outro programa'
     }
+    Test 'package files are copied once: unchanged files are skipped' {
+        $src=Join-Path $script:Temp 'copy-src';$dst=Join-Path $script:Temp 'copy-dst'
+        New-Item -ItemType Directory -Path $src,$dst -Force|Out-Null
+        foreach($f in 'a.tar.gz','b.ps1'){[IO.File]::WriteAllText((Join-Path $src $f),"content $f")}
+        Assert ((@(Copy-DawPackageFiles $src $dst @('a.tar.gz','b.ps1')) -join ',') -eq 'a.tar.gz,b.ps1')
+        Assert (@(Copy-DawPackageFiles $src $dst @('a.tar.gz','b.ps1')).Count -eq 0) 'Unchanged files must not be copied again'
+        [IO.File]::WriteAllText((Join-Path $src 'b.ps1'),'changed content')
+        Assert ((@(Copy-DawPackageFiles $src $dst @('a.tar.gz','b.ps1')) -join ',') -eq 'b.ps1')
+        Assert ([IO.File]::ReadAllText((Join-Path $dst 'b.ps1')) -eq 'changed content')
+        $local=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-package.ps1'))
+        Assert ($local.Contains('IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)') -and $local.Contains('New-DawProjectStage $PSScriptRoot'))
+    }
     Test 'remote startup block binds its explicit opt-in parameter' {
         $f=Join-Path $script:Repo 'windows/classroom/manage.ps1'
         $ast=[Management.Automation.Language.Parser]::ParseFile($f,[ref]$null,[ref]$null)
-        $calls=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Set-DawAutoStart' -and $n.Extent.Text -match '-Enabled:'},$true))
+        $calls=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Complete-DawPackage' -and $n.Extent.Text -match '-AutoStart:'},$true))
         Assert ($calls.Count -eq 1)
         $block=$calls[0].Parent
         while($block -and $block -isnot [Management.Automation.Language.ScriptBlockAst]){$block=$block.Parent}
@@ -406,7 +418,8 @@ exit 0
         Throws {Assert-DawPackage $dest} 'imaxe Docker'
         Throws {Get-DawPackageImages ([pscustomobject]@{Images=@([pscustomobject]@{File='../x.tar';Sha256=('a'*64);Name='x'})})} 'non recoñecida'
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
-        Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopyPackage must copy the extra images'
+        Assert ($t.Contains('$files = Get-DawPackageFiles $manifest')) 'CopyPackage must copy every package file'
+        Assert ($images[0].File -in @(Get-DawPackageFiles (Get-Content (Join-Path $dest 'manifest.json') -Raw|ConvertFrom-Json))) 'The extra images are package files'
     }
     Test 'VS Code Server in the package is registered, verified and copied' {
         $dest=Join-Path $script:Temp 'package-code-server'
@@ -427,7 +440,7 @@ exit 0
         Throws {Assert-DawPackage $dest} 'VS Code Server'
         Throws {Get-DawPackageCodeServers ([pscustomobject]@{CodeServers=@([pscustomobject]@{Commit=$commit;File='../x.tar.gz';Sha256=('a'*64)})})} 'non recoñecido'
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
-        Assert ($t.Contains('Get-DawPackageCodeServers $manifest')) 'CopyPackage must copy the VS Code Servers'
+        Assert ($t.Contains('$files = Get-DawPackageFiles $manifest')) 'CopyPackage must copy every package file'
     }
     Test 'the VS Code commit comes from product.json of the current version' {
         $root=Join-Path $script:Temp 'vscode-commit'
@@ -566,9 +579,22 @@ exit 0
         }
     }
     Test 'CopyPackage stages the project and creates the start menu entry, without autostart' {
-        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
-        foreach($s in 'Initialize-DawProjectDirectory','Assert-DawProjectOverlay (Get-DawProjectDirectory)','Set-DawStartMenuShortcut','Set-DawAutoStart -Enabled:$enableAuto','Remove-DawLegacyPackage'){Assert ($t.Contains($s)) "Missing: $s"}
-        Assert ($t.IndexOf('Assert-DawNoInstallRunning') -lt $t.IndexOf('Remove-DawLegacyPackage')) 'Running installers must be checked before removing the previous package'
+        # manage.ps1 (por WinRM) e install-package.ps1 (no propio equipo) fan os mesmos pasos do módulo.
+        foreach($f in 'manage.ps1','install-package.ps1'){
+            $t=[IO.File]::ReadAllText((Join-Path $script:Repo "windows/classroom/$f"))
+            $steps=@('Initialize-DawPackageDirectory','Copy-DawPackageFiles','Complete-DawPackage','Complete-DawProjectStage')|ForEach-Object {$t.IndexOf($_)}
+            Assert (-not($steps -contains -1)) "$f does not use every package step"
+            Assert (($steps -join ',') -eq (@($steps|Sort-Object) -join ',')) "$f runs the package steps out of order"
+        }
+        $module=[IO.File]::ReadAllText($script:ModulePath)
+        foreach($fn in 'Initialize-DawPackageDirectory','Complete-DawPackage','Complete-DawProjectStage'){
+            $body=$module.Substring($module.IndexOf("function $fn {"));$body=$body.Substring(0,$body.IndexOf("`nfunction "))
+            switch($fn){
+                'Initialize-DawPackageDirectory' {Assert ($body.IndexOf('Assert-DawNoInstallRunning') -lt $body.IndexOf('Remove-DawLegacyPackage') -and $body.Contains('Set-DawProtectedAcl $target')) 'Check running installers before removing the previous package'}
+                'Complete-DawPackage' {Assert ($body.Contains('Assert-DawPackage (Get-DawPackageDirectory)') -and $body.Contains('Set-DawAutoStart -Enabled:$AutoStart') -and $body.Contains('Initialize-DawProjectDirectory'))}
+                'Complete-DawProjectStage' {Assert ($body.Contains('Assert-DawProjectOverlay (Get-DawProjectDirectory)') -and $body.Contains('Set-DawStartMenuShortcut'))}
+            }
+        }
         Assert ('activate.ps1' -in @(Get-DawSetupFiles))
     }
     Test 'the stage takes Compose, Angular and keep-alive from the repository, without overlay copies' {

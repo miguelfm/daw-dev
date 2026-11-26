@@ -170,6 +170,27 @@ gárdaa en CSV en `%LOCALAPPDATA%\DAW-Dev\tools\deploy-<aula>-<data>.csv`. Ao fi
 para repetir só os postos con erro. Non reinicia equipos, non activa contas nin usa `-Reinstall`.
 Os postos apagados quedan sen resposta: acéndeos con `power-on.ps1` e repite con `-Number`.
 
+### Instalar no propio equipo: `install-package.ps1`
+
+Para probar DAW Dev nun só equipo sen WinRM, por exemplo no do profesor, que os scripts da aula
+non tocan, executa en PowerShell **como administrador**:
+
+```powershell
+.\windows\classroom\install-package.ps1 -PackageDirectory C:\DAW-Paquete-2026
+```
+
+Fai os mesmos pasos ca `CopyPackage`: retira o paquete anterior, copia o novo en
+`C:\ProgramData\DAW-Dev` co SHA256 comprobado e a escritura só para SYSTEM e Administradores, e
+deixa os ficheiros do proxecto e **Activar DAW Dev** no menú Inicio. Despois, nunha sesión sen
+elevar, activa DAW Dev como o alumnado e compróbao con:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\DAW-Dev\verify-user.ps1
+```
+
+Nese equipo, a distribución nova chámase `linux`: unha Debian persoal consérvase. Os portos 80,
+8080, 8081, 3306, 5042 e 8088 deben estar libres en Windows.
+
 ### Accións por separado
 
 ```powershell

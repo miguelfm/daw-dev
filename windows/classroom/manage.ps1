@@ -95,9 +95,7 @@ if ($Action -eq 'CopyPackage') {
         if (-not (Test-Path -LiteralPath (Join-Path $PackageDirectory $file) -PathType Leaf)) { throw "Falta $file no paquete." }
     }
     $manifest = Assert-DawPackage $PackageDirectory
-    $files += $manifest.Image
-    $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
-    $files += @(Get-DawPackageCodeServers $manifest | ForEach-Object { $_.File })
+    $files = Get-DawPackageFiles $manifest
 }
 $numbers = @($Number | Sort-Object -Unique)
 if ($ThrottleLimit -gt 1 -and $numbers.Count -gt 1) {
@@ -201,68 +199,22 @@ foreach ($n in $Number) {
                         $removed = Invoke-Command -Session $session -ScriptBlock {
                             param($source)
                             New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
-                            Assert-DawNoInstallRunning
-                            # Prevent a new logon from starting an installer during package replacement.
-                            Set-DawAutoStart
-                            Remove-DawLegacyPackage
-                            $target = Get-DawPackageDirectory
-                            if (Test-Path -LiteralPath $target) {
-                                $items = @((Get-Item -LiteralPath $target -Force)) + @(Get-ChildItem -LiteralPath $target -Recurse -Force)
-                                if ($items | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'O destino contén ligazóns ou junctions.' }
-                            }
-                            New-Item -ItemType Directory -Path $target -Force | Out-Null
-                            $acl = New-Object Security.AccessControl.DirectorySecurity
-                            $acl.SetAccessRuleProtection($true,$false)
-                            $admins = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
-                            $acl.SetOwner($admins)
-                            foreach ($sid in 'S-1-5-18','S-1-5-32-544','S-1-5-32-545') {
-                                $rights = if ($sid -eq 'S-1-5-32-545') { 'ReadAndExecute' } else { 'FullControl' }
-                                $identity = New-Object Security.Principal.SecurityIdentifier($sid)
-                                $rule = New-Object Security.AccessControl.FileSystemAccessRule($identity,$rights,'ContainerInherit,ObjectInherit','None','Allow')
-                                $acl.AddAccessRule($rule)
-                            }
-                            Set-Acl -LiteralPath $target -AclObject $acl
-                            Get-ChildItem -LiteralPath $target -File | ForEach-Object {
-                                $fileAcl = New-Object Security.AccessControl.FileSecurity
-                                $fileAcl.SetAccessRuleProtection($false,$false)
-                                $fileAcl.SetOwner($admins)
-                                Set-Acl -LiteralPath $_.FullName -AclObject $fileAcl
-                            }
+                            Initialize-DawPackageDirectory
                         } -ArgumentList $moduleSource
-                        foreach ($file in $files) {
-                            # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
-                            # Un ficheiro co mesmo tamaño e data non se volve copiar (a imaxe ocupa 1,4 GB):
-                            # Assert-DawPackage comproba despois no posto o SHA256 de todos.
-                            $local = Get-Item -LiteralPath (Join-Path $PackageDirectory $file)
-                            $remote = Get-Item -LiteralPath "$remotePackage\$file" -ErrorAction SilentlyContinue
-                            if ($remote -and $remote.Length -eq $local.Length -and $remote.LastWriteTimeUtc -eq $local.LastWriteTimeUtc) { continue }
-                            Copy-Item -LiteralPath $local.FullName -Destination "$remotePackage\$file" -Force
-                        }
+                        # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
+                        $null = Copy-DawPackageFiles $PackageDirectory $remotePackage $files
                         Invoke-Command -Session $session -ScriptBlock {
                             param($enableAuto)
-                            # Get-DawPackageDirectory vén do módulo cargado na primeira chamada desta sesión.
-                            $target = Get-DawPackageDirectory
-                            # Elimina ACL explícitas herdadas dunha copia anterior en cada ficheiro.
-                            Get-ChildItem -LiteralPath $target -File | ForEach-Object {
-                                $acl = New-Object Security.AccessControl.FileSecurity
-                                $acl.SetAccessRuleProtection($false,$false)
-                                $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
-                                Set-Acl -LiteralPath $_.FullName -AclObject $acl
-                            }
-                            Import-Module (Join-Path $target 'daw-classroom.psm1') -Force
-                            Assert-DawPackage $target | Out-Null
-                            Set-DawAutoStart -Enabled:$enableAuto
-                            Initialize-DawProjectDirectory
+                            # O módulo do paquete copiado, coas mesmas funcións ca o do profesor.
+                            Import-Module (Join-Path (Get-DawPackageDirectory) 'daw-classroom.psm1') -Force
+                            Complete-DawPackage -AutoStart:$enableAuto
                         } -ArgumentList $AutoStart.IsPresent
                         # Ficheiros do proxecto e entrada do menú Inicio: cada usuario activa DAW Dev
                         # cando o necesita, sen que o docente teña que estar conectado.
                         Copy-Item -Path (Join-Path $projectStage '*') -Destination "$remoteStage\" -Recurse -Force
                         $details = Invoke-Command -Session $session -ScriptBlock {
                             param($revision)
-                            Reset-DawProjectAcl
-                            $stage = Assert-DawProjectOverlay (Get-DawProjectDirectory)
-                            if ($stage.Revision -ne $revision) { throw 'A revisión do proxecto copiado non coincide.' }
-                            [pscustomobject]@{ Revision = $stage.Revision; Shortcut = Set-DawStartMenuShortcut }
+                            Complete-DawProjectStage $revision
                         } -ArgumentList $projectManifest.Revision
                         $details | Add-Member NoteProperty Removed @($removed)
                     }

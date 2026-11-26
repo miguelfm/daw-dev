@@ -636,6 +636,72 @@ function Update-DawPackage {
 # Project files staged in Get-DawProjectDirectory and copied into each student's
 # Get-DawLinuxProjectPath. The stage carries its own updater and module, so it does not
 # depend on the scripts of the model copied earlier.
+# Instalación do paquete nun equipo, igual por WinRM (manage.ps1 CopyPackage) ca no propio
+# equipo (install-package.ps1): preparar o destino, copiar os ficheiros e completalo.
+function Get-DawPackageFiles {
+    param($Manifest)
+    @('manifest.json')+@(Get-DawSetupFiles)+@($Manifest.Image)+@(Get-DawPackageImages $Manifest|ForEach-Object {$_.File})+@(Get-DawPackageCodeServers $Manifest|ForEach-Object {$_.File})
+}
+function Reset-DawPackageFileAcl {
+    # Cada ficheiro só herda a ACL protexida do paquete, sen ACL explícitas dunha copia anterior.
+    $admins=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    Get-ChildItem -LiteralPath (Get-DawPackageDirectory) -File|ForEach-Object {
+        $acl=New-Object Security.AccessControl.FileSecurity
+        $acl.SetAccessRuleProtection($false,$false)
+        $acl.SetOwner($admins)
+        Set-Acl -LiteralPath $_.FullName -AclObject $acl
+    }
+}
+function Initialize-DawPackageDirectory {
+    # Como administrador no equipo: sen instalacións en curso nin autoarranque, retira o paquete
+    # anterior e deixa o destino protexido. Devolve o que retirou.
+    Assert-DawNoInstallRunning
+    # Un inicio de sesión non debe lanzar o instalador mentres se substitúe o paquete.
+    Set-DawAutoStart
+    $removed=@(Remove-DawLegacyPackage)
+    $target=Get-DawPackageDirectory
+    if(Test-Path -LiteralPath $target){
+        $items=@(Get-Item -LiteralPath $target -Force)+@(Get-ChildItem -LiteralPath $target -Recurse -Force)
+        if($items|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}){throw 'O destino contén ligazóns ou junctions.'}
+    }
+    New-Item -ItemType Directory -Path $target -Force|Out-Null
+    Set-DawProtectedAcl $target
+    Reset-DawPackageFileAcl
+    return $removed
+}
+function Copy-DawPackageFiles {
+    # Copia os ficheiros do paquete (a unha ruta local ou \\equipo\c$\...). Un ficheiro co mesmo
+    # tamaño e data non se volve copiar (a imaxe ocupa 1,4 GB): Complete-DawPackage comproba
+    # despois o SHA256 de todos.
+    param([string]$Source,[string]$Destination,[string[]]$Files)
+    $copied=@()
+    foreach($file in $Files){
+        $local=Get-Item -LiteralPath (Join-Path $Source $file)
+        $target=Join-Path $Destination $file
+        $existing=Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
+        if($existing -and $existing.Length -eq $local.Length -and $existing.LastWriteTimeUtc -eq $local.LastWriteTimeUtc){continue}
+        Copy-Item -LiteralPath $local.FullName -Destination $target -Force
+        $copied+=$file
+    }
+    return $copied
+}
+function Complete-DawPackage {
+    # Despois da copia: ACL, SHA256 de todos os ficheiros, autoarranque opcional e o directorio
+    # protexido para os ficheiros do proxecto.
+    param([switch]$AutoStart)
+    Reset-DawPackageFileAcl
+    Assert-DawPackage (Get-DawPackageDirectory)|Out-Null
+    Set-DawAutoStart -Enabled:$AutoStart
+    Initialize-DawProjectDirectory
+}
+function Complete-DawProjectStage {
+    # Despois de copiar os ficheiros do proxecto: ACL, SHA256 e a entrada Activar DAW Dev.
+    param([string]$Revision)
+    Reset-DawProjectAcl
+    $stage=Assert-DawProjectOverlay (Get-DawProjectDirectory)
+    if($stage.Revision -ne $Revision){throw 'A revisión do proxecto copiado non coincide.'}
+    [pscustomobject]@{Revision=$stage.Revision;Shortcut=Set-DawStartMenuShortcut}
+}
 function Get-DawProjectDirectory { "$(Get-DawPackageDirectory)\project" }
 function Get-DawProjectScripts { @('update-project.ps1','daw-classroom.psm1') }
 function Test-DawProjectPath {
