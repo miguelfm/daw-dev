@@ -93,7 +93,8 @@ services:
       - ./angular:/home/node/proxectos
       # Chave pública do usuario de Windows; daw-start-angular créaa
       - type: bind
-        source: ./docker/angular/chave.pub
+        source: ./docker/angular/ssh-key.pub
+        # Ruta da imaxe dwcc-angular (entrypoint.sh)
         target: /chave.pub
         read_only: true
         bind:

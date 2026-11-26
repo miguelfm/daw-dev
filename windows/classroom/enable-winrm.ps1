@@ -9,14 +9,14 @@ autenticacion Basic, trafico sen cifrar nin LocalAccountTokenFilterPolicy.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][System.Net.IPAddress]$ProfesorIP
+    [Parameter(Mandatory)][System.Net.IPAddress]$TeacherIP
 )
 $ErrorActionPreference = 'Stop'
 Enable-PSRemoting -Force -SkipNetworkProfileCheck
 $rules = @(Get-NetFirewallRule -Name 'WINRM-HTTP-In-TCP*' -ErrorAction Stop)
 if ($rules.Count -eq 0) { throw 'Non se atoparon as regras HTTP de WinRM.' }
-$rules | Set-NetFirewallRule -RemoteAddress $ProfesorIP.IPAddressToString
+$rules | Set-NetFirewallRule -RemoteAddress $TeacherIP.IPAddressToString
 Set-Service -Name WinRM -StartupType Automatic
 Set-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\WinRM' -Name DelayedAutoStart -Value 0
-Write-Output "WinRM preparado. Acceso HTTP permitido desde $ProfesorIP."
+Write-Output "WinRM preparado. Acceso HTTP permitido desde $TeacherIP."
 Write-Output 'Comproba desde o profesor con Test-WSMan e Invoke-Command usando o nome DNS do equipo.'

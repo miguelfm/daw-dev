@@ -11,7 +11,7 @@ fi
 if [[ ! -s "$KEY.pub" ]]; then
     ssh-keygen -y -f "$KEY" > "$KEY.pub"
 fi
-cp -- "$KEY.pub" "$PROJECT_DIR/docker/angular/chave.pub"
+cp -- "$KEY.pub" "$PROJECT_DIR/docker/angular/ssh-key.pub"
 python3 - "$HOME/.ssh/config" "$KEY" "$PROJECT_DIR/.env" <<'PY'
 from pathlib import Path
 import subprocess, sys

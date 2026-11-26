@@ -87,13 +87,13 @@ do script funciona igual en local e en remoto.
    .\install-wsl.ps1
    ```
 
-3. Reinicia o equipo cando o script o indique. Se engades `-Reiniciar`, o script reinicia o equipo el só.
+3. Reinicia o equipo cando o script o indique. Se engades `-Restart`, o script reinicia o equipo el só.
 
 Se os equipos non teñen acceso a GitHub, descarga unha vez o `wsl.<versión>.x64.msi` desde
 [as versións de WSL](https://github.com/microsoft/WSL/releases) e indícao co parámetro `-MsiPath`:
 
 ```powershell
-.\install-wsl.ps1 -MsiPath D:\wsl.3.0.1.0.x64.msi -Reiniciar
+.\install-wsl.ps1 -MsiPath D:\wsl.3.0.1.0.x64.msi -Restart
 ```
 
 ### Opción B: desde o equipo do profesor, en todos os equipos á vez

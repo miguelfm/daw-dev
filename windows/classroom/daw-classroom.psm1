@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Nomes e rutas do despregamento, nun só sitio. Cambiar un deles nun paquete novo obriga a
-# reinstalar as contas: install-user.ps1 retira antes a instalación anterior (-Reinstalar).
+# reinstalar as contas: install-user.ps1 retira antes a instalación anterior (-Reinstall).
 function Get-DawPackageDirectory { 'C:\ProgramData\DAW-Dev' }
 # Estado, rexistros e bloqueo de cada conta, relativos ao seu perfil de Windows.
 function Get-DawStateRelativePath { 'AppData\Local\DAW-Dev' }
@@ -13,7 +13,7 @@ function Get-DawStateDirectory {
     Join-Path $env:LOCALAPPDATA (Split-Path -Leaf (Get-DawStateRelativePath))
 }
 function Get-DawStateFiles {
-    [pscustomobject]@{Lock='install.lock';Install='install-state.json';InstallLog='install.log';Project='project-state.json';ProjectLog='project.log'}
+    [pscustomobject]@{Lock='install.lock';Install='install-state.json';InstallLog='install.log';Project='project-state.json';ProjectLog='project.log';PendingRestore='web-restore.txt'}
 }
 # Descargas do profesor (PsExec, MSI de WSL).
 function Get-DawToolsDirectory { Join-Path (Get-DawStateDirectory) 'tools' }
@@ -25,11 +25,12 @@ function Get-DawModelArchive { 'linux.tar.gz' }
 # O modelo leva este ficheiro: só se reinstala ou actualiza unha distribución que o teña.
 function Get-DawModelMarker { [pscustomobject]@{Path='/etc/daw-dev-model';Value='daw-dev-v2'} }
 # A instalación anterior (paquete DAW-Aula, distribución Debian, proxecto en ~/proxectos/daw-dev).
-# CopiarModelo retira o paquete e cada conta retira o seu ao activar DAW Dev.
+# CopyPackage retira o paquete e cada conta retira o seu ao activar DAW Dev.
 function Get-DawLegacyInstall {
     [pscustomobject]@{
         PackageDirectory='C:\ProgramData\DAW-Aula';StateRelativePath='AppData\Local\DAW-Aula';Lock='instalacion.lock'
         LauncherDirectory='daw-dev-launcher';Shortcut='DAW - Proxectos (www).lnk'
+        ProjectPaths=@('/home/ad/proxectos/daw-dev','/home/alumno/proxectos/daw-dev')
         Distribution='Debian';MarkerPath='/etc/daw-aula-modelo';Marker='daw-aula-v1'
         RunValue='DAWAula';AutoStartCommand="& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'"
     }
@@ -122,29 +123,98 @@ function Remove-DawDistribution {
     Invoke-DawNative 'wsl.exe' @('--unregister',$Distribution)|Out-Null
     Remove-DawInstallDirectory $Distribution
 }
+function Get-DawWebRootBackupScript {
+    # Como root na distribución que se vai eliminar. Argumentos: destino en Windows e rutas posibles
+    # do proxecto. Copia o contido da raíz web configurada (WWW_DIR, por defecto ./www).
+    $text=@'
+set -euo pipefail
+dest=$(wslpath -u "$1")
+shift
+project=
+for candidate in "$@"; do
+    if [[ -f $candidate/compose.yaml ]]; then project=$candidate; break; fi
+done
+[[ -n $project ]] || exit 0
+www=./www
+if [[ -f $project/.env ]]; then
+    value=$(sed -n 's/^WWW_DIR=//p' "$project/.env" | tail -n 1)
+    value=${value%\"}; value=${value#\"}; value=${value%\'}; value=${value#\'}
+    [[ -z $value ]] || www=$value
+fi
+www=$(cd "$project" && realpath -m -- "$www")
+[[ -d $www && -n $(ls -A -- "$www") ]] || exit 0
+[[ ! -e $dest ]] || { echo "Xa existe $dest; non se sobrescribe." >&2; exit 1; }
+mkdir -p -- "$dest"
+cp -R --preserve=timestamps -- "$www/." "$dest/"
+echo copied
+'@
+    Expand-DawScriptTemplate $text
+}
+function Get-DawWebRootRestoreScript {
+    # Como ad na distribución nova. Os ficheiros quedan cos permisos por defecto de ad, non cos de Windows.
+    $text=@'
+set -euo pipefail
+src=$(wslpath -u "$1")
+www=$2
+[[ -d $src ]] || { echo "Falta a copia $src." >&2; exit 1; }
+mkdir -p -- "$www"
+cp -R --preserve=timestamps --no-preserve=mode -- "$src/." "$www/"
+'@
+    Expand-DawScriptTemplate $text
+}
+# Documentos da conta, onde quedan as copias da raíz web (pode estar en OneDrive).
+function Get-DawDocumentsDirectory { [Environment]::GetFolderPath('MyDocuments') }
+function Backup-DawWebRoot {
+    # Copia en Documentos a raíz web dunha distribución antes de eliminala; devolve a copia ou $null.
+    # A ruta queda en PendingRestore ata que Restore-DawPendingWebRoot a copie na distribución nova.
+    param([string]$Distribution,[string[]]$ProjectPaths,[string]$PendingRestore)
+    $documents=Get-DawDocumentsDirectory
+    if(-not $documents){throw 'Non se atopou o cartafol Documentos da conta.'}
+    # Ruta de Windows para wslpath: sen Join-Path, que fóra de Windows non coñece a unidade C:.
+    $target=$documents.TrimEnd('\')+'\DAW-Dev-www-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+$Distribution
+    $lines=@(Invoke-DawNative 'wsl.exe' (@('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawWebRootBackupScript),'daw-backup',$target)+$ProjectPaths))
+    if(-not(@($lines|ForEach-Object {$_.Trim()}) -contains 'copied')){return $null}
+    Add-Content -LiteralPath $PendingRestore -Value $target -Encoding UTF8
+    return $target
+}
+function Restore-DawPendingWebRoot {
+    # Copia na raíz web do proxecto as copias pendentes, na orde en que se fixeron. Os ficheiros
+    # copiados substitúen os do proxecto novo; a copia de Documentos consérvase.
+    param([string]$Distribution,[string]$PendingRestore)
+    if(-not(Test-Path -LiteralPath $PendingRestore -PathType Leaf)){return @()}
+    $restored=@()
+    foreach($backup in @(Get-Content -LiteralPath $PendingRestore -Encoding UTF8|Where-Object {$_.Trim()})){
+        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawWebRootRestoreScript),'daw-restore',$backup.Trim(),((Get-DawLinuxProjectPath)+'/www'))|Out-Null
+        $restored+=$backup.Trim()
+    }
+    Remove-Item -LiteralPath $PendingRestore -Force
+    return $restored
+}
 function Remove-DawLegacyInstall {
     # Na conta actual: a distribución, o estado, os lanzadores e o acceso directo anteriores.
-    # Unha Debian sen o marcador do modelo anterior é persoal e consérvase.
+    # Unha Debian sen o marcador do modelo anterior é persoal e consérvase. Antes de eliminar a
+    # distribución copia a súa raíz web en Documentos (PendingRestore).
+    param([string]$PendingRestore)
     $legacy=Get-DawLegacyInstall
-    $removed=@()
+    $result=[pscustomobject]@{Removed=@();Backup=$null}
     if($legacy.Distribution -in @(Get-DawDistributions) -and (Test-DawModelMarker $legacy.Distribution $legacy.MarkerPath $legacy.Marker)){
+        $result.Backup=Backup-DawWebRoot $legacy.Distribution $legacy.ProjectPaths $PendingRestore
         Remove-DawDistribution $legacy.Distribution $legacy.MarkerPath $legacy.Marker
-        $removed+="wsl:$($legacy.Distribution)"
+        $result.Removed+="wsl:$($legacy.Distribution)"
     }
     foreach($dir in @((Join-Path $env:LOCALAPPDATA (Split-Path -Leaf $legacy.StateRelativePath)),(Join-Path $env:LOCALAPPDATA $legacy.LauncherDirectory))){
         if(-not(Test-Path -LiteralPath $dir)){continue}
         if((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw "$dir é unha ligazón; conservouse."}
         Remove-Item -LiteralPath $dir -Recurse -Force
-        $removed+=$dir
+        $result.Removed+=$dir
     }
     $desktop=[Environment]::GetFolderPath('Desktop')
     if($desktop){
         $link=Join-Path $desktop $legacy.Shortcut
-        if(Test-Path -LiteralPath $link -PathType Leaf){Remove-Item -LiteralPath $link -Force;$removed+=$link}
+        if(Test-Path -LiteralPath $link -PathType Leaf){Remove-Item -LiteralPath $link -Force;$result.Removed+=$link}
     }
-    return $removed
+    return $result
 }
-
 function Get-DawRunCommand {
     # A orde dun valor Run creado por estes scripts (powershell.exe -EncodedCommand), ou $null.
     param([string]$Name)
@@ -188,7 +258,7 @@ function Find-DawCode {
     foreach($path in @((Join-Path $env:LOCALAPPDATA 'Programs\Microsoft VS Code\Code.exe'),(Join-Path $env:ProgramFiles 'Microsoft VS Code\Code.exe'),(Join-Path ${env:ProgramFiles(x86)} 'Microsoft VS Code\Code.exe'))){
         if(Test-Path -LiteralPath $path){return $path}
     }
-    throw 'Falta VS Code. Instalalo para este usuario ou indicar SenVSCode para unha instalación explicitamente sen IDE.'
+    throw 'Falta VS Code. Instalalo para este usuario ou indicar SkipVSCode para unha instalación explicitamente sen IDE.'
 }
 function Find-DawCodeCli {
     param([string]$Code)
@@ -258,11 +328,11 @@ function Test-DawRequestState {
 function Invoke-DawStudentInstall {
     param([int]$TimeoutSeconds=1800,[switch]$Reinstall,[switch]$WithoutCode)
     $target=Get-DawPackageDirectory
-    if(-not(Test-Path -LiteralPath "$target\daw-classroom.psm1")){throw 'Falta o paquete DAW Dev no equipo: executar antes CopiarModelo.'}
+    if(-not(Test-Path -LiteralPath "$target\daw-classroom.psm1")){throw 'Falta o paquete DAW Dev no equipo: executar antes CopyPackage.'}
     $arguments="-PackageDirectory '$target'"
-    if($Reinstall){$arguments+=' -Reinstalar'}
-    if($WithoutCode){$arguments+=' -SenVSCode'}
-    Invoke-DawUserTask 'InstalarUsuario' "$target\install-user.ps1" $arguments (Get-DawStateFiles).Install 'Instalación' $TimeoutSeconds
+    if($Reinstall){$arguments+=' -Reinstall'}
+    if($WithoutCode){$arguments+=' -SkipVSCode'}
+    Invoke-DawUserTask 'InstallUser' "$target\install-user.ps1" $arguments (Get-DawStateFiles).Install 'Instalación' $TimeoutSeconds
 }
 function Invoke-DawUserTask {
     # Runs a package script as the single connected student and waits for the state of THIS request.
@@ -562,8 +632,8 @@ function Invoke-DawProjectUpdate {
     $target=Get-DawProjectDirectory
     Assert-DawProjectOverlay $target|Out-Null
     $arguments="-PackageDirectory '$target'"
-    if($Restart){$arguments+=' -Reiniciar'}
-    Invoke-DawUserTask 'ActualizarProxecto' "$target\update-project.ps1" $arguments (Get-DawStateFiles).Project 'Actualización do proxecto' $TimeoutSeconds
+    if($Restart){$arguments+=' -Restart'}
+    Invoke-DawUserTask 'UpdateProject' "$target\update-project.ps1" $arguments (Get-DawStateFiles).Project 'Actualización do proxecto' $TimeoutSeconds
 }
 function Get-DawProjectOverlayScript {
     # Runs as ad. Arguments: source directory, optional image archive and SHA256, and file triples.

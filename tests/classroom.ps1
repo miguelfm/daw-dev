@@ -33,8 +33,8 @@ try{
         New-Item -ItemType Directory -Path $package|Out-Null
         $entry=Join-Path $package 'activate.ps1'
         [IO.File]::WriteAllText($entry,@'
-param([string]$Distribution,[switch]$Reinstalar,[switch]$SenVSCode,[switch]$SenPausa)
-Write-Output "$Distribution|$Reinstalar|$SenVSCode|$SenPausa"
+param([string]$Distribution,[switch]$Reinstall,[switch]$SkipVSCode,[switch]$NoPause)
+Write-Output "$Distribution|$Reinstall|$SkipVSCode|$NoPause"
 exit 0
 '@)
         $launcher=Join-Path $script:Repo 'windows/daw.ps1'
@@ -170,28 +170,57 @@ exit 0
                 & $script:M {
                     param($case)
                     $script:Calls=@();$script:Case=$case
+                    function script:Get-DawDocumentsDirectory {'C:\Users\proba\Documents'}
                     function script:Get-DawDistributions {'Debian','Ubuntu'}
-                    function script:Invoke-DawNative {param($File,$Arguments) $script:Calls+=, ($Arguments -join ' '); if($script:Case -eq 'model' -and ($Arguments -join ' ') -eq '-d Debian -u root --exec cat /etc/daw-aula-modelo'){'daw-aula-v1'}else{'other'}}
+                    function script:Invoke-DawNative {
+                        param($File,$Arguments)
+                        $line=$Arguments -join ' '
+                        $script:Calls+=, $(if($line -match ' daw-backup '){'backup '+$Arguments[-3]+' '+$Arguments[-2]+' '+$Arguments[-1]}else{$line})
+                        if($script:Case -ne 'model'){return 'other'}
+                        if($line -eq '-d Debian -u root --exec cat /etc/daw-aula-modelo'){return 'daw-aula-v1'}
+                        if($line -match ' daw-backup '){return 'copied'}
+                        'other'
+                    }
                 } $case
-                $removed=@(Remove-DawLegacyInstall)
+                $pending=Join-Path $env:LOCALAPPDATA 'web-restore.txt'
+                $result=Remove-DawLegacyInstall -PendingRestore $pending
+                $removed=@($result.Removed)
                 $calls=@(& $script:M {$script:Calls})
                 Assert (-not(Test-Path (Join-Path $env:LOCALAPPDATA 'DAW-Aula')) -and -not(Test-Path (Join-Path $env:LOCALAPPDATA 'daw-dev-launcher'))) "$case`: old state or launchers remain"
                 if($case -eq 'model'){
                     Assert ($calls -contains '--unregister Debian' -and $removed -contains 'wsl:Debian' -and -not(Test-Path (Join-Path $env:LOCALAPPDATA 'wsl/Debian')))
+                    $backup=[array]::IndexOf($calls,($calls -match '^backup ')[0]);$unregister=[array]::IndexOf($calls,'--unregister Debian')
+                    Assert ($backup -ge 0 -and $backup -lt $unregister) 'The web root must be copied before removing the distribution'
+                    Assert (($calls -match '^backup ')[0] -match ' /home/ad/proxectos/daw-dev /home/alumno/proxectos/daw-dev$') 'Old project paths'
+                    Assert ($result.Backup -match 'DAW-Dev-www-\d{8}-\d{6}-Debian$' -and (Get-Content $pending) -eq $result.Backup) 'The copy must be pending restore'
                 }else{
-                    Assert (-not($calls -match '--unregister') -and (Test-Path (Join-Path $env:LOCALAPPDATA 'wsl/Debian'))) 'A personal Debian must be kept'
+                    Assert (-not($calls -match '--unregister|^backup') -and (Test-Path (Join-Path $env:LOCALAPPDATA 'wsl/Debian'))) 'A personal Debian must be kept'
+                    Assert ($null -eq $result.Backup -and -not(Test-Path $pending))
                 }
                 Assert (-not($calls -match 'Ubuntu')) 'Only the legacy distribution name is checked'
             }
         }finally{$env:LOCALAPPDATA=$saved}
     }
+    Test 'pending web root copies are restored in order into the new www, then forgotten' {
+        $pending=Join-Path $script:Temp 'web-restore.txt'
+        Assert (@(Restore-DawPendingWebRoot 'linux' $pending).Count -eq 0) 'Nothing pending'
+        Set-Content -LiteralPath $pending -Value @('C:\Users\a\Documents\DAW-Dev-www-1-Debian','C:\Users\a\Documents\DAW-Dev-www-2-linux') -Encoding UTF8
+        & $script:M {$script:Calls=@();function script:Invoke-DawNative {param($File,$Arguments) $script:Calls+=, $Arguments}}
+        $restored=@(Restore-DawPendingWebRoot 'linux' $pending)
+        $calls=@(& $script:M {$script:Calls})
+        Assert ($restored.Count -eq 2 -and $calls.Count -eq 2 -and -not(Test-Path $pending))
+        Assert (($calls[0][0..5] -join ' ') -eq '-d linux -u ad --exec bash' -and $calls[0][-2] -like '*DAW-Dev-www-1-Debian' -and $calls[0][-1] -eq '/home/ad/workspace/www')
+        Assert ((Get-DawWebRootBackupScript) -match 'WWW_DIR' -and (Get-DawWebRootRestoreScript) -match '--no-preserve=mode')
+    }
     Test 'the installer removes the previous install and only reinstalls on request' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
         $package=$t.IndexOf('Assert-DawPackage $PackageDirectory');$legacy=$t.IndexOf('Remove-DawLegacyInstall');$check=$t.IndexOf('Test-DawModelMarker $Distribution')
         Assert ($package -gt 0 -and $package -lt $legacy -and $legacy -lt $check)
-        $refuse=$t.IndexOf('elseif(-not $Reinstalar){throw');$remove=$t.IndexOf('Remove-DawDistribution $Distribution')
+        $refuse=$t.IndexOf('elseif(-not $Reinstall){throw');$remove=$t.IndexOf('Remove-DawDistribution $Distribution')
         Assert ($refuse -gt $check -and $remove -gt $refuse) 'Another package must be refused before any removal'
-        Assert ($t.Contains('if($origin -eq $manifest.Sha256 -and -not $Reinstalar){$import=$false}')) 'The same package must keep the distribution'
+        $backup=$t.IndexOf('Backup-DawWebRoot $Distribution');$import=$t.IndexOf("'--import'");$restore=$t.IndexOf('Restore-DawPendingWebRoot')
+        Assert ($refuse -lt $backup -and $backup -lt $remove -and $remove -lt $import -and $import -lt $restore) 'Copy, remove, import and restore, in this order'
+        Assert ($t.Contains('if($origin -eq $manifest.Sha256 -and -not $Reinstall){$import=$false}')) 'The same package must keep the distribution'
         foreach($f in Get-ChildItem (Join-Path $script:Repo 'windows') -Recurse -Include *.ps1){Assert (-not([IO.File]::ReadAllText($f.FullName).Contains('--unregister'))) "$($f.Name) unregisters outside the module"}
     }
     Test 'default copy does not re-enable autostart; explicit opt-in is separate' {
@@ -377,7 +406,7 @@ exit 0
         Throws {Assert-DawPackage $dest} 'imaxe Docker'
         Throws {Get-DawPackageImages ([pscustomobject]@{Images=@([pscustomobject]@{File='../x.tar';Sha256=('a'*64);Name='x'})})} 'non recoñecida'
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
-        Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopiarModelo must copy the extra images'
+        Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopyPackage must copy the extra images'
     }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
@@ -406,22 +435,22 @@ exit 0
         New-Item -ItemType Directory -Path (Join-Path $dir 'project') -Force|Out-Null
         Copy-Item (Join-Path $script:Repo 'windows/classroom/activate.ps1') $dir
         $log=Join-Path $dir 'calls.txt'
-        [IO.File]::WriteAllText((Join-Path $dir 'install-user.ps1'),"param(`$PackageDirectory,[switch]`$Reinstalar,[switch]`$SenVSCode,`$Distribution) Add-Content '$log' ('install '+`$PackageDirectory+' '+`$Reinstalar+' '+`$Distribution); if(`$env:DAW_TEST_FAIL){throw 'install failed'}")
+        [IO.File]::WriteAllText((Join-Path $dir 'install-user.ps1'),"param(`$PackageDirectory,[switch]`$Reinstall,[switch]`$SkipVSCode,`$Distribution) Add-Content '$log' ('install '+`$PackageDirectory+' '+`$Reinstall+' '+`$Distribution); if(`$env:DAW_TEST_FAIL){throw 'install failed'}")
         [IO.File]::WriteAllText((Join-Path $dir 'project/update-project.ps1'),"param(`$PackageDirectory,`$Distribution) Add-Content '$log' ('project '+`$PackageDirectory+' '+`$Distribution)")
         $script=Join-Path $dir 'activate.ps1'
         # Sen project.json no equipo, só instala.
-        $null=& $exe -NoProfile -File $script -SenPausa
+        $null=& $exe -NoProfile -File $script -NoPause
         Assert ($LASTEXITCODE -eq 0)
         $calls=@(Get-Content $log)
         Assert ($calls.Count -eq 1 -and $calls[0] -eq "install $dir False ") ($calls -join ';')
         [IO.File]::WriteAllText((Join-Path $dir 'project/project.json'),'{}')
         Remove-Item $log
-        $null=& $exe -NoProfile -File $script -SenPausa -Reinstalar -Distribution linux-proba
+        $null=& $exe -NoProfile -File $script -NoPause -Reinstall -Distribution linux-proba
         $calls=@(Get-Content $log)
         Assert ($LASTEXITCODE -eq 0 -and $calls.Count -eq 2 -and $calls[0] -eq "install $dir True linux-proba" -and $calls[1] -eq ('project '+(Join-Path $dir 'project')+' linux-proba')) ($calls -join ';')
         Remove-Item $log
         $env:DAW_TEST_FAIL='1'
-        try{$out=& $exe -NoProfile -File $script -SenPausa 6>&1|Out-String}finally{Remove-Item Env:\DAW_TEST_FAIL}
+        try{$out=& $exe -NoProfile -File $script -NoPause 6>&1|Out-String}finally{Remove-Item Env:\DAW_TEST_FAIL}
         Assert ($LASTEXITCODE -eq 1 -and @(Get-Content $log).Count -eq 1 -and $out -match 'install failed')
         # O executor de GitHub remata co último LASTEXITCODE: o fallo simulado non pode quedar nel.
         $global:LASTEXITCODE=0
@@ -435,7 +464,7 @@ exit 0
             Assert ($link.Arguments -eq '-NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\DAW-Dev\activate.ps1"')
         }
     }
-    Test 'CopiarModelo stages the project and creates the start menu entry, without autostart' {
+    Test 'CopyPackage stages the project and creates the start menu entry, without autostart' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
         foreach($s in 'Initialize-DawProjectDirectory','Assert-DawProjectOverlay (Get-DawProjectDirectory)','Set-DawStartMenuShortcut','Set-DawAutoStart -Enabled:$enableAuto','Remove-DawLegacyPackage'){Assert ($t.Contains($s)) "Missing: $s"}
         Assert ($t.IndexOf('Assert-DawNoInstallRunning') -lt $t.IndexOf('Remove-DawLegacyPackage')) 'Running installers must be checked before removing the previous package'
@@ -490,9 +519,9 @@ exit 0
     }
     Test 'manage.ps1 runs posts in parallel only for the bulk actions' {
         $f=Join-Path $script:Repo 'windows/classroom/manage.ps1'
-        Throws {& $f -Action Estado -Numero 1 -ThrottleLimit 2} 'ThrottleLimit'
-        Throws {& $f -Action ActualizarProxecto -Numero 1 -Reinstalar} 'Reinstalar só'
-        Throws {& $f -Action InstalarUsuario -Numero 1 -Reiniciar} 'Reiniciar só'
+        Throws {& $f -Action Status -Number 1 -ThrottleLimit 2} 'ThrottleLimit'
+        Throws {& $f -Action UpdateProject -Number 1 -Reinstall} 'Reinstall só'
+        Throws {& $f -Action InstallUser -Number 1 -Restart} 'Restart só'
         $t=[IO.File]::ReadAllText($f)
         foreach($s in 'Invoke-DawBoundedJobs $numbers $ThrottleLimit $worker $arguments','@($PSCommandPath,$Action'){Assert ($t.Contains($s)) "Missing: $s"}
         Assert (-not(Test-Path -LiteralPath (Join-Path $script:Repo 'windows/classroom/gestionar-aula-paralelo.ps1')))
@@ -604,7 +633,7 @@ exit 0
             Assert ($principal.User -eq 'S-1-5-21-123' -and $principal.Logon -eq 'Interactive' -and $principal.Level -eq 'Limited')
             Assert (((& $script:M {$script:Trace}) -join ',') -eq 'registered,started,stopped,removed')
             $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(((& $script:M {$script:Command}) -split ' ')[-1]))
-            $expected=if($kind -eq 'install'){"^& 'C:\\ProgramData\\DAW-Dev\\install-user\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev'$"}else{"^& 'C:\\ProgramData\\DAW-Dev\\project\\update-project\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev\\project' -Reiniciar$"}
+            $expected=if($kind -eq 'install'){"^& 'C:\\ProgramData\\DAW-Dev\\install-user\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev'$"}else{"^& 'C:\\ProgramData\\DAW-Dev\\project\\update-project\.ps1' -RequestId '[0-9a-f]{32}' -ExpectedUserSid 'S-1-5-21-123' -PackageDirectory 'C:\\ProgramData\\DAW-Dev\\project' -Restart$"}
             Assert ($decoded -match $expected) ('Unexpected task command: '+$decoded)
         }
     }

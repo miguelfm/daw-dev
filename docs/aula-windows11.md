@@ -3,7 +3,7 @@
 Este procedemento está pensado para **contas persoais de alumnado**, WSL2 cunha distribución Debian chamada `linux` e Docker Engine.
 O profesor administra desde `172.21.34.100`; os equipos de alumnado son `172.21.34.1–35`.
 Os exemplos usan o dominio `iesrodolfoucha.es` e nomes `A34EQ01`…`A34EQ35`.
-Con `-Aula 31 -Numero 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 31.
+Con `-Classroom 31 -Number 1` as mesmas ferramentas apuntan só ao equipo 01 da aula 31.
 
 Desde o 26/11/2026 o paquete chámase **DAW Dev** e substitúe sen migración a instalación anterior (DAW-Aula, distribución `Debian`, proxecto en `~/proxectos/daw-dev`): véxase [pasar á instalación DAW Dev](#pasar-á-instalación-daw-dev). Os paquetes anteriores non se poden reutilizar.
 
@@ -16,8 +16,8 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 3. Constrúe **un modelo limpo**, baseado en Debian, con Docker Engine, Compose, o proxecto e as tres imaxes descargadas.
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Dev`, protexido contra escritura do alumnado.
 5. **Activación da contorna:**
-   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
-   - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
+   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\windows\classroom\manage.ps1 -Action InstallUser -Classroom 31` (ou `-Classroom 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
+   - **En aulas de uso exclusivo:** Só engadindo `-AutoStart` a `CopyPackage` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
 6. Cada conta ten a distribución `linux`, co usuario **`ad`** e o proxecto en `/home/ad/workspace`. O acceso directo **«DAW - Web»** do Escritorio abre o seu `www`. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar a distribución como administrador non a instala
@@ -49,10 +49,10 @@ Desde a raíz deste repositorio:
 
 ```powershell
 # Proba pequena, aula 31
-.\windows\classroom\manage.ps1 -Action Comprobar -Aula 31 -Numero 1 | Format-Table -AutoSize
+.\windows\classroom\manage.ps1 -Action Check -Classroom 31 -Number 1 | Format-Table -AutoSize
 
 # Aula de destino completa: non modifica os equipos
-.\windows\classroom\manage.ps1 -Action Comprobar -Aula 34 | Format-Table -AutoSize
+.\windows\classroom\manage.ps1 -Action Check -Classroom 34 | Format-Table -AutoSize
 ```
 
 Os portos son `5985` (WinRM HTTP), `5986` (WinRM HTTPS) e `11100` (Veyon).
@@ -68,8 +68,8 @@ Invoke-Command -ComputerName A31EQ01.iesrodolfoucha.es -Authentication Kerberos 
 Comeza sempre cun equipo libre e despois estende o procedemento.
 
 ```powershell
-.\windows\classroom\manage.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
-.\windows\classroom\manage.ps1 -Action PrepararWSL -Aula 31 -Numero 1
+.\windows\classroom\manage.ps1 -Action EnableWinRM -Classroom 31 -Number 1
+.\windows\classroom\manage.ps1 -Action InstallWSL -Classroom 31 -Number 1
 ```
 
 O primeiro comando descarga PsExec desde Microsoft se falta, comproba a súa sinatura e executa a preparación
@@ -89,12 +89,12 @@ Invoke-Command -ComputerName $equipos -Authentication Kerberos -ScriptBlock {
 }
 ```
 
-Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, engade `-ThrottleLimit` a `manage.ps1`: as accións `PrepararWSL`, `CopiarModelo` e `ActualizarProxecto` atenden entón ata ese número de equipos á vez, cada un nun *job* de PowerShell (máximo 10). O tempo depende da rede e dos discos:
+Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, engade `-ThrottleLimit` a `manage.ps1`: as accións `InstallWSL`, `CopyPackage` e `UpdateProject` atenden entón ata ese número de equipos á vez, cada un nun *job* de PowerShell (máximo 10). O tempo depende da rede e dos discos:
 
 ```powershell
 # Preparación concorrente en lotes de 5
-.\windows\classroom\manage.ps1 -Action PrepararWSL -Aula 34 -Numero @(1..5) -ThrottleLimit 5
-.\windows\classroom\manage.ps1 -Action CopiarModelo -Aula 34 -Numero @(1..5) -ThrottleLimit 5 -PackageDirectory C:\DAW-Paquete-2026
+.\windows\classroom\manage.ps1 -Action InstallWSL -Classroom 34 -Number @(1..5) -ThrottleLimit 5
+.\windows\classroom\manage.ps1 -Action CopyPackage -Classroom 34 -Number @(1..5) -ThrottleLimit 5 -PackageDirectory C:\DAW-Paquete-2026
 ```
 
 ## 3. Construír o modelo unha vez
@@ -142,7 +142,7 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 ## 4. Copiar aos equipos e activar por usuario
 
 ```powershell
-.\windows\classroom\manage.ps1 -Action CopiarModelo -Aula 31 -Numero 1 -PackageDirectory C:\DAW-Paquete-2026
+.\windows\classroom\manage.ps1 -Action CopyPackage -Classroom 31 -Number 1 -PackageDirectory C:\DAW-Paquete-2026
 ```
 
 Verifica o SHA256 antes e despois da copia. A carpeta local só permite escritura a SYSTEM e Administradores;
@@ -151,17 +151,17 @@ no momento de iniciar sesión.
 
 Antes de copiar retira do posto o paquete anterior, `C:\ProgramData\DAW-Aula`, e o seu autoarranque
 (`DAWAula` en `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`), se non hai unha instalación en curso.
-Por defecto retira tamén a entrada `DAWDev` dese mesmo sitio, conservando a activación baixo demanda. Para unha aula exclusiva, `-AutoInicio` permite expresamente executar o instalador na conta que inicia sesión. Non se modifica a política permanente de execución de PowerShell. A copia comproba tamén os hashes dos scripts; para cambiar só os scripts dun paquete, usar `update-package.ps1`.
+Por defecto retira tamén a entrada `DAWDev` dese mesmo sitio, conservando a activación baixo demanda. Para unha aula exclusiva, `-AutoStart` permite expresamente executar o instalador na conta que inicia sesión. Non se modifica a política permanente de execución de PowerShell. A copia comproba tamén os hashes dos scripts; para cambiar só os scripts dun paquete, usar `update-package.ps1`.
 
 Se xa está conectado o alumno, non necesita pechar sesión:
 
 ```powershell
-.\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 31 -Numero 1
-.\windows\classroom\manage.ps1 -Action Estado -Aula 31 -Numero 1 | Format-List
+.\windows\classroom\manage.ps1 -Action InstallUser -Classroom 31 -Number 1
+.\windows\classroom\manage.ps1 -Action Status -Classroom 31 -Number 1 | Format-List
 ```
 
 A tarefa usa `LogonType Interactive` e `RunLevel Limited`: non pide contrasinais nin usa SYSTEM.
-O comando espera o resultado do GUID e SID da solicitude actual, con timeout e comprobación de erros. **Estado** mostra o último informe por perfil, coa súa data e RequestId; non confundir un rexistro histórico cunha instalación nova.
+O comando espera o resultado do GUID e SID da solicitude actual, con timeout e comprobación de erros. **Status** mostra o último informe por perfil, coa súa data e RequestId; non confundir un rexistro histórico cunha instalación nova.
 Os rexistros por usuario están en `%LOCALAPPDATA%\DAW-Dev\install.log` e `install-state.json`.
 Para executalo manualmente, na conta do alumno:
 
@@ -175,24 +175,25 @@ Nas aulas que se comparten con outros ciclos ou materias onde o resto do alumnad
 - **Sen auto-inicio en `HKLM`:** Retírase a entrada `DAWDev` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`. Deste xeito, os alumnos alleos traballan sen que Windows execute ningún proceso nin xere accesos directos.
 - **Activación puntual na clase de DAW:** Cando os alumnos do módulo están cos equipos iniciados, o profesor activa a contorna desde o seu equipo cun só comando:
   ```powershell
-  .\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 34
+  .\windows\classroom\manage.ps1 -Action InstallUser -Classroom 34
   ```
 - A importación execútase de xeito limpo, interactivo e unicamente no perfil do alumno de DAW que estea presente nese posto.
 
 Repetir o instalador co mesmo paquete conserva a distribución e o traballo. Se a conta ten a distribución
-doutro paquete, detense: `-Reinstalar` (en `InstalarUsuario`, ou `daw-activate -Reinstall` no alumno) elimínaa
-con todo o seu contido e importa a nova. Para levar cambios aos proxectos sen reinstalar está a acción seguinte.
+doutro paquete, detense: `-Reinstall` (en `InstallUser`, ou `daw-activate -Reinstall` no alumno) elimínaa
+con todo o seu contido e importa a nova. Como coa instalación anterior, copia antes a raíz web en
+`Documentos\DAW-Dev-www-<data>-linux` e despois cópiaa no `www` novo. Para levar cambios aos proxectos sen reinstalar está a acción seguinte.
 
 ### Actualizar os ficheiros dos proxectos xa importados
 
-`ActualizarProxecto` copia `windows/classroom/overlay` en `/home/ad/workspace` da
+`UpdateProject` copia `windows/classroom/overlay` en `/home/ad/workspace` da
 distribución do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
 regras da copia están no [README dos ficheiros do proxecto](../windows/classroom/README.md).
 
 ```powershell
 # Primeiro nun posto; despois no resto, de 5 en 5
-.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16 | Format-List
-.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero @(1..35) -ThrottleLimit 5
+.\windows\classroom\manage.ps1 -Action UpdateProject -Classroom 34 -Number 16 | Format-List
+.\windows\classroom\manage.ps1 -Action UpdateProject -Classroom 34 -Number @(1..35) -ThrottleLimit 5
 ```
 
 Para cada posto:
@@ -203,7 +204,7 @@ Para cada posto:
    SYSTEM e Administradores) e baleira o anterior, se non hai unha instalación en curso.
 3. Copia o directorio por SMB, restablece as ACL e volve comprobar os SHA256 no posto.
 4. Executa `update-project.ps1` cunha tarefa temporal co token do alumno conectado, como
-   `InstalarUsuario`, e agarda polo `project-state.json` desa solicitude.
+   `InstallUser`, e agarda polo `project-state.json` desa solicitude.
 
 No alumno, o script comproba que a distribución ten o marcador do modelo DAW Dev e copia
 os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e as listas `Created`,
@@ -211,16 +212,16 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
 `%LOCALAPPDATA%\DAW-Dev\project.log` e `project-state.json`.
 
 - Necesita unha única sesión de alumno no posto. Sen sesión, ou se a conta aínda non ten
-  a distribución `linux`, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Numero`.
-- O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopiarModelo`.
-- Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start`. `-Reiniciar` recrea
+  a distribución `linux`, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Number`.
+- O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopyPackage`.
+- Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start`. `-Restart` recrea
   o contedor web se está en marcha; pecha unha sesión aberta de Dev Containers e as sesións de PHP.
 - Repetila coa mesma revisión non cambia nada. Unha conta que active DAW Dev despois recibe
-  os ficheiros da copia que deixou `CopiarModelo`; os dun `ActualizarProxecto` posterior, ao repetilo.
+  os ficheiros da copia que deixou `CopyPackage`; os dun `UpdateProject` posterior, ao repetilo.
 
 Para distribuír cambios nos lanzadores de Windows ou no acceso directo do Escritorio,
 actualiza o paquete con `update-package.ps1`, cópiao aos postos e volve executar
-**Activar DAW Dev** na conta do alumno. `ActualizarProxecto` aplica os ficheiros da
+**Activar DAW Dev** na conta do alumno. `UpdateProject` aplica os ficheiros da
 distribución. A activación instala os lanzadores e actualiza o acceso directo.
 
 ### Pasar á instalación DAW Dev
@@ -239,18 +240,23 @@ A instalación DAW Dev (26/11/2026) substitúe a anterior sen migrar nada:
 
 O contedor xa non imita a MV de DWCS: os enunciados usan `/home/ad/data`.
 
-1. **O alumnado garda o seu traballo** (`www/`, `datos/`, `angular/` e o que precise das bases
+1. **O alumnado garda o que non sexa código web** (`datos/`, `angular/` e o que precise das bases
    de datos) fóra da distribución, por exemplo en OneDrive ou nun repositorio Git. A reinstalación
-   elimina a distribución anterior con todo o seu contido, sen copia.
+   elimina a distribución anterior con todo o seu contido. Só a raíz web (`www`, ou a que indique
+   `WWW_DIR` no `.env`) se copia automaticamente, como se explica no punto 4.
 2. Constrúe un paquete novo con `build-package.ps1` (os paquetes de DAW-Aula non valen) e engade
    as imaxes adicionais con `add-package-image.ps1`, como nas seccións seguintes.
-3. `CopiarModelo` en cada posto. Retira o paquete anterior e o seu autoarranque, e deixa
+3. `CopyPackage` en cada posto. Retira o paquete anterior e o seu autoarranque, e deixa
    **Activar DAW Dev** no menú Inicio, que agora executa `activate.ps1`.
-4. Cada conta executa **Activar DAW Dev**, ou o profesor `InstalarUsuario` co alumno
+4. Cada conta executa **Activar DAW Dev**, ou o profesor `InstallUser` co alumno
    conectado. A primeira vez retira a instalación anterior da conta: a distribución `Debian`
    (só se ten o marcador `/etc/daw-aula-modelo` do modelo anterior; unha Debian persoal
    consérvase), `%LOCALAPPDATA%\DAW-Aula`, `%LOCALAPPDATA%\daw-dev-launcher` e o acceso directo
-   vello. Despois importa `linux` e instala os lanzadores novos.
+   vello. Antes de eliminar a distribución copia o contido da súa raíz web en
+   `Documentos\DAW-Dev-www-<data>-Debian`. Despois importa `linux`, copia ese contido en
+   `~/workspace/www` (substitúe os ficheiros co mesmo nome) e instala os lanzadores novos. A copia
+   de Documentos consérvase. Se a activación falla despois de copiar, a seguinte restaura a copia
+   pendente (`%LOCALAPPDATA%\DAW-Dev\web-restore.txt`).
 
 As contas que non se activen conservan a súa Debian anterior ata que o fagan, pero os seus
 lanzadores xa non atopan o paquete: deben usar **Activar DAW Dev**. Proba primeiro nun posto
@@ -282,7 +288,7 @@ mesmos 45 módulos de PHP ca a 8.5.
 
 ### Activación manual desde o menú Inicio
 
-`CopiarModelo` deixa tamén en cada equipo os ficheiros do proxecto
+`CopyPackage` deixa tamén en cada equipo os ficheiros do proxecto
 (`C:\ProgramData\DAW-Dev\project`, cos seus SHA256) e a entrada **DAW Dev → Activar DAW
 Dev** no menú Inicio común. Calquera usuario a executa cando a necesita, sen administración:
 `activate.ps1` lanza `install-user.ps1` na súa conta e despois
@@ -307,7 +313,7 @@ despois da activación.
   reciba as ordes `daw-*` e os ficheiros do proxecto novos.
 - O instalador rexeita as contas con elevación, como o Administrador integrado (`-500`);
   comprobado no posto A34EQ01. Unha conta de dominio con UAC actívase sen elevar.
-- `InstalarUsuario` e `ActualizarProxecto` seguen dispoñibles para facelo desde o
+- `InstallUser` e `UpdateProject` seguen dispoñibles para facelo desde o
   profesor co alumno conectado.
 
 ### Imaxes Docker adicionais: Angular (DWCC)
@@ -325,7 +331,7 @@ sen Internet:
 ```
 
 O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
-`CopiarModelo` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
+`CopyPackage` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
 conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
 Compose non para os servizos dun perfil.
 
@@ -358,11 +364,11 @@ foreach ($p in @(
     @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'))) {
     .\windows\classroom\add-package-image.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
 }
-.\windows\classroom\manage.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
-.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+.\windows\classroom\manage.ps1 -Action CopyPackage -PackageDirectory $paquete -Classroom 34 -Number 16
+.\windows\classroom\manage.ps1 -Action UpdateProject -Classroom 34 -Number 16
 ```
 
-`ActualizarProxecto` leva o `compose.yaml` co perfil `doc`, e **Activar DAW Dev**, a
+`UpdateProject` leva o `compose.yaml` co perfil `doc`, e **Activar DAW Dev**, a
 orde `daw-start-doc`. A primeira vez en cada conta, `daw-start-doc` carga as imaxes que
 falten desde `C:\ProgramData\DAW-Dev` con `docker load`; despois arranca nuns
 segundos. Como os outros servizos, os portos só escoitan en `127.0.0.1`, e
@@ -415,7 +421,7 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 `ad` é a conta do modelo WSL e da terminal do contedor PHP. As rutas de traballo son:
 - **Desde o Explorador de ficheiros:** `\\wsl.localhost\linux\home\ad\workspace\www`. Tamén podes usar o acceso directo **«DAW - Web»** ou `daw-web-root -Open`. Os datos das tarefas están en `\\wsl.localhost\linux\home\ad\workspace\data`.
 - **Con VS Code e Dev Containers:**
-  O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SenVSCode`. O alumno só ten que executar:
+  O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SkipVSCode`. O alumno só ten que executar:
   ```powershell
   daw-code
   ```
@@ -431,7 +437,7 @@ control administrativo **dentro desta distribución**, como explica a documentac
 O alumno debe parar a contorna antes de pechar sesión. Evita deixar dous usuarios executando servizos
 simultaneamente no mesmo Windows: os portos locais son compartidos e poderían entrar en conflito.
 Non se configura autoinicio dos contedores ao iniciar Windows nin se usa `down -v` ou `prune` nos scripts
-de usuario. Só a activación elimina distribucións: a do modelo anterior e, con `-Reinstalar`, a propia.
+de usuario. Só a activación elimina distribucións: a do modelo anterior e, con `-Reinstall`, a propia.
 
 ## 6. Apagado remoto da aula desde o posto do profesor
 
@@ -439,10 +445,10 @@ Ao rematar a xornada, o profesorado pode apagar todos os equipos da aula de form
 
 ```powershell
 # Desde PowerShell no equipo 100:
-.\windows\classroom\manage.ps1 -Action Apagar -Aula 34
+.\windows\classroom\manage.ps1 -Action PowerOff -Classroom 34
 
 # Ou chamando directamente ao script de apagado:
-.\windows\classroom\power-off.ps1 -Aula 34
+.\windows\classroom\power-off.ps1 -Classroom 34
 ```
 
 ### Arquitectura de apagado en dúas fases (tolerante a fallos)
@@ -466,10 +472,10 @@ Para acender os equipos dos alumnos ao inicio da xornada sen desprazarse posto p
 
 ```powershell
 # Acender todos os equipos da Aula 31:
-.\windows\classroom\power-on.ps1 -Aula 31
+.\windows\classroom\power-on.ps1 -Classroom 31
 
 # Acender un posto específico (ex. equipo 01) con monitorización:
-.\windows\classroom\power-on.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
+.\windows\classroom\power-on.ps1 -Classroom 31 -Number 1 -Monitor
 ```
 
 Tamén pode empregarse a interface gráfica de **Veyon Master** seleccionando os equipos e premendo no botón **«Encender»**, grazas ao saneamento e rexistro previo das MACs en `BuiltinDirectory/NetworkObjects` (rexistradas no ficheiro de apoio `windows/classroom/a31-macs.csv`).

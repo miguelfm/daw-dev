@@ -16,17 +16,17 @@
     Ruta a un wsl.<versión>.x64.msi xa descargado (carpeta compartida, USB...).
     Sen este parámetro descárgase a última versión de GitHub.
 
-.PARAMETER Reiniciar
+.PARAMETER Restart
     Reinicia o equipo ao rematar, se fai falta.
 
 .EXAMPLE
     .\install-wsl.ps1
 .EXAMPLE
-    .\install-wsl.ps1 -MsiPath \\servidor\dwcs\wsl.3.0.1.0.x64.msi -Reiniciar
+    .\install-wsl.ps1 -MsiPath \\servidor\dwcs\wsl.3.0.1.0.x64.msi -Restart
 #>
 param(
     [string]$MsiPath,
-    [switch]$Reiniciar
+    [switch]$Restart
 )
 
 $ErrorActionPreference = 'Stop'
@@ -81,7 +81,7 @@ if ($wslInstalado) {
 }
 
 if ($reinicio) {
-    if ($Reiniciar) { Info "Reiniciando..."; Restart-Computer -Force }
+    if ($Restart) { Info "Reiniciando..."; Restart-Computer -Force }
     else { Info "FEITO. Reinicia o equipo para rematar a instalación." }
 } else {
     Info "FEITO. Non fai falta reiniciar."

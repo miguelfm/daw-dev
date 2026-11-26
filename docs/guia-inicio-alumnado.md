@@ -23,8 +23,10 @@ Repetir a activación é seguro: conserva os teus ficheiros e as bases de
 datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 
 Se a conta tiña a instalación anterior (a distribución `Debian`, co proxecto
-en `~/proxectos/daw-dev`), a primeira activación bórraa con todo o seu
-contido. Garda antes fóra dela o que queiras conservar.
+en `~/proxectos/daw-dev`), a primeira activación bórraa. Antes copia o teu
+código web en `Documentos\DAW-Dev-www-<data>-Debian` e despois pono no `www`
+novo. O resto (`datos`, os proxectos de Angular e as bases de datos)
+pérdese: gárdao antes fóra dela.
 
 ## Onde están os ficheiros
 

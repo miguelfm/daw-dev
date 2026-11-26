@@ -3,22 +3,22 @@
 .SYNOPSIS
 Comproba WinRM e Veyon sen modificar os equipos. Por defecto, aula 34, equipos 1-35.
 .EXAMPLE
-.\check-remote.ps1 -Aula 31 -Numero 1 | Format-Table -AutoSize
+.\check-remote.ps1 -Classroom 31 -Number 1 | Format-Table -AutoSize
 #>
 [CmdletBinding()]
 param(
-    [ValidateRange(1,254)][int]$Aula = 34,
-    [ValidateRange(1,35)][int[]]$Numero = (1..35),
-    [string]$Dominio = 'iesrodolfoucha.es',
+    [ValidateRange(1,254)][int]$Classroom = 34,
+    [ValidateRange(1,35)][int[]]$Number = (1..35),
+    [string]$Domain = 'iesrodolfoucha.es',
     [ValidateRange(200,10000)][int]$TimeoutMs = 2500
 )
 $ErrorActionPreference = 'Stop'
-$pending = foreach ($n in $Numero) {
+$pending = foreach ($n in $Number) {
     foreach ($port in 5985,5986,11100) {
         $client = New-Object System.Net.Sockets.TcpClient
         [pscustomobject]@{
-            Numero = $n; Address = "172.21.$Aula.$n"; Port = $port
-            Client = $client; Async = $client.BeginConnect("172.21.$Aula.$n", $port, $null, $null)
+            Number = $n; Address = "172.21.$Classroom.$n"; Port = $port
+            Client = $client; Async = $client.BeginConnect("172.21.$Classroom.$n", $port, $null, $null)
         }
     }
 }
@@ -29,17 +29,17 @@ foreach ($request in $pending) {
     try {
         if ($request.Async.IsCompleted) { $request.Client.EndConnect($request.Async); $open = $true }
     } catch { } finally { $request.Client.Dispose() }
-    $ports["$($request.Numero):$($request.Port)"] = $open
+    $ports["$($request.Number):$($request.Port)"] = $open
 }
-foreach ($n in $Numero) {
-    $computer = 'A{0}EQ{1:D2}.{2}' -f $Aula,$n,$Dominio
+foreach ($n in $Number) {
+    $computer = 'A{0}EQ{1:D2}.{2}' -f $Classroom,$n,$Domain
     $wsman = 'Sen resposta TCP'
     if ($ports["${n}:5985"]) {
         try { $null = Test-WSMan -ComputerName $computer -ErrorAction Stop; $wsman = 'WSMan responde' }
         catch { $wsman = $_.Exception.Message }
     }
     [pscustomobject]@{
-        Equipo = $computer; IP = "172.21.$Aula.$n"
+        Computer = $computer; IP = "172.21.$Classroom.$n"
         WinRM_HTTP = $ports["${n}:5985"]; WinRM_HTTPS = $ports["${n}:5986"]
         Veyon = $ports["${n}:11100"]; Diagnostico = $wsman
     }

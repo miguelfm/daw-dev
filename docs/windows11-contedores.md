@@ -47,7 +47,7 @@ os dous scripts a un cartafol temporal de Windows antes de executar o instalador
 Así podes actualizar os lanzadores directamente desde a copia activa de Debian.
 
 ```powershell
-$project = '/home/uxia/proxectos/daw-dev'
+$project = '/home/uxia/workspace'
 wsl.exe -d Debian --exec true
 $source = '\\wsl.localhost\Debian' + ($project -replace '/', '\')
 $setup = Join-Path $env:TEMP ('daw-dev-setup-' + [guid]::NewGuid().ToString('N'))
@@ -63,7 +63,7 @@ activación da conta. [Guía do despregamento automatizado](aula-windows11.md).
 
 A instalación manual crea os lanzadores para PowerShell e CMD. A entrada
 **DAW Dev → Activar DAW Dev** do menú Inicio procede do despregamento da aula:
-`CopiarModelo` copia o paquete ao equipo e prepara a entrada común. Co
+`CopyPackage` copia o paquete ao equipo e prepara a entrada común. Co
 paquete despregado, `daw-activate` invoca o mesmo activador desde o terminal.
 [Activación desde o menú Inicio](aula-windows11.md#activación-manual-desde-o-menú-inicio).
 
@@ -90,7 +90,7 @@ configuración de Compose, que resolve `WWW_DIR` (`./www` por defecto). Se cambi
 | Onde se gardou o proxecto | Ruta no Explorador | Ruta en Debian |
 |---|---|---|
 | En Windows | `C:\Users\<usuario>\Projects\daw-dev\www` | `/mnt/c/Users/<usuario>/Projects/daw-dev/www` |
-| En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\proxectos\daw-dev\www` | `/home/<usuario>/proxectos/daw-dev/www` |
+| En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\workspace\www` | `/home/<usuario>/workspace/www` |
 | Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\workspace\www` | `/home/ad/workspace/www` |
 | En Debian, coa montaxe opcional descrita abaixo | `\\wsl.localhost\Debian\home\ad\www` | `/home/ad/www` |
 
@@ -127,7 +127,7 @@ o `www` da mesma copia. A ruta fixa é independente do nome da conta de Windows.
 3. Engade esta liña, substituíndo a primeira ruta polo `www` da túa copia activa:
 
    ```fstab
-   /home/uxia/proxectos/daw-dev/www /home/ad/www none bind,nofail 0 0
+   /home/uxia/workspace/www /home/ad/www none bind,nofail 0 0
    ```
 
 4. Valida e activa a montaxe:

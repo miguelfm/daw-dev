@@ -4,7 +4,8 @@ www/*
 !www/index.php
 !www/info.php
 angular/*
-!angular/LEME.txt
-docker/angular/chave.pub
+!angular/README.txt
+# A chave pública que crea daw-start-angular (chave.pub nas copias anteriores)
+docker/angular/*.pub
 __pycache__/
 *.pyc

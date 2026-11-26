@@ -165,7 +165,7 @@ switch ($Action.ToLowerInvariant()) {
         if (-not (Test-Path -LiteralPath $activator -PathType Leaf)) {
             throw "The classroom package has not been deployed to $package."
         }
-        & $activator -Distribution $Distribution -Reinstalar:$Reinstall -SenVSCode:$SkipVSCode -SenPausa
+        & $activator -Distribution $Distribution -Reinstall:$Reinstall -SkipVSCode:$SkipVSCode -NoPause
         exit $LASTEXITCODE
     }
     'code' {
@@ -287,17 +287,17 @@ if ($Action -in 'start-db', 'start-all') {
     }
 }
 if ($Action.ToLowerInvariant() -eq 'start-angular') {
-    # A chave pública vai ao proxecto (docker/angular/chave.pub); os proxectos, a angular/.
+    # A chave pública vai ao proxecto (docker/angular/ssh-key.pub); os proxectos, a angular/.
     $pub = Initialize-AngularKey
     if ($pub -notmatch '^(ssh-ed25519) ([A-Za-z0-9+/=]+)(\s.*)?$') { throw 'Unexpected format of dwcc_angular.pub.' }
     if ($ProjectPath.StartsWith('/')) {
         # Tipo e chave como argumentos: unha canalización a wsl.exe pode engadir un BOM,
         # e sshd non recoñece entón a liña de authorized_keys.
-        & wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'mkdir -p angular docker/angular && echo $1 $2 > docker/angular/chave.pub' sh $Matches[1] $Matches[2]
+        & wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'mkdir -p angular docker/angular && echo $1 $2 > docker/angular/ssh-key.pub' sh $Matches[1] $Matches[2]
         if ($LASTEXITCODE -ne 0) { throw 'Could not copy the public key to the project.' }
     } else {
         New-Item -ItemType Directory -Force -Path (Join-Path $ProjectPath 'angular'), (Join-Path $ProjectPath 'docker\angular') | Out-Null
-        [IO.File]::WriteAllText((Join-Path $ProjectPath 'docker\angular\chave.pub'), $pub + "`n", (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText((Join-Path $ProjectPath 'docker\angular\ssh-key.pub'), $pub + "`n", (New-Object Text.UTF8Encoding($false)))
     }
     # A redirección vai en sh: en PowerShell 5.1, redirixir stderr dun programa con Stop é un erro.
     & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $angularImage

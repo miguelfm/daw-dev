@@ -4,10 +4,12 @@
 Instala DAW Dev na conta que o executa, sen elevación.
 .DESCRIPTION
 Retira primeiro a instalación anterior desta conta (distribución Debian do modelo DAW-Aula,
-o seu estado e os seus lanzadores), sen copia: o alumnado garda antes o seu traballo.
+o seu estado e os seus lanzadores). Antes de eliminar unha distribución copia a súa raíz web
+(WWW_DIR) en Documentos\DAW-Dev-www-<data>-<distribución>, e despois copia ese contido no www
+do proxecto novo. O resto do contido da distribución pérdese: o alumnado garda antes o que precise.
 Unha distribución co mesmo paquete consérvase. Se procede doutro paquete, só se substitúe
-con -Reinstalar, que a elimina con todo o seu contido. Nunca se elimina unha distribución
-sen o marcador do modelo. SenVSCode omite as extensións de VS Code.
+con -Reinstall, que a elimina con todo o seu contido. Nunca se elimina unha distribución
+sen o marcador do modelo. SkipVSCode omite as extensións de VS Code.
 #>
 [CmdletBinding()]
 param(
@@ -15,8 +17,8 @@ param(
     [ValidatePattern('^([a-zA-Z0-9._-]+)?$')][string]$Distribution,
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
-    [switch]$Reinstalar,
-    [switch]$SenVSCode
+    [switch]$Reinstall,
+    [switch]$SkipVSCode
 )
 $ErrorActionPreference='Stop'
 $env:WSL_UTF8='1'
@@ -32,7 +34,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();Imported=$false;CodeExtensions=@();CodeSkipped=$SenVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -40,15 +42,21 @@ try{
     $transcriptStarted=$true
     $manifest=Assert-DawPackage $PackageDirectory
     $status.ModelSha256=$manifest.Sha256
-    $status.Removed=@(Remove-DawLegacyInstall)
+    # Unha copia que quedou sen restaurar nunha execución anterior restáurase ao final desta.
+    $pendingRestore=Join-Path $stateDir $stateFiles.PendingRestore
+    $legacy=Remove-DawLegacyInstall -PendingRestore $pendingRestore
+    $status.Removed=@($legacy.Removed)
+    if($legacy.Backup){$status.WebBackups+=$legacy.Backup}
     $originPath=Join-Path $stateDir ($Distribution+'.sha256')
     $import=$true
     if($Distribution -in @(Get-DawDistributions)){
         if(-not(Test-DawModelMarker $Distribution)){throw "A distribución $Distribution non é de DAW Dev; conservouse. Indicar outro nome con -Distribution."}
         $origin=if(Test-Path -LiteralPath $originPath){(Get-Content -LiteralPath $originPath -Raw -Encoding UTF8).Trim()}else{''}
-        if($origin -eq $manifest.Sha256 -and -not $Reinstalar){$import=$false}
-        elseif(-not $Reinstalar){throw "$Distribution procede doutro paquete. Gardar o traballo e repetir con -Reinstalar, que a elimina."}
+        if($origin -eq $manifest.Sha256 -and -not $Reinstall){$import=$false}
+        elseif(-not $Reinstall){throw "$Distribution procede doutro paquete. Gardar o traballo e repetir con -Reinstall, que a elimina."}
         else{
+            $backup=Backup-DawWebRoot $Distribution @($project) $pendingRestore
+            if($backup){$status.WebBackups+=$backup}
             Remove-DawDistribution $Distribution
             $status.Removed+="wsl:$Distribution"
         }
@@ -71,8 +79,10 @@ try{
     }
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1')|Out-Null
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','config','--quiet')|Out-Null
+    $status.WebRestored=@(Restore-DawPendingWebRoot $Distribution $pendingRestore)
+    foreach($backup in $status.WebRestored){Write-Output "Copiouse en www o contido da raíz web anterior. A copia consérvase en $backup."}
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath $project -LinuxUser ad
-    if(-not $SenVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
+    if(-not $SkipVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
     Write-Output "Instalación $RequestId comprobada. Código web: $(ConvertTo-DawWslPath $Distribution "$project/www")"

@@ -5,7 +5,7 @@ Copia na distribución DAW Dev da conta os ficheiros do proxecto preparados polo
 .DESCRIPTION
 Comproba os SHA256 do paquete e o marcador do modelo antes de cambiar nada. Non toca www,
 non borra ficheiros, non substitúe os de data e garda unha copia dos que substitúe.
-Sen Reiniciar, os cambios aplícanse no seguinte daw-start. Con Reiniciar recrea o
+Sen Restart, os cambios aplícanse no seguinte daw-start. Con Restart recrea o
 contedor web se está en marcha, o que pecha unha sesión aberta de Dev Containers.
 #>
 [CmdletBinding()]
@@ -14,7 +14,7 @@ param(
     [ValidatePattern('^([a-zA-Z0-9._-]+)?$')][string]$Distribution,
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
-    [switch]$Reiniciar
+    [switch]$Restart
 )
 $ErrorActionPreference='Stop'
 $env:WSL_UTF8='1'
@@ -43,7 +43,7 @@ try{
     if(-not(Test-DawModelMarker $Distribution)){throw "A distribución $Distribution non é de DAW Dev; conservouse sen modificar."}
     $result=Invoke-DawProjectOverlay $Distribution $PackageDirectory $manifest
     foreach($name in @('Created','Replaced','Unchanged','Kept','Backup')){$status[$name]=$result.$name}
-    if($Reiniciar){$status.Restarted=Restart-DawProjectWeb $Distribution}
+    if($Restart){$status.Restarted=Restart-DawProjectWeb $Distribution}
     $status.Success=$true
     Write-Output "Proxecto $RequestId actualizado á revisión $($manifest.Revision)."
 }catch{$status.Error=$_.Exception.Message;throw}

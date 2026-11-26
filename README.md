@@ -238,7 +238,7 @@ Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` pa
 
 Engade este bloque a `~/.bashrc` se usas Bash ou a `~/.zshrc` se usas Zsh. En macOS, se a túa
 terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_profile`.
-**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/proxectos/daw-dev`.**
+**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/workspace`.**
 
 ```bash
 alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
@@ -265,7 +265,7 @@ Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou rut
 Para usar `daw-web-root` ou `daw-wsl-shell`, instala [os lanzadores de Windows](docs/windows11-contedores.md#instalar-os-comandos-no-path-do-usuario).
 
 ```powershell
-$script:DawCompose = '/home/uxia/proxectos/daw-dev/compose.yaml'
+$script:DawCompose = '/home/uxia/workspace/compose.yaml'
 function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }

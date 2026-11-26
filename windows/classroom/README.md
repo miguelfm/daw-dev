@@ -15,7 +15,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `activate.ps1` | «Activar DAW Dev» do menú Inicio: `install-user.ps1` e despois `update-project.ps1` |
 | `install-user.ps1` | Instala DAW Dev na conta que o executa, sen elevación |
 | `update-project.ps1` | Copia os ficheiros do proxecto (`overlay/`) na distribución da conta |
-| `autostart.ps1` | Instalación no inicio de sesión, só coa opción `-AutoInicio` de `CopiarModelo` |
+| `autostart.ps1` | Instalación no inicio de sesión, só coa opción `-AutoStart` de `CopyPackage` |
 
 ## Rutas e nomes
 
@@ -32,9 +32,13 @@ Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
 
 ## Instalación limpa
 
-O alumnado garda antes o seu traballo: a instalación non fai copias.
+Antes de eliminar unha distribución, a instalación copia o contido da súa raíz web (`WWW_DIR`, por
+defecto `www`) en `Documentos\DAW-Dev-www-<data>-<distribución>` e, despois de importar a nova,
+cópiao en `/home/ad/workspace/www`. O resto (`data/`, `angular/`, as bases de datos) pérdese: o
+alumnado gárdao antes. A copia de Documentos consérvase; se a instalación falla antes de
+restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
-- `CopiarModelo` retira do posto o paquete anterior (`C:\ProgramData\DAW-Aula`) e o
+- `CopyPackage` retira do posto o paquete anterior (`C:\ProgramData\DAW-Aula`) e o
   seu autoarranque (`Run\DAWAula`).
 - A primeira activación de cada conta retira a instalación anterior desa conta:
   - a distribución `Debian`, só se ten o marcador do modelo anterior (`/etc/daw-aula-modelo`);
@@ -43,13 +47,13 @@ O alumnado garda antes o seu traballo: a instalación non fai copias.
 
   Unha Debian persoal consérvase.
 - Se a conta xa ten a distribución `linux` do mesmo paquete, a activación consérvaa. Se é
-  doutro paquete, detense: con `-Reinstalar` (`daw-activate -Reinstall`, ou
-  `manage.ps1 -Action InstalarUsuario -Reinstalar`) elimínaa con todo o seu contido e
+  doutro paquete, detense: con `-Reinstall` (`daw-activate -Reinstall`, ou
+  `manage.ps1 -Action InstallUser -Reinstall`) elimínaa con todo o seu contido e
   importa a nova.
 
 ## Ficheiros do proxecto (`overlay/`)
 
-`overlay/` contén o que `manage.ps1 -Action ActualizarProxecto` copia en `/home/ad/workspace`,
+`overlay/` contén o que `manage.ps1 -Action UpdateProject` copia en `/home/ad/workspace`,
 coa mesma ruta relativa. A copia leva tamén ficheiros do repositorio sen cambios, como
 `compose.yaml`, `docker/angular/`, `.vscode/launch.json`, os comandos de terminal e as guías do
 alumnado (`$sharedPaths` en `New-DawProjectStage`).
@@ -66,7 +70,7 @@ Véxase [actualizar os ficheiros dos proxectos xa importados](../../docs/aula-wi
 
 O código web serve desde `/var/www/html`, como nas instalacións persoais. `daw-start` le
 `compose.override.yaml` porque está ao lado de `compose.yaml`. Os cambios aplícanse ao recrear
-o contedor web: no seguinte `daw-start`, ou co `-Reiniciar` da acción.
+o contedor web: no seguinte `daw-start`, ou co `-Restart` da acción.
 
 ### Regras da copia
 
