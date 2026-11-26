@@ -145,7 +145,9 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 
 `deploy.ps1` prepara o paquete e instálao en todos os equipos dunha aula. Non activa as contas:
 cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar DAW Dev**) ou con
-`daw-activate` se xa ten as ordes `daw-*`. O profesor precisa Internet, WSL2 e Git.
+`daw-activate` se xa ten as ordes `daw-*`. Se o menú Inicio aínda non amosa a entrada, abre
+`C:\DAW-Dev` no Explorador e fai dobre clic en **Activar DAW Dev.cmd**: fai o mesmo. Só os
+administradores poden cambiar ese directorio. O profesor precisa Internet, WSL2 e Git.
 
 ```powershell
 # Primeiro nun posto; despois, a aula completa
@@ -173,7 +175,9 @@ cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar
 3. Completa o paquete co que lle falte para traballar sen Internet:
    - o VS Code Server de cada commit de VS Code instalado nos postos que responden, lido por
      WinRM (`add-vscode-server.ps1`);
-   - as extensións de VS Code para PHP do Dev Container (`add-vscode-extensions.ps1`);
+   - as extensións de VS Code (`add-vscode-extensions.ps1`): as de PHP do Dev Container e Dev
+     Containers e WSL para o VS Code de Windows, na última versión estable que acepte o VS Code
+     máis vello dos postos e do profesor. Descarga de novo as do paquete que precisen un máis novo;
    - as imaxes da documentación, da última release de daw-doc (`add-doc-images.ps1`);
    - a imaxe de Angular, descargada de ghcr.io co Docker da distribución modelo do paquete.
 
@@ -445,7 +449,13 @@ Os postos teñen unha directiva que impide actualizar VS Code, así que o commit
 a administración actualiza VS Code nos postos. Daquela, executa de novo `add-vscode-server.ps1`
 co commit novo e `CopyPackage`. As contas reciben o servidor no seguinte `daw-code`.
 
-#### Extensións de PHP sen Internet
+#### Extensións de VS Code sen Internet
+
+Dev Containers e WSL, no VS Code de Windows, instálaas a activación desde os `.vsix` do paquete.
+Se o paquete non as ten ou VS Code os rexeita, desde o Marketplace. Se tampouco hai Marketplace
+(en A31EQ01 deu `ETIMEDOUT` antes de abrir os portos), a activación avisa e remata igual,
+co VS Code Server, as extensións de PHP e o acceso directo. `-Verify` sinala as que faltan, e
+repetir `daw-activate` con conexión complétaas.
 
 As extensións do Dev Container (`xdebug.php-debug` e Intelephense) descárganse do Marketplace
 ao abrir o contedor e, sen máis, pérdense cando o contedor se volve crear. Na aula:

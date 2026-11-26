@@ -366,6 +366,69 @@ exit 0
         Throws {Install-DawCodeExtensions} 'marketplace blocked'
         Assert ($env:ELECTRON_RUN_AS_NODE -eq $old)
     }
+    Test 'Windows VS Code extensions come from the package, then the Marketplace' {
+        # A31EQ01 (26-11-2026): sen Marketplace, a activación fallaba enteira (ETIMEDOUT).
+        $pkg=Join-Path $script:Temp 'pkg-windows-ext';New-Item -ItemType Directory -Path $pkg|Out-Null
+        $entries=foreach($id in Get-DawPackageCodeExtensionIds){
+            $file=Get-DawCodeExtensionFile $id;[IO.File]::WriteAllText((Join-Path $pkg $file),$id)
+            [pscustomobject]@{Id=$id;File=$file;Sha256=(Get-FileHash (Join-Path $pkg $file) -Algorithm SHA256).Hash}
+        }
+        Write-DawState (Join-Path $pkg 'manifest.json') @{CodeExtensions=@($entries)}
+        & $script:M {
+            function script:Find-DawCode {'/fake/Code.exe'}
+            function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}
+            $script:Installed=@('ms-vscode-remote.remote-wsl');$script:Calls=@()
+            function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds)
+                $script:Calls+=,@($Arguments)
+                if($Arguments -contains '--list-extensions'){return $script:Installed}
+                $source=$Arguments[-1]
+                if($source -like '*.vsix' -and $env:DAW_TEST_REJECT_VSIX){throw 'not compatible'}
+                if($source -notlike '*.vsix' -and $env:DAW_TEST_NO_MARKETPLACE){throw 'ETIMEDOUT'}
+                $script:Installed+=$(if($source -like '*.vsix'){(Split-Path -Leaf $source) -replace '^vscode-extension-(.+)\.vsix$','$1'}else{$source})
+            }
+        }
+        try{
+            Assert ((@(Install-DawCodeExtensions $pkg) -join ',') -eq ((Get-DawWindowsCodeExtensionIds) -join ','))
+            $installs=@(& $script:M {$script:Calls}|Where-Object {$_ -contains '--install-extension'})
+            Assert ($installs.Count -eq 1 -and $installs[0][-1] -like '*vscode-extension-ms-vscode-remote.remote-containers.vsix') 'Only the missing one, from the package'
+            # VS Code rexeita o .vsix: o Marketplace.
+            & $script:M {$script:Installed=@();$script:Calls=@()};$env:DAW_TEST_REJECT_VSIX='1'
+            $null=Install-DawCodeExtensions $pkg
+            $sources=@(& $script:M {$script:Calls}|Where-Object {$_ -contains '--install-extension'}|ForEach-Object {$_[-1]})
+            Assert ($sources.Count -eq 4 -and $sources[1] -eq 'ms-vscode-remote.remote-containers' -and $sources[3] -eq 'ms-vscode-remote.remote-wsl') ($sources -join ',')
+            # Nin paquete nin Marketplace: falla coa causa das dúas orixes.
+            & $script:M {$script:Installed=@()};$env:DAW_TEST_NO_MARKETPLACE='1'
+            Throws {Install-DawCodeExtensions $pkg} '(?s)non confirmada.*not compatible.*ETIMEDOUT'
+        }finally{Remove-Item env:DAW_TEST_REJECT_VSIX,env:DAW_TEST_NO_MARKETPLACE -ErrorAction SilentlyContinue}
+        # No servidor de WSL e no volume do contedor, só as de PHP.
+        & $script:M {$script:Calls=@()}
+        Assert ((@(Install-DawPackageCodeExtensions 'linux' ('a'*40) $pkg) -join ',') -eq ((Get-DawCodeExtensionIds) -join ','))
+        $wsl=@(& $script:M {$script:Calls})[0]
+        Assert (-not(@($wsl|Where-Object {$_ -like '*remote-*'}).Count) -and @($wsl|Where-Object {$_ -like '*.vsix'}).Count -eq 2) ($wsl -join ' ')
+        # O activador segue sen elas; verify-user.ps1 compróbaas.
+        $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
+        Assert ($install -match 'try\{\$status\.CodeExtensions=@\(Install-DawCodeExtensions \$PackageDirectory\)\}\s*catch\{\s*\$status\.CodeExtensionsError') 'Extensions must not stop the activation'
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/verify-user.ps1')).Contains("Test-DawStep 'Extensións de VS Code'"))
+    }
+    Test 'vsix engine is read and compared with the oldest VS Code' {
+        Assert (Test-DawCodeEngine '^1.101.0' '1.122.0') ; Assert (Test-DawCodeEngine '>=1.122.0' '1.122.0')
+        Assert (-not(Test-DawCodeEngine '^1.123.0' '1.122.0')) ; Assert (Test-DawCodeEngine '*' '1.0.0')
+        Throws {Test-DawCodeEngine '^1.0.0' 'stable'} 'non válida'
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        function New-Vsix([string]$Name,[string]$Json){
+            $path=Join-Path $script:Temp $Name
+            $zip=[IO.Compression.ZipFile]::Open($path,'Create')
+            try{$w=New-Object IO.StreamWriter(($zip.CreateEntry('extension/package.json')).Open());try{$w.Write($Json)}finally{$w.Dispose()}}finally{$zip.Dispose()}
+            $path
+        }
+        $info=Get-DawVsixInfo (New-Vsix 'plain.vsix' '{"name":"remote-wsl","publisher":"ms-vscode-remote","version":"1.104.7","engines":{"vscode":"^1.104.0"}}')
+        Assert ($info.Id -eq 'ms-vscode-remote.remote-wsl' -and $info.Version -eq '1.104.7' -and $info.Engine -eq '^1.104.0') ($info|Out-String)
+        # Claves que só difiren en maiúsculas: ConvertFrom-Json rexéitaas.
+        $info=Get-DawVsixInfo (New-Vsix 'dup.vsix' '{"name":"php-debug","publisher":"xdebug","version":"1.40.2","engines":{"vscode":"^1.66.1"},"contributes":{"a":1,"A":2}}')
+        Assert ($info.Id -eq 'xdebug.php-debug' -and $info.Version -eq '1.40.2' -and $info.Engine -eq '^1.66.1') ($info|Out-String)
+        $bad=Join-Path $script:Temp 'bad.vsix';$zip=[IO.Compression.ZipFile]::Open($bad,'Create');$zip.Dispose()
+        Throws {Get-DawVsixInfo $bad} 'Non é un .vsix'
+    }
     Test 'bounded jobs really stay below the requested concurrency' {
         $worker={param($item) $s=[datetime]::UtcNow.Ticks;Start-Sleep -Milliseconds 400;[pscustomobject]@{Item=$item;Start=$s;End=[datetime]::UtcNow.Ticks}}
         $result=@(Invoke-DawBoundedJobs @(1,2,3,4,5,6) 2 $worker)
@@ -701,6 +764,23 @@ foreach(`$n in `$Number){
             Assert ($link.TargetPath -match 'WindowsPowerShell\\v1\.0\\powershell\.exe$')
             Assert ($link.Arguments -eq '-NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\DAW-Dev\activate.ps1"')
         }
+        Test 'C:\DAW-Dev activator runs the package script and refuses foreign files' {
+            # Cambiar o propietario a Administradores require elevación: a ACL compróbase aparte.
+            & $script:M {$script:Acls=@();function script:Set-Acl {param($LiteralPath,$AclObject) $script:Acls+=,@($LiteralPath,$AclObject)}}
+            $dir=Join-Path $script:Temp 'DAW-Dev'
+            $path=Set-DawActivator -Directory $dir -Package 'C:\ProgramData\DAW-Dev'
+            $text=[IO.File]::ReadAllText($path)
+            Assert ((Split-Path -Leaf $path) -eq 'Activar DAW Dev.cmd' -and $text.Contains('"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\DAW-Dev\activate.ps1"')) $text
+            Assert ($text -notmatch '[^\x00-\x7F]' -and $text.Contains("`r`n")) 'cmd.exe needs ASCII and CRLF'
+            $acls=@(& $script:M {$script:Acls})
+            Assert ($acls.Count -eq 2 -and $acls[0][0] -eq $dir -and $acls[0][1].AreAccessRulesProtected -and $acls[1][0] -eq $path -and -not $acls[1][1].AreAccessRulesProtected) 'Protected directory, inherited file'
+            $rules=@($acls[0][1].GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))
+            Assert (@($rules|Where-Object {$_.IdentityReference.Value -eq 'S-1-5-32-545' -and ($_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::Write)}).Count -eq 0) 'Users must not write'
+            $null=Set-DawActivator -Directory $dir -Package 'C:\ProgramData\DAW-Dev'
+            [IO.File]::WriteAllText((Join-Path $dir 'outro.cmd'),'x')
+            Throws {Set-DawActivator -Directory $dir} 'alleos'
+            Assert (-not([IO.File]::ReadAllText($path).Contains('outro'))) 'A refused directory is left as it was'
+        }
     }
     Test 'CopyPackage stages the project and creates the start menu entry, without autostart' {
         # manage.ps1 (por WinRM) e install-package.ps1 (no propio equipo) fan os mesmos pasos do módulo.
@@ -716,7 +796,7 @@ foreach(`$n in `$Number){
             switch($fn){
                 'Initialize-DawPackageDirectory' {Assert ($body.IndexOf('Assert-DawNoInstallRunning') -lt $body.IndexOf('Remove-DawLegacyPackage') -and $body.Contains('Set-DawProtectedAcl $target')) 'Check running installers before removing the previous package'}
                 'Complete-DawPackage' {Assert ($body.Contains('Assert-DawPackage (Get-DawPackageDirectory)') -and $body.Contains('Set-DawAutoStart -Enabled:$AutoStart') -and $body.Contains('Initialize-DawProjectDirectory'))}
-                'Complete-DawProjectStage' {Assert ($body.Contains('Assert-DawProjectOverlay (Get-DawProjectDirectory)') -and $body.Contains('Set-DawStartMenuShortcut'))}
+                'Complete-DawProjectStage' {Assert ($body.Contains('Assert-DawProjectOverlay (Get-DawProjectDirectory)') -and $body.Contains('Set-DawStartMenuShortcut') -and $body.Contains('Activator=Set-DawActivator'))}
             }
         }
         Assert ('activate.ps1' -in @(Get-DawSetupFiles))

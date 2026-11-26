@@ -9,7 +9,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `add-doc-images.ps1` | Descarga da última release de daw-doc as imaxes da documentación e rexístraas no paquete |
-| `add-vscode-extensions.ps1` | Engade ao paquete os `.vsix` das extensións de PHP do Dev Container, que a activación instala sen Internet |
+| `add-vscode-extensions.ps1` | Engade ao paquete os `.vsix` das extensións de PHP do Dev Container e de Dev Containers e WSL para VS Code, compatibles co VS Code dos postos (`-CodeVersion`); a activación instálaas sen Internet |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `deploy.ps1` | Constrúe e completa o paquete (VS Code Server dos postos, documentación e Angular), prepara Windows con `-PrepareWindows` (WinRM, WSL e reinicios), instálao en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
 | `install-package.ps1` | Instala o paquete no propio equipo, como administrador e sen WinRM (por exemplo, no do profesor) |
@@ -17,7 +17,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `check-remote.ps1`, `enable-winrm.ps1` | Diagnóstico e activación de WinRM, desde `manage.ps1` |
 | `power-on.ps1`, `power-off.ps1` | Acendido por Wake-on-LAN (`a31-macs.csv`) e apagado da aula |
 | `daw-classroom.psm1` | Funcións comúns. Vai no paquete, como os seguintes |
-| `activate.ps1` | «Activar DAW Dev» do menú Inicio: `install-user.ps1` e despois `update-project.ps1` |
+| `activate.ps1` | «Activar DAW Dev» do menú Inicio e de `C:\DAW-Dev\Activar DAW Dev.cmd`: `install-user.ps1` e despois `update-project.ps1` |
 | `install-user.ps1` | Instala DAW Dev na conta que o executa, sen elevación |
 | `update-project.ps1` | Copia os ficheiros do proxecto (`overlay/`) na distribución da conta |
 | `verify-user.ps1` | Comproba a contorna na conta, cos seus lanzadores (acción `Verify`); non cambia a instalación |

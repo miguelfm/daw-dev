@@ -42,6 +42,7 @@ if ($removed.Count) { Write-Host "Retirado: $($removed -join ', ')" }
 Write-Host "Copiados $($copied.Count) de $($files.Count) ficheiros; os demais xa estaban."
 Write-Host "Ficheiros do proxecto: revisión $($result.Revision)."
 Write-Host "Menú Inicio: $($result.Shortcut)" -ForegroundColor Green
+Write-Host "Ou con dobre clic: $($result.Activator)" -ForegroundColor Green
 Write-Host 'Agora, nunha sesión sen elevar: DAW Dev > Activar DAW Dev no menú Inicio (ou daw-activate).'
 Write-Host "Para comprobala despois: powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$(Get-DawPackageDirectory)\verify-user.ps1`""
-[pscustomobject]@{ Removed = $removed; Copied = $copied; Revision = $result.Revision; Shortcut = $result.Shortcut }
+[pscustomobject]@{ Removed = $removed; Copied = $copied; Revision = $result.Revision; Shortcut = $result.Shortcut; Activator = $result.Activator }

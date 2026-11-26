@@ -18,7 +18,8 @@ A primeira vez que o usas nun computador, no menú Inicio, escolle **DAW Dev
 → Activar DAW Dev**. Unha xanela amosa o progreso; tarda uns minutos e
 remata con «DAW Dev está activado». Despois abre un terminal novo para que
 as ordes `daw-*` estean dispoñibles. Se xa tes as ordes `daw-*`, `daw-activate`
-fai o mesmo desde PowerShell ou CMD.
+fai o mesmo desde PowerShell ou CMD. Se o menú Inicio aínda non amosa a entrada, abre
+`C:\DAW-Dev` no Explorador de ficheiros e fai dobre clic en **Activar DAW Dev.cmd**.
 
 Repetir a activación é seguro: conserva os teus ficheiros e as bases de
 datos, e trae as ordes e os ficheiros do proxecto que cambiasen.

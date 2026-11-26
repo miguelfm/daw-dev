@@ -87,6 +87,12 @@ try{
         (@('http://localhost:8080/','http://localhost:5042/','http://localhost:8088/')|ForEach-Object {Test-DawUrl $_}) -join ', '
     }
     if(-not $SkipVSCode){
+        Test-DawStep 'Extensións de VS Code' {
+            $installed=@(Get-DawInstalledCodeExtensionIds)
+            $missing=@(Get-DawWindowsCodeExtensionIds|Where-Object {$_ -notin $installed})
+            if($missing.Count){throw "Faltan en VS Code: $($missing -join ', '). Activar de novo con daw-activate."}
+            (Get-DawWindowsCodeExtensionIds) -join ', '
+        }
         Test-DawStep 'VS Code Server' {
             $commit=Get-DawCodeCommit (Find-DawCode)
             if(-not(@(Get-DawPackageCodeServers $manifest)|Where-Object {$_.Commit -eq $commit})){throw "O paquete non ten VS Code Server para o commit $commit."}

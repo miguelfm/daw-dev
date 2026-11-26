@@ -224,11 +224,26 @@ if ($prepare) {
         Write-Host "   ${name}: descargando con Docker na distribución modelo..."
         try { Add-DawAngularImage $name } catch { Write-Warning "Non se engadiu ${name}: $($_.Exception.Message)" }
     }
-    $extensions = @(Get-DawPackageCodeExtensions (Assert-DawPackage $PackageDirectory) | ForEach-Object Id)
-    $missingExtensions = @(Get-DawCodeExtensionIds | Where-Object { $_ -notin $extensions })
-    if ($missingExtensions.Count) {
-        Write-Host "   Extensións de VS Code: descargando $($missingExtensions -join ', ')..."
-        try { & (Join-Path $PSScriptRoot 'add-vscode-extensions.ps1') -PackageDirectory $PackageDirectory -Id $missingExtensions | Out-Null }
+    # Extensións de VS Code que acepte o VS Code máis vello: o dos postos (non se actualiza) e o deste equipo.
+    $codeVersions = @()
+    if ($reachable.Count) { $codeVersions += @(Invoke-DawOnComputers $reachable 'Get-DawInstalledCodeVersions' 'a versión de VS Code' | ForEach-Object { [string]$_ }) }
+    try { $codeVersions += @(Get-DawInstalledCodeVersions) } catch { Write-Warning "Non se leu a versión de VS Code deste equipo: $($_.Exception.Message)" }
+    $oldestCode = @($codeVersions | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_ }) | Select-Object -First 1
+    $packageExtensions = @(Get-DawPackageCodeExtensions (Assert-DawPackage $PackageDirectory))
+    $neededExtensions = @(foreach ($id in Get-DawPackageCodeExtensionIds) {
+        $entry = $packageExtensions | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+        if (-not $entry) { $id; continue }
+        if ($oldestCode) {
+            try { $engine = (Get-DawVsixInfo (Join-Path $PackageDirectory $entry.File)).Engine } catch { $id; continue }
+            if (-not (Test-DawCodeEngine $engine $oldestCode)) { $id }
+        }
+    })
+    if ($neededExtensions.Count) {
+        $addArgs = @{ PackageDirectory = $PackageDirectory; Id = $neededExtensions }
+        $forCode = ''
+        if ($oldestCode) { $addArgs.CodeVersion = $oldestCode; $forCode = " para VS Code $oldestCode" }
+        Write-Host "   Extensións de VS Code${forCode}: descargando $($neededExtensions -join ', ')..."
+        try { & (Join-Path $PSScriptRoot 'add-vscode-extensions.ps1') @addArgs | Out-Null }
         catch { Write-Warning "Non se engadiron as extensións de VS Code: $($_.Exception.Message)" }
     }
     if ($reachable.Count) {
@@ -247,8 +262,11 @@ foreach ($name in Get-DawPackageImageNames) {
 }
 if (-not @(Get-DawPackageCodeServers $manifest).Count) { Write-Warning 'O paquete non ten VS Code Server: VS Code descargarao en cada conta (add-vscode-server.ps1).' }
 $extensions = @(Get-DawPackageCodeExtensions $manifest | ForEach-Object Id)
-foreach ($id in Get-DawCodeExtensionIds) {
-    if ($id -notin $extensions) { Write-Warning "O paquete non ten a extensión ${id}: sen Internet, o Dev Container quedará sen ela (add-vscode-extensions.ps1)." }
+foreach ($id in Get-DawPackageCodeExtensionIds) {
+    if ($id -notin $extensions) {
+        $where = if ($id -in @(Get-DawWindowsCodeExtensionIds)) { 'VS Code' } else { 'o Dev Container' }
+        Write-Warning "O paquete non ten a extensión ${id}: sen Internet, $where quedará sen ela (add-vscode-extensions.ps1)."
+    }
 }
 
 function Merge-DawResults($Results, [string]$Field) {

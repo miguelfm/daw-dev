@@ -36,7 +36,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -85,7 +85,13 @@ try{
     foreach($backup in $status.WebRestored){Write-Output "Copiouse en www o contido da raíz web anterior. A copia consérvase en $backup."}
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath $project -LinuxUser ad
     if(-not $SkipVSCode){
-        $status.CodeExtensions=@(Install-DawCodeExtensions)
+        # Dev Containers e WSL, do paquete ou do Marketplace. Sen elas non se abre o proxecto en VS Code,
+        # pero o resto da contorna funciona: avísase, séguese e verify-user.ps1 compróbaas.
+        try{$status.CodeExtensions=@(Install-DawCodeExtensions $PackageDirectory)}
+        catch{
+            $status.CodeExtensionsError=$_.Exception.Message
+            Write-Warning "Non se instalaron as extensións de VS Code: $($_.Exception.Message) Repetir daw-activate cando haxa conexión."
+        }
         # VS Code Server do paquete, para non descargalo na aula. É unha axuda: sen el, VS Code descárgao.
         try{
             $server=Initialize-DawCodeServer -Distribution $Distribution -Code (Find-DawCode) -PackageDirectory $PackageDirectory -ForContainer

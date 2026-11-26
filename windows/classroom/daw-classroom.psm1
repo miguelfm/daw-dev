@@ -27,6 +27,10 @@ function Get-DawModelArchive { 'linux.tar.gz' }
 # Extensións de VS Code para PHP (as de .devcontainer/devcontainer.json): o paquete leva os .vsix
 # e a activación instálaas sen Internet en WSL e no volume do Dev Container.
 function Get-DawCodeExtensionIds { @('xdebug.php-debug','bmewburn.vscode-intelephense-client') }
+# As do VS Code de Windows para abrir o proxecto en WSL e no Dev Container.
+function Get-DawWindowsCodeExtensionIds { @('ms-vscode-remote.remote-containers','ms-vscode-remote.remote-wsl') }
+# Todas as que leva o paquete en .vsix, para instalalas sen Internet.
+function Get-DawPackageCodeExtensionIds { @(Get-DawCodeExtensionIds)+@(Get-DawWindowsCodeExtensionIds) }
 function Get-DawCodeExtensionsVolume { 'daw-vscode-extensions' }
 function Get-DawPackageImageNames {
     @('ghcr.io/miguelfm/dwcc-angular:22','ghcr.io/miguelfm/daw-doc-php:en','ghcr.io/miguelfm/daw-doc-devdocs:latest','ghcr.io/miguelfm/daw-doc-laravel:13.x')
@@ -314,19 +318,83 @@ function Find-DawCodeCli {
     if(Test-Path -LiteralPath $cli -PathType Leaf){return $cli}
     throw 'Falta a CLI de VS Code.'
 }
-function Install-DawCodeExtensions {
+function Get-DawInstalledCodeExtensionIds {
+    # As extensións do VS Code de Windows desta conta, coa CLI de VS Code.
     $code=Find-DawCode
     $cli=Find-DawCodeCli $code
     $old=$env:ELECTRON_RUN_AS_NODE
     try{
         $env:ELECTRON_RUN_AS_NODE='1'
-        $required=@('ms-vscode-remote.remote-containers','ms-vscode-remote.remote-wsl')
-        $installed=@(Invoke-DawNative $code @($cli,'--list-extensions'))
-        foreach($id in $required){if($id -notin $installed){Invoke-DawNative $code @($cli,'--install-extension',$id)|Out-Null}}
-        $installed=@(Invoke-DawNative $code @($cli,'--list-extensions'))
-        foreach($id in $required){if($id -notin $installed){throw "Extensión non confirmada: $id"}}
-        return $required
+        @(Invoke-DawNative $code @($cli,'--list-extensions')|ForEach-Object {([string]$_).Trim()}|Where-Object {$_})
     }finally{$env:ELECTRON_RUN_AS_NODE=$old}
+}
+function Install-DawCodeExtensions {
+    # Dev Containers e WSL no VS Code de Windows. Primeiro o .vsix do paquete, sen Internet; se o
+    # paquete non o ten ou VS Code o rexeita, o Marketplace. Falla se algunha non queda instalada.
+    param([string]$PackageDirectory)
+    $code=Find-DawCode
+    $cli=Find-DawCodeCli $code
+    $files=@{}
+    $manifestPath=if($PackageDirectory){Join-Path $PackageDirectory 'manifest.json'}
+    if($manifestPath -and (Test-Path -LiteralPath $manifestPath -PathType Leaf)){
+        # O SHA256 xa o comprobou Assert-DawPackage ao comezo da activación.
+        $manifest=Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8|ConvertFrom-Json
+        foreach($entry in @(Get-DawPackageCodeExtensions $manifest)){$files[[string]$entry.Id]=Join-Path $PackageDirectory $entry.File}
+    }
+    $required=Get-DawWindowsCodeExtensionIds
+    $installed=@(Get-DawInstalledCodeExtensionIds)
+    $errors=@()
+    $old=$env:ELECTRON_RUN_AS_NODE
+    try{
+        $env:ELECTRON_RUN_AS_NODE='1'
+        foreach($id in @($required|Where-Object {$_ -notin $installed})){
+            $sources=@()
+            if($files.ContainsKey($id)){$sources+=$files[$id]}
+            $sources+=$id
+            foreach($source in $sources){
+                try{Invoke-DawNative $code @($cli,'--install-extension',$source)|Out-Null;break}
+                catch{$errors+="${id}: $($_.Exception.Message.Trim())"}
+            }
+        }
+    }finally{$env:ELECTRON_RUN_AS_NODE=$old}
+    $installed=@(Get-DawInstalledCodeExtensionIds)
+    $missing=@($required|Where-Object {$_ -notin $installed})
+    if($missing.Count){
+        $detail=if($errors.Count){' ('+($errors -join ' | ')+')'}else{''}
+        throw "Extensión non confirmada: $($missing -join ', ')$detail"
+    }
+    return $required
+}
+function Get-DawVsixInfo {
+    # Identificador, versión e VS Code mínimo (engines.vscode) do package.json dun .vsix.
+    param([string]$Path)
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip=[IO.Compression.ZipFile]::OpenRead($Path)
+    try{
+        $entry=$zip.GetEntry('extension/package.json')
+        if(-not $entry){throw "Non é un .vsix: $Path"}
+        $reader=New-Object IO.StreamReader($entry.Open())
+        try{$text=$reader.ReadToEnd()}finally{$reader.Dispose()}
+    }finally{$zip.Dispose()}
+    try{
+        $json=$text|ConvertFrom-Json
+        $info=@{Id=("$($json.publisher).$($json.name)").ToLowerInvariant();Version=[string]$json.version;Engine=[string]$json.engines.vscode}
+    }catch{
+        # Windows PowerShell 5.1 rexeita claves que só difiren en maiúsculas: só os campos precisos.
+        $field={param($pattern) $m=[regex]::Match($text,$pattern);if($m.Success){$m.Groups[1].Value}else{''}}
+        $info=@{Id=((& $field '"publisher"\s*:\s*"([^"]+)"')+'.'+(& $field '"name"\s*:\s*"([^"]+)"')).ToLowerInvariant();Version=(& $field '"version"\s*:\s*"([^"]+)"');Engine=(& $field '"engines"\s*:\s*\{[^}]*"vscode"\s*:\s*"([^"]+)"')}
+    }
+    [pscustomobject]$info
+}
+function Test-DawCodeEngine {
+    # Se un VS Code (1.122.0) cumpre engines.vscode dunha extensión (^1.101.0, >=1.95.0...).
+    # Compárase o mínimo; sen versión recoñecible (*), acéptase.
+    param([string]$Engine,[string]$CodeVersion)
+    $minimum=[regex]::Match([string]$Engine,'\d+\.\d+\.\d+')
+    if(-not $minimum.Success){return $true}
+    $code=[regex]::Match([string]$CodeVersion,'^\d+\.\d+\.\d+')
+    if(-not $code.Success){throw "Versión de VS Code non válida: $CodeVersion"}
+    return ([version]$minimum.Value) -le ([version]$code.Value)
 }
 function New-DawShortcut {
     param([string]$Distribution)
@@ -491,6 +559,34 @@ function Set-DawStartMenuShortcut {
     if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'Non se confirmou a entrada do menú Inicio.'}
     return $path
 }
+function Get-DawActivatorDirectory { 'C:\DAW-Dev' }
+function Set-DawActivator {
+    # Activación con dobre clic nunha ruta curta e visible no Explorador (ProgramData está oculta),
+    # para cando o menú Inicio aínda non amosa a entrada. Por defecto, en C:\ calquera usuario
+    # pode crear e cambiar ficheiros: o directorio queda coa ACL do paquete, así que só escriben
+    # SYSTEM e Administradores e un alumno non pode cambiar o que executa outro.
+    param([string]$Directory=(Get-DawActivatorDirectory),[string]$Package=(Get-DawPackageDirectory))
+    $name='Activar DAW Dev.cmd'
+    if(Test-Path -LiteralPath $Directory){
+        $item=Get-Item -LiteralPath $Directory -Force
+        if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw "$Directory é unha ligazón ou junction."}
+        if(-not $item.PSIsContainer){throw "$Directory non é un directorio."}
+        # Un alumno puido crealo antes: só se acepta baleiro ou co activador.
+        if(@(Get-ChildItem -LiteralPath $Directory -Force|Where-Object {$_.Name -ne $name -or $_.PSIsContainer}).Count){throw "$Directory contén ficheiros alleos; non se creou o activador."}
+    }
+    New-Item -ItemType Directory -Path $Directory -Force|Out-Null
+    Set-DawProtectedAcl $Directory
+    $path=Join-Path $Directory $name
+    $powershell='%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe'
+    $text="@echo off`r`nrem Activa DAW Dev na conta que o abre. Igual ca DAW Dev > Activar DAW Dev no menu Inicio.`r`n`"$powershell`" -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $Package 'activate.ps1')`"`r`n"
+    [IO.File]::WriteAllText($path,$text,(New-Object Text.ASCIIEncoding))
+    # Só a ACL herdada do directorio, aínda que o ficheiro xa existise con outra.
+    $acl=New-Object Security.AccessControl.FileSecurity
+    $acl.SetAccessRuleProtection($false,$false)
+    $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+    Set-Acl -LiteralPath $path -AclObject $acl
+    return $path
+}
 function Assert-DawManifest {
     # O manifesto que escribe build-package.ps1; os paquetes de DAW-Aula non se recoñecen.
     param($Manifest)
@@ -630,11 +726,13 @@ function Install-DawPackageCodeExtensions {
     # As extensións do paquete, co VS Code Server xa instalado para o commit (Initialize-DawCodeServer).
     param([string]$Distribution,[string]$Commit,[string]$PackageDirectory=(Get-DawPackageDirectory))
     $manifest=Get-Content -LiteralPath (Join-Path $PackageDirectory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
-    $files=@(Get-DawPackageCodeExtensions $manifest|ForEach-Object {$_.File})
+    # Só as de PHP: as de Windows (Dev Containers, WSL) non van no servidor nin no contedor.
+    $extensions=@(Get-DawPackageCodeExtensions $manifest|Where-Object {$_.Id -in @(Get-DawCodeExtensionIds)})
+    $files=@($extensions|ForEach-Object {$_.File})
     if(-not $files.Count){return @()}
     $arguments=@('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawCodeExtensionsInstallScript),'daw-code-extensions',$Commit,$PackageDirectory,(Get-DawWebImage),(Get-DawCodeExtensionsVolume))+$files
     Invoke-DawNative 'wsl.exe' $arguments 900|Out-Null
-    @(Get-DawPackageCodeExtensions $manifest|ForEach-Object {$_.Id})
+    @($extensions|ForEach-Object {$_.Id})
 }
 function Get-DawCodeCommit {
     # O commit do VS Code instalado, de product.json, sen abrir VS Code.
@@ -644,18 +742,35 @@ function Get-DawCodeCommit {
     if([string]$data.commit -cnotmatch '^[0-9a-f]{40}$' -or $data.quality -ne 'stable'){throw "VS Code sen commit estable recoñecido: $product"}
     return [string]$data.commit
 }
-function Get-DawInstalledCodeCommits {
-    # Os commits do VS Code instalado neste equipo: para todos os usuarios e no perfil de cada un.
+function Get-DawCodeVersion {
+    # A versión do VS Code instalado (1.122.0), de product.json, sen abrir VS Code.
+    param([string]$Code)
+    $product=Join-Path (Split-Path -Parent (Split-Path -Parent (Find-DawCodeCli $Code))) 'product.json'
+    $data=Get-Content -LiteralPath $product -Raw -Encoding UTF8|ConvertFrom-Json
+    if([string]$data.version -notmatch '^\d+\.\d+\.\d+$'){throw "VS Code sen versión recoñecida: $product"}
+    return [string]$data.version
+}
+function Get-DawInstalledCodePaths {
+    # O VS Code instalado neste equipo: para todos os usuarios e no perfil de cada un.
     $paths=@()
     foreach($root in @($env:ProgramFiles,${env:ProgramFiles(x86)})|Where-Object {$_}){$paths+=Join-Path $root 'Microsoft VS Code\Code.exe'}
     foreach($userProfile in @(Get-CimInstance Win32_UserProfile|Where-Object {-not $_.Special})){
         $paths+=Join-Path $userProfile.LocalPath 'AppData\Local\Programs\Microsoft VS Code\Code.exe'
     }
-    $commits=foreach($path in $paths){
-        if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
+    @($paths|Where-Object {Test-Path -LiteralPath $_ -PathType Leaf})
+}
+function Get-DawInstalledCodeCommits {
+    $commits=foreach($path in Get-DawInstalledCodePaths){
         try{Get-DawCodeCommit $path}catch{Write-Warning "Non se leu o commit de $path`: $($_.Exception.Message)"}
     }
     @($commits|Sort-Object -Unique)
+}
+function Get-DawInstalledCodeVersions {
+    # As versións de VS Code deste equipo: as extensións do paquete teñen que valer para a máis vella.
+    $versions=foreach($path in Get-DawInstalledCodePaths){
+        try{Get-DawCodeVersion $path}catch{Write-Warning "Non se leu a versión de $path`: $($_.Exception.Message)"}
+    }
+    @($versions|Sort-Object -Unique)
 }
 function Get-DawCodeServerInstallScript {
     # Como ad: extrae o servidor nas rutas que usan Remote - WSL e a CLI de VS Code.
@@ -807,7 +922,7 @@ function Complete-DawProjectStage {
     Reset-DawProjectAcl
     $stage=Assert-DawProjectOverlay (Get-DawProjectDirectory)
     if($stage.Revision -ne $Revision){throw 'A revisión do proxecto copiado non coincide.'}
-    [pscustomobject]@{Revision=$stage.Revision;Shortcut=Set-DawStartMenuShortcut}
+    [pscustomobject]@{Revision=$stage.Revision;Shortcut=Set-DawStartMenuShortcut;Activator=Set-DawActivator}
 }
 function Get-DawProjectDirectory { "$(Get-DawPackageDirectory)\project" }
 function Get-DawProjectScripts { @('update-project.ps1','daw-classroom.psm1') }
