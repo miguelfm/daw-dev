@@ -561,6 +561,7 @@ exit 0
 param($Classroom,$Number,$Domain)
 foreach($n in $Number){[pscustomobject]@{Computer=('A{0}EQ{1:D2}.{2}' -f $Classroom,$n,$Domain);IP="172.21.$Classroom.$n";Diagnostico=if($n -eq 4){'Sen resposta TCP'}else{'WSMan responde'}}}
 '@)
+        # Con BOM: Windows PowerShell 5.1 le como ANSI un script UTF-8 sen BOM e estropearía os tiles.
         [IO.File]::WriteAllText((Join-Path $dir 'manage.ps1'),@"
 param(`$Action,`$Classroom,[int[]]`$Number,`$Domain,`$PackageDirectory,`$ThrottleLimit,`$TimeoutSeconds)
 Add-Content '$log' ("`$Action "+(`$Number -join ','))
@@ -569,7 +570,7 @@ foreach(`$n in `$Number){
     `$error=switch(`$Action){'CopyPackage'{if(`$n -eq 3){'disco cheo'}} 'Verify'{if(`$n -eq 2){'Precísase unha única sesión de alumno conectada.'}elseif(`$n -eq 7){'Verificación x fallou: Esta conta aínda non activou DAW Dev'}}}
     [pscustomobject]@{Computer=`$computer;Action=`$Action;Success=-not `$error;Error=`$error;Data=`$null}
 }
-"@)
+"@,(New-Object Text.UTF8Encoding($true)))
         $pkg=Join-Path $script:Temp 'deploy-package';New-Item -ItemType Directory -Path $pkg|Out-Null
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $pkg $name),('payload '+$name))}
         [IO.File]::WriteAllText((Join-Path $pkg 'linux.tar.gz'),'model')
