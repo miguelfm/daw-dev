@@ -9,6 +9,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $binPath = Join-Path $env:USERPROFILE '.local\bin'
 $scriptPath = Join-Path $PSScriptRoot 'daw.ps1'
+# Copia local dos lanzadores da aula, en %LOCALAPPDATA%.
+$launcherName = 'daw-dev-launcher'
 if ($Distribution -notmatch '^[a-zA-Z0-9._-]+$') { throw 'Invalid WSL distribution name.' }
 if ($LinuxProjectPath) {
     if ($LinuxProjectPath -notmatch '^/[a-zA-Z0-9_./-]+$' -or $LinuxProjectPath -match '(^|/)\.\.(/|$)') {
@@ -16,7 +18,7 @@ if ($LinuxProjectPath) {
     }
     # Unha copia local evita depender dunha ruta UNC de WSL antes de arrancar Debian.
     # O instalador vai con ela para que daw.ps1 poida repoñer os lanzadores que falten.
-    $launcherDir = Join-Path $env:LOCALAPPDATA 'daw-dev-launcher'
+    $launcherDir = Join-Path $env:LOCALAPPDATA $launcherName
     New-Item -ItemType Directory -Path $launcherDir -Force | Out-Null
     foreach ($name in 'daw.ps1', 'install-daw-commands.ps1') {
         $source = Join-Path $PSScriptRoot $name
@@ -85,7 +87,7 @@ $locationArgs = " -Distribution ""$Distribution"""
 if ($LinuxProjectPath) { $locationArgs += " -ProjectPath ""$LinuxProjectPath""" }
 if ($LinuxUser) { $locationArgs += " -LinuxUser $LinuxUser" }
 $scriptReference = $scriptPath
-if ($LinuxProjectPath) { $scriptReference = '%LOCALAPPDATA%\daw-dev-launcher\daw.ps1' }
+if ($LinuxProjectPath) { $scriptReference = "%LOCALAPPDATA%\$launcherName\daw.ps1" }
 # cmd.exe debe poder representar a ruta co nome de usuario de Windows.
 $cmdEncoding = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
 

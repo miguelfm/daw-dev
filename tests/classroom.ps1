@@ -389,9 +389,44 @@ exit 0
             Assert ([Convert]::ToBase64String($a) -eq [Convert]::ToBase64String($b)) "Stage differs: $p"
         }
     }
+    Test 'deployment names keep the values of the installed classrooms' {
+        Assert ((Get-DawPackageDirectory) -ceq 'C:\ProgramData\DAW-Aula')
+        Assert ((Get-DawProjectDirectory) -ceq 'C:\ProgramData\DAW-Aula\proxecto')
+        Assert ((Get-DawStateRelativePath) -ceq 'AppData\Local\DAW-Aula')
+        $f=Get-DawStateFiles
+        Assert ($f.Lock -ceq 'instalacion.lock' -and $f.Install -ceq 'estado.json' -and $f.InstallLog -ceq 'instalacion.log' -and $f.Project -ceq 'proxecto-estado.json' -and $f.ProjectLog -ceq 'proxecto.log')
+        Assert ((Get-DawLinuxProjectPath) -ceq '/home/ad/proxectos/daw-dev')
+        Assert ((Get-DawWebImage) -ceq 'ghcr.io/miguelfm/dwcs-php:8.6-ad')
+        Assert ((ConvertTo-DawAdminSharePath 'A34EQ01.example' 'C:\ProgramData\DAW-Aula\proxecto') -ceq '\\A34EQ01.example\c$\ProgramData\DAW-Aula\proxecto')
+        Throws {ConvertTo-DawAdminSharePath 'A34EQ01' '\\outro\ruta'} 'non válida'
+        Assert ((ConvertTo-DawWslPath 'Debian' '/home/ad/proxectos/daw-dev/www') -ceq '\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\www')
+        $profileRoot=Join-Path $script:Temp 'profile'
+        Assert ((Get-DawStateDirectory $profileRoot) -eq (Join-Path $profileRoot 'AppData\Local\DAW-Aula'))
+    }
+    Test 'Bash scripts get the project and image from the module' {
+        foreach($text in @((Get-DawMigration),(Get-DawProjectOverlayScript))){Assert ($text -notmatch '__DAW_') 'Unexpanded marker'}
+        Assert ((Get-DawMigration).Contains('project_rel=proxectos/daw-dev'))
+        Assert ((Get-DawProjectOverlayScript).Contains('web_image=ghcr.io/miguelfm/dwcs-php:8.6-ad'))
+        & $script:M {function script:Get-DawLinuxProjectPath {'/srv/daw'}}
+        Throws {Get-DawMigration} '/home/ad'
+        $setup=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/setup-model.sh'))
+        Assert ($setup.Contains('project=${DAW_PROJECT:?') -and $setup.Contains('web_image=${DAW_WEB_IMAGE:?'))
+        $build=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/build-package.ps1'))
+        Assert ($build.Contains('"DAW_PROJECT=$project"') -and $build.Contains('LinuxProjectPath = $project'))
+    }
+    Test 'deployment scripts take the names from the module' {
+        $literal='proxectos/daw-dev|proxectos\\daw-dev|ProgramData\\DAW-Aula|Local\\DAW-Aula|DAW-Aula-Tools|dwcs-php:8\.6-ad|instalacion\.lock|''estado\.json''|proxecto-estado\.json'
+        # activar-dawdev.ps1 non carga o módulo; o seu texto de axuda nomea o cartafol de estado.
+        foreach($f in Get-ChildItem (Join-Path $script:Repo 'windows/classroom') -File -Include *.ps1,*.sh -Recurse|Where-Object {$_.Name -ne 'activar-dawdev.ps1'}){
+            $hits=@(Select-String -LiteralPath $f.FullName -Pattern $literal|Where-Object {$_.Line -notmatch '^\s*#'})
+            Assert ($hits.Count -eq 0) ("$($f.Name): "+(($hits|ForEach-Object {$_.LineNumber}) -join ','))
+        }
+        $module=@([IO.File]::ReadAllLines($script:ModulePath)|Select-String -Pattern $literal|Where-Object {$_.Line -notmatch '^function Get-Daw|^\s+\[pscustomobject\]@\{Lock=|alumno/proxectos'})
+        Assert ($module.Count -eq 0) ('daw-aula.psm1: '+(($module|ForEach-Object {$_.LineNumber}) -join ','))
+    }
     Test 'manage.ps1 runs posts in parallel only for the bulk actions' {
         $f=Join-Path $script:Repo 'windows/classroom/manage.ps1'
-        Throws {& $f -Action Estado -Numero 1 -ThrottleLimit 2 -PsExecPath 'PsExec64.exe'} 'ThrottleLimit'
+        Throws {& $f -Action Estado -Numero 1 -ThrottleLimit 2} 'ThrottleLimit'
         $t=[IO.File]::ReadAllText($f)
         foreach($s in 'Invoke-DawBoundedJobs $numbers $ThrottleLimit $worker $arguments','@($PSCommandPath,$Action'){Assert ($t.Contains($s)) "Missing: $s"}
         Assert (-not(Test-Path -LiteralPath (Join-Path $script:Repo 'windows/classroom/gestionar-aula-paralelo.ps1')))

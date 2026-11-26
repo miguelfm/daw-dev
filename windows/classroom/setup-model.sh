@@ -2,7 +2,9 @@
 # Só se executa na distribución NOVA creada por build-package.ps1.
 set -euo pipefail
 action=${1:?install|images|seal}
-project=/home/ad/proxectos/daw-dev
+# Valores de daw-aula.psm1 (Get-DawLinuxProjectPath e Get-DawWebImage), desde build-package.ps1.
+project=${DAW_PROJECT:?Falta DAW_PROJECT: executar desde build-package.ps1}
+web_image=${DAW_WEB_IMAGE:?Falta DAW_WEB_IMAGE: executar desde build-package.ps1}
 [[ $(id -u) == 0 ]] || { echo 'Precisa root na distribución modelo.' >&2; exit 1; }
 . /etc/os-release
 [[ $ID == debian ]] || { echo 'O modelo debe ser Debian.' >&2; exit 1; }
@@ -52,7 +54,6 @@ images)
     else
         runuser -u ad -- docker compose pull
     fi
-    web_image=ghcr.io/miguelfm/dwcs-php:8.6-ad
     runuser -u ad -- docker compose config --images web | grep -Fxq "$web_image"
     docker run --rm --pull never --network none --user ad --entrypoint sh "$web_image" -ec \
         'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && test ! -e /home/dev && test ! -L /home/dev'

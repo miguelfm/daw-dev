@@ -36,7 +36,8 @@ param(
     [switch]$Reiniciar,
     [ValidateRange(5,7200)][int]$TimeoutSeconds=1800,
     [ValidateRange(1,10)][int]$ThrottleLimit = 1,
-    [string]$PsExecPath = (Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools\PsExec64.exe')
+    # Por defecto, PsExec64.exe en Get-DawToolsDirectory.
+    [string]$PsExecPath
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
@@ -59,6 +60,7 @@ function Assert-MicrosoftSignature([string]$Path) {
     }
 }
 if ($Action -eq 'HabilitarWinRM') {
+    if (-not $PsExecPath) { $PsExecPath = Join-Path (Get-DawToolsDirectory) 'PsExec64.exe' }
     if (-not (Test-Path -LiteralPath $PsExecPath)) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $PsExecPath) -Force | Out-Null
         Invoke-WebRequest -UseBasicParsing -Uri 'https://live.sysinternals.com/PsExec64.exe' -OutFile $PsExecPath
@@ -70,7 +72,7 @@ if ($Action -eq 'PrepararWSL') {
         $release = Invoke-RestMethod 'https://api.github.com/repos/microsoft/WSL/releases/latest'
         $asset = $release.assets | Where-Object name -like '*.x64.msi' | Select-Object -First 1
         if (-not $asset) { throw 'Non se atopou o MSI x64 oficial de WSL.' }
-        $cache = Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools'
+        $cache = Get-DawToolsDirectory
         New-Item -ItemType Directory -Path $cache -Force | Out-Null
         $WslMsi = Join-Path $cache $asset.name
         if (-not (Test-Path -LiteralPath $WslMsi)) {
@@ -116,8 +118,14 @@ if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
     $projectManifest = New-DawProjectStage $PSScriptRoot $projectStage
     $moduleSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-aula.psm1'))
 }
+# Rutas nos postos e o seu equivalente desde o profesor por SMB (c$).
+$packageDir = Get-DawPackageDirectory
+$stageDir = Get-DawProjectDirectory
+$installStateFile = Join-Path (Get-DawStateRelativePath) (Get-DawStateFiles).Install
 foreach ($n in $Numero) {
     $computer = 'A{0}EQ{1:D2}.{2}' -f $Aula,$n,$Dominio
+    $remotePackage = ConvertTo-DawAdminSharePath $computer $packageDir
+    $remoteStage = ConvertTo-DawAdminSharePath $computer $stageDir
     $address = "172.21.$Aula.$n"
     $session = $null
     $details = $null
@@ -139,10 +147,10 @@ foreach ($n in $Numero) {
                 switch ($Action) {
                     'InstalarUsuario' {
                         $details = Invoke-Command -Session $session -ScriptBlock {
-                            param($seconds,$adopt,$withoutCode)
-                            Import-Module 'C:\ProgramData\DAW-Aula\daw-aula.psm1' -Force
+                            param($seconds,$adopt,$withoutCode,$package)
+                            Import-Module (Join-Path $package 'daw-aula.psm1') -Force
                             Invoke-DawStudentInstall -TimeoutSeconds $seconds -AdoptExisting:$adopt -WithoutCode:$withoutCode
-                        } -ArgumentList $TimeoutSeconds,$AdoptarExistente.IsPresent,$SenVSCode.IsPresent
+                        } -ArgumentList $TimeoutSeconds,$AdoptarExistente.IsPresent,$SenVSCode.IsPresent,$packageDir
                         if (-not $details -or -not $details.Success) { throw 'Non se confirmou a instalación da solicitude actual.' }
                     }
                     'ActualizarProxecto' {
@@ -157,7 +165,7 @@ foreach ($n in $Numero) {
                             Initialize-DawProjectDirectory
                         } -ArgumentList $moduleSource
                         # SMB como en CopiarModelo; o paquete do proxecto ocupa poucos KB.
-                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
+                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "$remoteStage\" -Recurse -Force
                         $details = Invoke-Command -Session $session -ScriptBlock {
                             param($seconds,$restart)
                             # O módulo segue cargado na mesma sesión desde a primeira chamada.
@@ -180,14 +188,8 @@ foreach ($n in $Numero) {
                             New-Module -ScriptBlock ([scriptblock]::Create($source)) | Import-Module -Force
                             # Prevent a new logon from starting the old installer during package replacement.
                             Set-DawAutoStart
-                            foreach ($profile in Get-CimInstance Win32_UserProfile | Where-Object { -not $_.Special }) {
-                                $lockPath = Join-Path $profile.LocalPath 'AppData\Local\DAW-Aula\instalacion.lock'
-                                if (Test-Path -LiteralPath $lockPath) {
-                                    try { $handle=[IO.File]::Open($lockPath,'Open','ReadWrite','None'); $handle.Dispose() }
-                                    catch { throw ("Bloqueo de instalación non dispoñible ({0}): {1}. Revisar antes de copiar." -f $lockPath,$_.Exception.Message) }
-                                }
-                            }
-                            $target = 'C:\ProgramData\DAW-Aula'
+                            Assert-DawNoInstallRunning
+                            $target = Get-DawPackageDirectory
                             if (Test-Path -LiteralPath $target) {
                                 $items = @((Get-Item -LiteralPath $target -Force)) + @(Get-ChildItem -LiteralPath $target -Recurse -Force)
                                 if ($items | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'O destino contén ligazóns ou junctions.' }
@@ -213,11 +215,12 @@ foreach ($n in $Numero) {
                         } -ArgumentList $moduleSource
                         foreach ($file in $files) {
                             # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
-                            Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination "\\$computer\c$\ProgramData\DAW-Aula\$file" -Force
+                            Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination "$remotePackage\$file" -Force
                         }
                         Invoke-Command -Session $session -ScriptBlock {
                             param($enableAuto)
-                            $target = 'C:\ProgramData\DAW-Aula'
+                            # Get-DawPackageDirectory vén do módulo cargado na primeira chamada desta sesión.
+                            $target = Get-DawPackageDirectory
                             # Elimina ACL explícitas herdadas dunha copia anterior en cada ficheiro.
                             Get-ChildItem -LiteralPath $target -File | ForEach-Object {
                                 $acl = New-Object Security.AccessControl.FileSecurity
@@ -232,7 +235,7 @@ foreach ($n in $Numero) {
                         } -ArgumentList $AutoInicio.IsPresent
                         # Ficheiros do proxecto e entrada do menú Inicio: cada usuario activa DAW Dev
                         # cando o necesita, sen que o docente teña que estar conectado.
-                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "\\$computer\c$\ProgramData\DAW-Aula\proxecto\" -Recurse -Force
+                        Copy-Item -Path (Join-Path $projectStage '*') -Destination "$remoteStage\" -Recurse -Force
                         $details = Invoke-Command -Session $session -ScriptBlock {
                             param($revision)
                             Reset-DawProjectAcl
@@ -243,14 +246,15 @@ foreach ($n in $Numero) {
                     }
                     'Estado' {
                         $details = Invoke-Command -Session $session -ScriptBlock {
+                            param($stateFile)
                             Get-CimInstance Win32_UserProfile | Where-Object { -not $_.Special } | ForEach-Object {
-                                $path = Join-Path $_.LocalPath 'AppData\Local\DAW-Aula\estado.json'
+                                $path = Join-Path $_.LocalPath $stateFile
                                 if (Test-Path -LiteralPath $path) {
                                     $state = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
                                     [pscustomobject]@{ Profile = $_.LocalPath; User = $state.User; Success = $state.Success; Error = $state.Error; CheckedUtc = $state.CheckedUtc; RequestId = $state.RequestId; Phase = $state.Phase }
                                 }
                             }
-                        }
+                        } -ArgumentList $installStateFile
                     }
                 }
             }

@@ -18,6 +18,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
+Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+$project = Get-DawLinuxProjectPath
+# setup-model.sh recibe a ruta do proxecto e a imaxe web do módulo.
+$setupEnv = @('env', "DAW_PROJECT=$project", "DAW_WEB_IMAGE=$(Get-DawWebImage)")
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $build = Join-Path $output 'build'
@@ -99,7 +103,7 @@ $linuxSources = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u $source
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido converter a ruta do paquete.' }
 $linuxSources = $linuxSources.Trim()
 Invoke-Model @('tar','-xf',$linuxSources,'-C','/tmp','windows/classroom/setup-model.sh')
-Invoke-Model @('bash','/tmp/windows/classroom/setup-model.sh','install',$linuxSources)
+Invoke-Model ($setupEnv + @('bash','/tmp/windows/classroom/setup-model.sh','install',$linuxSources))
 $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 [ordered]@{
     Distribution = $Distribution; LinuxUser = 'ad'; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
@@ -110,8 +114,8 @@ $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 # O configurador e os lanzadores poden recibir correccións antes de selar o modelo.
 $linuxConfigurator = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u (Join-Path $PSScriptRoot 'setup-model.sh')) -join ''
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o configurador.' }
-Invoke-Model @('cp',$linuxConfigurator.Trim(),'/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh')
-$imageArgs = @('bash','/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh','images')
+Invoke-Model @('cp',$linuxConfigurator.Trim(),"$project/windows/classroom/setup-model.sh")
+$imageArgs = $setupEnv + @('bash',"$project/windows/classroom/setup-model.sh",'images')
 if ($DockerImagesArchive) {
     $linuxImages = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u ([IO.Path]::GetFullPath($DockerImagesArchive))) -join ''
     if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o arquivo de imaxes Docker.' }
@@ -123,7 +127,7 @@ for ($attempt = 1; $attempt -le 3; $attempt++) {
     try { Invoke-Model $imageArgs; break }
     catch { if ($attempt -eq 3) { throw }; Write-Warning 'Repetindo a descarga das imaxes...'; Start-Sleep -Seconds 5 }
 }
-Invoke-Model @('bash','/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh','seal')
+Invoke-Model ($setupEnv + @('bash',"$project/windows/classroom/setup-model.sh",'seal'))
 & wsl.exe --terminate $Distribution
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido parar o modelo.' }
 $image = Join-Path $output 'debian.tar.gz'
@@ -137,14 +141,13 @@ foreach ($file in 'daw.ps1','install-daw-commands.ps1') {
 }
 $manifest = [ordered]@{
     Schema = 1; Marker = 'daw-aula-v1'; LinuxUser = 'ad'
-    LinuxProjectPath = '/home/ad/proxectos/daw-dev'
+    LinuxProjectPath = $project
     Image = 'debian.tar.gz'; Sha256 = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
     CreatedUtc = [DateTime]::UtcNow.ToString('o')
     SourceCommit = $sourceCommit; SourcesSha256 = (Get-FileHash -LiteralPath $sources -Algorithm SHA256).Hash
     BaseUrl = $base.Amd64Url.Url; BaseSha256 = $base.Amd64Url.Sha256
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'manifest.json') -Encoding UTF8
-Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
 Update-DawPackage $output $PSScriptRoot
 Write-Host "Paquete preparado en $output. A distribución $Distribution consérvase para inspección."
 Write-Host 'O subdirectorio build non se distribúe. O modelo non contén contedores nin datos de alumnos.'

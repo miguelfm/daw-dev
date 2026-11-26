@@ -14,6 +14,12 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `daw-aula.psm1` | Funcións comúns. Vai no paquete, como os seguintes |
 | `instalar-alumno.ps1`, `activar-dawdev.ps1`, `iniciar-usuario.ps1`, `actualizar-proxecto.ps1` | Execútanse en cada posto. Conservan o nome porque os equipos xa despregados os chaman así |
 
+As rutas e os nomes que usan os postos están ao comezo de `daw-aula.psm1`: o paquete
+(`Get-DawPackageDirectory`), o estado de cada conta (`Get-DawStateDirectory`, `Get-DawStateFiles`),
+o proxecto en Debian (`Get-DawLinuxProjectPath`) e a imaxe web (`Get-DawWebImage`). Os scripts Bash
+recíbenos do módulo. Os equipos xa instalados usan eses valores: para cambiar un, os scripts deben
+aceptar tamén o anterior mentres dure a transición.
+
 ## Ficheiros do proxecto (`overlay/`)
 
 `overlay/` contén o que `manage.ps1 -Action ActualizarProxecto` copia en

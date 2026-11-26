@@ -32,7 +32,8 @@ if (-not $Numero) {
 }
 
 $forceFlag = if ($Forzar) { '/f' } else { '' }
-$psExec = (Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools\PsExec64.exe')
+Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+$psExec = Join-Path (Get-DawToolsDirectory) 'PsExec64.exe'
 
 Write-Host "Iniciando proceso de apagado remoto da Aula $Aula (equipos $($Numero.Count), excluíndo o 100)..." -ForegroundColor Cyan
 

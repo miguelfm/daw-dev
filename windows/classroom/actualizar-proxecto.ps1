@@ -23,16 +23,17 @@ $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=New-Object Security.Principal.WindowsPrincipal($identity)
 if($identity.IsSystem -or $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Executar como alumno sen elevación.'}
 if($ExpectedUserSid -and $identity.User.Value -ne $ExpectedUserSid){throw 'Identidade incorrecta: non se iniciou a actualización.'}
-$stateDir=Join-Path $env:LOCALAPPDATA 'DAW-Aula'
+$stateDir=Get-DawStateDirectory
+$stateFiles=Get-DawStateFiles
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 # O mesmo bloqueo que a instalación: nunca se executan as dúas á vez na mesma conta.
-$lock=[IO.File]::Open((Join-Path $stateDir 'instalacion.lock'),'OpenOrCreate','ReadWrite','None')
-$statusPath=Join-Path $stateDir 'proxecto-estado.json'
+$lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
+$statusPath=Join-Path $stateDir $stateFiles.Project
 $status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Revision=$null;Created=@();Replaced=@();Unchanged=@();Kept=@();Backup=$null;Restarted=$false}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
-    Start-Transcript -LiteralPath (Join-Path $stateDir 'proxecto.log') -Append|Out-Null
+    Start-Transcript -LiteralPath (Join-Path $stateDir $stateFiles.ProjectLog) -Append|Out-Null
     $transcriptStarted=$true
     $manifest=Assert-DawProjectOverlay $PackageDirectory
     $status.Revision=$manifest.Revision

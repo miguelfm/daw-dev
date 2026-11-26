@@ -22,15 +22,17 @@ $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=New-Object Security.Principal.WindowsPrincipal($identity)
 if($identity.IsSystem -or $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Executar como alumno sen elevación.'}
 if($ExpectedUserSid -and $identity.User.Value -ne $ExpectedUserSid){throw 'Identidade incorrecta: non se iniciou a instalación.'}
-$stateDir=Join-Path $env:LOCALAPPDATA 'DAW-Aula'
+$stateDir=Get-DawStateDirectory
+$stateFiles=Get-DawStateFiles
+$project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
-$lock=[IO.File]::Open((Join-Path $stateDir 'instalacion.lock'),'OpenOrCreate','ReadWrite','None')
-$statusPath=Join-Path $stateDir 'estado.json'
+$lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
+$statusPath=Join-Path $stateDir $stateFiles.Install
 $status=[ordered]@{Schema=2;SetupRevision=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;CodeExtensions=@();CodeSkipped=$SenVSCode.IsPresent;Shortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
-    Start-Transcript -LiteralPath (Join-Path $stateDir 'instalacion.log') -Append|Out-Null
+    Start-Transcript -LiteralPath (Join-Path $stateDir $stateFiles.InstallLog) -Append|Out-Null
     $transcriptStarted=$true
     $manifest=Assert-DawPackage $PackageDirectory
     $status.ModelSha256=$manifest.Sha256
@@ -53,19 +55,19 @@ try{
     # Explicit adoption and freshly imported models are recorded BEFORE migration, so a partial failure is retryable.
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawMigration))|Out-Null
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1')|Out-Null
-    Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd','/home/ad/proxectos/daw-dev','--exec','docker','compose','config','--quiet')|Out-Null
+    Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','config','--quiet')|Out-Null
     if($importedNow){
-        $settingsPath="\\wsl.localhost\$Distribution\home\ad\proxectos\daw-dev\.vscode\settings.json"
+        $settingsPath=ConvertTo-DawWslPath $Distribution "$project/.vscode/settings.json"
         if(Test-Path -LiteralPath $settingsPath){
             $text=[IO.File]::ReadAllText($settingsPath).Replace('"Debian"',('"'+$Distribution+'"'))
             [IO.File]::WriteAllText($settingsPath,$text,(New-Object Text.UTF8Encoding($false)))
         }
     }
-    & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath '/home/ad/proxectos/daw-dev' -LinuxUser ad
+    & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath $project -LinuxUser ad
     if(-not $SenVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
-    Write-Output "Instalación $RequestId comprobada. Ruta: \\wsl.localhost\$Distribution\home\ad\proxectos\daw-dev\www"
+    Write-Output "Instalación $RequestId comprobada. Ruta: $(ConvertTo-DawWslPath $Distribution "$project/www")"
 }catch{$status.Error=$_.Exception.Message;throw}
 finally{
     try{
