@@ -374,6 +374,28 @@ function Invoke-DawStudentVerify {
     if(-not(Test-Path -LiteralPath "$target\verify-user.ps1")){throw 'Falta o paquete DAW Dev no equipo: executar antes CopyPackage.'}
     Invoke-DawUserTask 'Verify' "$target\verify-user.ps1" "-PackageDirectory '$target'" (Get-DawStateFiles).Verify 'Verificación' $TimeoutSeconds
 }
+function Get-DawWindowsState {
+    # No posto, como administrador: o que falta en Windows para usar WSL2.
+    $cpu=Get-CimInstance Win32_Processor|Select-Object -First 1
+    $virtualization=[bool]($cpu.VirtualizationFirmwareEnabled -or (Get-CimInstance Win32_ComputerSystem).HypervisorPresent)
+    $states=@('VirtualMachinePlatform','Microsoft-Windows-Subsystem-Linux'|ForEach-Object {[string](Get-WindowsOptionalFeature -Online -FeatureName $_).State})
+    $wsl=$false
+    try{& wsl.exe --version *> $null;$wsl=$LASTEXITCODE -eq 0}catch{}
+    $pending=($states -contains 'EnablePending') -or
+        (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
+        (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+    $sessions=@(Get-CimInstance Win32_Process -Filter "Name='explorer.exe'"|Where-Object {$_.SessionId -gt 0}).Count
+    [pscustomobject]@{Virtualization=$virtualization;Features=-not(@($states|Where-Object {$_ -notin @('Enabled','EnablePending')}).Count);Wsl=$wsl;RebootPending=[bool]$pending;Sessions=$sessions}
+}
+function ConvertTo-DawWindowsStatus {
+    # Para deploy.ps1: OK, Preparar (faltan características ou WSL), Reiniciar ou Erro (sen virtualización).
+    param($State)
+    if(-not $State){return 'Erro'}
+    if(-not $State.Virtualization){return 'Erro'}
+    if(-not $State.Features -or -not $State.Wsl){return 'Preparar'}
+    if($State.RebootPending){return 'Reiniciar'}
+    return 'OK'
+}
 function ConvertTo-DawDeployStatus {
     # Resultado dun posto en deploy.ps1: OK, Sen alumno (non hai unha única sesión), Sen activar
     # (a conta conectada aínda non activou DAW Dev) ou Erro.

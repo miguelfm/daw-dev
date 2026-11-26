@@ -152,13 +152,24 @@ cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar
 .\windows\classroom\deploy.ps1 -Classroom 34 -Number 16 -PackageDirectory C:\DAW-Paquete-2026
 .\windows\classroom\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026
 
+# Postos sen WinRM ou sen WSL: preparalos e reiniciar os que non teñen ninguén con sesión
+.\windows\classroom\deploy.ps1 -Classroom 31 -Number (1..30) -PackageDirectory C:\DAW-Paquete-2026 -PrepareWindows -RestartComputers
+
 # Cando os alumnos activaron DAW Dev e seguen conectados
 .\windows\classroom\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026 -Verify -SkipCopy
 ```
 
 1. Se o paquete non existe, constrúeo con `build-package.ps1` (tarda un bo anaco); se a construción
    quedou a medias, continúaa. Despois valídao.
-2. Diagnostica os postos (`Check`) e continúa só cos que responden por WinRM.
+2. Diagnostica os postos (`Check`) e continúa só cos que responden por WinRM. Con
+   `-PrepareWindows`:
+   - activa WinRM con PsExec (`EnableWinRM`) nos que non responden;
+   - consulta en cada posto a virtualización, as características de Windows, WSL, se hai un
+     reinicio pendente e se hai sesións abertas;
+   - instala WSL (`InstallWSL`) só nos que o precisan;
+   - con `-RestartComputers`, reinicia os que o necesitan e non teñen ninguén con sesión
+     iniciada, agarda a que volvan responder e compróbaos de novo. Sen el, ou cunha sesión
+     aberta, márcaos como `Reiniciar`: hai que reinicialos antes de activar DAW Dev.
 3. Completa o paquete co que lle falte para traballar sen Internet:
    - o VS Code Server de cada commit de VS Code instalado nos postos que responden, lido por
      WinRM (`add-vscode-server.ps1`);
@@ -173,9 +184,11 @@ cada alumno activa DAW Dev na súa conta, no menú Inicio (**DAW Dev → Activar
    `daw-start-doc` cos portos 8080, 5042 e 8088, e VS Code Server. Usa os lanzadores da conta e,
    se a contorna non estaba en marcha, párase ao rematar.
 
-Amosa unha táboa por posto (`Package` e `Verify`: `OK`, `Erro`, `Sen alumno` ou `Sen activar`) e
+Amosa unha táboa por posto (`Windows`: `OK`, `Reiniciar` ou `Erro`; `Package` e `Verify`: `OK`,
+`Erro`, `Sen alumno` ou `Sen activar`) e
 gárdaa en CSV en `%LOCALAPPDATA%\DAW-Dev\tools\deploy-<aula>-<data>.csv`. Ao final indica a orde
-para repetir só os postos con erro. Non reinicia equipos, non activa contas nin usa `-Reinstall`.
+para repetir só os postos con erro. Non activa contas nin usa `-Reinstall`, e só reinicia con
+`-RestartComputers` os postos sen ninguén con sesión iniciada.
 Os postos apagados quedan sen resposta: acéndeos con `power-on.ps1` e repite con `-Number`.
 
 ### Instalar no propio equipo: `install-package.ps1`

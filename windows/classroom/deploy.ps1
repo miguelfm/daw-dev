@@ -5,7 +5,9 @@ Prepara o paquete DAW Dev, instálao en todos os equipos dunha aula e comproba o
 .DESCRIPTION
 1. Paquete: se non existe, constrúeo con build-package.ps1 (con Internet, tarda un bo anaco);
    se a construción quedou a medias, continúaa.
-2. Diagnostica os postos (WinRM) e só continúa cos que responden.
+2. Diagnostica os postos (WinRM) e só continúa cos que responden. Con PrepareWindows, activa
+   WinRM nos que non responden (PsExec), instala WSL nos que o precisan e, con RestartComputers,
+   reinicia os que o necesitan e non teñen ninguén con sesión iniciada.
 3. Completa o paquete co que lle falte para traballar sen Internet: o VS Code Server dos
    commits de VS Code instalados nos postos, as imaxes da documentación (da release de
    daw-doc) e a de Angular (de ghcr.io, gardada co Docker da distribución modelo). Só
@@ -21,6 +23,8 @@ Garda o informe en CSV en Get-DawToolsDirectory e indica como repetir os postos 
 .EXAMPLE
 .\deploy.ps1 -Classroom 31 -Number 1 -PackageDirectory C:\DAW-Paquete-2026
 .EXAMPLE
+.\deploy.ps1 -Classroom 31 -Number (1..30) -PackageDirectory C:\DAW-Paquete-2026 -PrepareWindows -RestartComputers
+.EXAMPLE
 .\deploy.ps1 -Classroom 34 -PackageDirectory C:\DAW-Paquete-2026 -Verify -SkipCopy
 #>
 [CmdletBinding()]
@@ -33,6 +37,12 @@ param(
     [ValidateRange(60,7200)][int]$TimeoutSeconds = 1800,
     # Usa o paquete tal como está: nin o constrúe nin o completa.
     [switch]$SkipPrepare,
+    # Activa WinRM e instala WSL nos postos que o precisan.
+    [switch]$PrepareWindows,
+    # Con PrepareWindows: reinicia os postos que o necesitan e non teñen ninguén con sesión iniciada.
+    [switch]$RestartComputers,
+    # MSI de WSL xa descargado; sen el, InstallWSL descarga o último.
+    [string]$WslMsi,
     # Comproba tamén as contas conectadas que xa activaron DAW Dev.
     [switch]$Verify,
     # Só a verificación, sobre un paquete xa copiado.
@@ -41,6 +51,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'daw-classroom.psm1') -Force
 if ($SkipCopy -and -not $Verify) { throw 'SkipCopy só ten sentido con Verify.' }
+if ($RestartComputers -and -not $PrepareWindows) { throw 'RestartComputers só se usa con PrepareWindows.' }
+if ($PrepareWindows -and $SkipCopy) { throw 'PrepareWindows non se usa con SkipCopy.' }
 $prepare = -not ($SkipPrepare -or $SkipCopy)
 $manage = Join-Path $PSScriptRoot 'manage.ps1'
 $numbers = @($Number | Sort-Object -Unique)
@@ -70,21 +82,56 @@ function Add-DawAngularImage([string]$Name) {
         Remove-Item -LiteralPath $directory -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
-function Get-DawPostCodeCommits([int[]]$Numbers) {
-    # O VS Code de cada posto, lido por WinRM. O módulo cárgase desde un ficheiro temporal,
-    # como en UpdateProject: con New-Module, a aula 34 rexeitou o bloque (18-11-2026).
-    $computers = @($Numbers | ForEach-Object { 'A{0}EQ{1:D2}.{2}' -f $Classroom, $_, $Domain })
+function Get-DawComputerName([int]$N) { 'A{0}EQ{1:D2}.{2}' -f $Classroom, $N, $Domain }
+function Invoke-DawOnComputers([int[]]$Numbers, [string]$Function, [string]$What) {
+    # Unha función do módulo en varios postos á vez, por WinRM. O módulo cárgase desde un ficheiro
+    # temporal, como en UpdateProject: con New-Module, a aula 34 rexeitou o bloque (18-11-2026).
+    $computers = @($Numbers | ForEach-Object { Get-DawComputerName $_ })
     $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'daw-classroom.psm1'))
     $failed = @()
-    $commits = Invoke-Command -ComputerName $computers -Authentication Kerberos -ErrorAction SilentlyContinue -ErrorVariable failed -ScriptBlock {
-        param($source)
+    $results = Invoke-Command -ComputerName $computers -Authentication Kerberos -ErrorAction SilentlyContinue -ErrorVariable failed -ScriptBlock {
+        param($source, $function)
         $file = Join-Path $env:TEMP ('daw-classroom-' + [guid]::NewGuid().ToString('N') + '.psm1')
         try { [IO.File]::WriteAllText($file, $source, (New-Object Text.UTF8Encoding($true))); Import-Module $file -Force }
         finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
-        Get-DawInstalledCodeCommits
-    } -ArgumentList $source
-    foreach ($e in @($failed)) { Write-Warning "Non se leu o VS Code de $($e.TargetObject): $($e.Exception.Message)" }
-    @($commits | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+        & $function
+    } -ArgumentList $source, $Function
+    foreach ($e in @($failed)) { Write-Warning "Non se leu $What en $($e.TargetObject): $($e.Exception.Message)" }
+    @($results)
+}
+function Get-DawPostCodeCommits([int[]]$Numbers) {
+    # O VS Code de cada posto, lido por WinRM.
+    @(Invoke-DawOnComputers $Numbers 'Get-DawInstalledCodeCommits' 'o VS Code' | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+}
+function Update-DawWindowsRows([int[]]$Numbers) {
+    # Estado de Windows de cada posto na columna Windows; devolve os estados por número.
+    $states = @{}
+    foreach ($state in Invoke-DawOnComputers $Numbers 'Get-DawWindowsState' 'o estado de Windows') {
+        $row = $rows.Values | Where-Object { $_.Computer -ieq $state.PSComputerName } | Select-Object -First 1
+        if (-not $row) { continue }
+        $states[$row.Number] = $state
+        $row.Windows = ConvertTo-DawWindowsStatus $state
+        $row.Detail = switch ($row.Windows) {
+            'Erro' { 'A virtualización está desactivada na BIOS/UEFI.' }
+            'Reiniciar' { if ($state.Sessions) { 'Precisa reiniciar; hai unha sesión iniciada.' } else { 'Precisa reiniciar.' } }
+            default { $row.Detail }
+        }
+    }
+    foreach ($n in $Numbers) { if (-not $states.ContainsKey($n)) { ($rows[$n]).Windows = 'Erro' } }
+    $states
+}
+function Wait-DawWinRM([int[]]$Numbers, [int]$Seconds = 900) {
+    # Despois dun reinicio: agarda a que cada posto volva responder por WinRM.
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    $pending = [Collections.Generic.List[int]]::new([int[]]$Numbers)
+    Start-Sleep -Seconds 30
+    while ($pending.Count -and (Get-Date) -lt $deadline) {
+        foreach ($n in @($pending)) {
+            try { $null = Test-WSMan -ComputerName (Get-DawComputerName $n) -ErrorAction Stop; $null = $pending.Remove($n) } catch { }
+        }
+        if ($pending.Count) { Start-Sleep -Seconds 10 }
+    }
+    @($pending)
 }
 
 Write-Host "1. Paquete $PackageDirectory" -ForegroundColor Cyan
@@ -106,16 +153,62 @@ if ($prepare -and -not (Test-Path -LiteralPath (Join-Path $PackageDirectory 'man
 $manifest = Assert-DawPackage $PackageDirectory
 
 Write-Host "2. Diagnóstico da aula $Classroom" -ForegroundColor Cyan
-$rows = [ordered]@{}
+# Hashtable e non [ordered]: nun [ordered], $rows[3] é a posición 3, non o posto 3.
+$rows = @{}
 foreach ($check in @(& (Join-Path $PSScriptRoot 'check-remote.ps1') -Classroom $Classroom -Number $numbers -Domain $Domain)) {
     $n = [int]($check.IP -split '\.')[-1]
     $rows[$n] = [pscustomobject]@{
-        Number = $n; Computer = $check.Computer; WinRM = $check.Diagnostico -eq 'WSMan responde'
+        Number = $n; Computer = $check.Computer; WinRM = $check.Diagnostico -eq 'WSMan responde'; Windows = '-'
         Package = if ($SkipCopy) { 'Sen copiar' } else { '-' }; Verify = '-'; Detail = if ($check.Diagnostico -eq 'WSMan responde') { '' } else { $check.Diagnostico }
     }
 }
-$reachable = @($rows.Values | Where-Object WinRM | ForEach-Object Number)
+$reachable = @($rows.Values | Where-Object WinRM | Sort-Object Number | ForEach-Object Number)
 Write-Host "   Responden $($reachable.Count) de $($numbers.Count)."
+
+if ($PrepareWindows) {
+    Write-Host '   Windows: WinRM, WSL e reinicios' -ForegroundColor Cyan
+    $silent = @($rows.Values | Where-Object { -not $_.WinRM } | Sort-Object Number | ForEach-Object Number)
+    if ($silent.Count) {
+        Write-Host "   Activando WinRM con PsExec en: $($silent -join ', ')"
+        foreach ($result in @(& $manage -Action EnableWinRM -Number $silent -Classroom $Classroom -Domain $Domain)) {
+            $row = $rows.Values | Where-Object Computer -eq $result.Computer | Select-Object -First 1
+            if (-not $row) { continue }
+            $row.WinRM = [bool]$result.Success
+            $row.Detail = if ($result.Success) { '' } else { "WinRM: $($result.Error)" }
+        }
+        $reachable = @($rows.Values | Where-Object WinRM | Sort-Object Number | ForEach-Object Number)
+    }
+    if ($reachable.Count) {
+        $states = Update-DawWindowsRows $reachable
+        $install = @($rows.Values | Where-Object { $_.Windows -eq 'Preparar' } | Sort-Object Number | ForEach-Object Number)
+        if ($install.Count) {
+            Write-Host "   Instalando WSL en: $($install -join ', ')"
+            $wslArgs = @{ Classroom = $Classroom; Domain = $Domain; ThrottleLimit = $ThrottleLimit; TimeoutSeconds = $TimeoutSeconds }
+            if ($WslMsi) { $wslArgs.WslMsi = $WslMsi }
+            foreach ($result in @(& $manage -Action InstallWSL -Number $install @wslArgs)) {
+                $row = $rows.Values | Where-Object Computer -eq $result.Computer | Select-Object -First 1
+                if ($row -and -not $result.Success) { $row.Windows = 'Erro'; $row.Detail = "WSL: $($result.Error)" }
+            }
+            $states = Update-DawWindowsRows $reachable
+        }
+        $restart = @($rows.Values | Where-Object { $_.Windows -eq 'Reiniciar' } | Sort-Object Number | ForEach-Object Number)
+        if ($restart.Count -and $RestartComputers) {
+            # Só os postos de estado coñecido e sen ninguén con sesión iniciada.
+            $idle = @($restart | Where-Object { $states.ContainsKey($_) -and -not $states[$_].Sessions })
+            if ($idle.Count) {
+                Write-Host "   Reiniciando (sen sesión iniciada): $($idle -join ', ')"
+                $computers = @($idle | ForEach-Object { Get-DawComputerName $_ })
+                # Por WinRM e non Restart-Computer, que usa RPC/135, pechado polo cortalumes.
+                Invoke-Command -ComputerName $computers -Authentication Kerberos -ErrorAction SilentlyContinue -ScriptBlock { shutdown.exe /r /t 5 /f /d p:2:4 } | Out-Null
+                $late = @(Wait-DawWinRM $idle)
+                foreach ($n in $late) { ($rows[$n]).Windows = 'Erro'; ($rows[$n]).WinRM = $false; ($rows[$n]).Detail = 'Non volveu responder por WinRM despois de reiniciar.' }
+                $back = @($idle | Where-Object { $_ -notin $late })
+                if ($back.Count) { $null = Update-DawWindowsRows $back }
+            }
+        }
+        $reachable = @($rows.Values | Where-Object WinRM | Sort-Object Number | ForEach-Object Number)
+    }
+}
 
 if ($prepare) {
     Write-Host '3. O que lle falta ao paquete para traballar sen Internet' -ForegroundColor Cyan
@@ -162,23 +255,27 @@ if (-not $SkipCopy -and $reachable.Count) {
 }
 
 if ($Verify) {
-    $targets = @($rows.Values | Where-Object { $_.WinRM -and $_.Package -in @('OK','Sen copiar') } | ForEach-Object Number)
+    $targets = @($rows.Values | Where-Object { $_.WinRM -and $_.Package -in @('OK','Sen copiar') } | Sort-Object Number | ForEach-Object Number)
     if ($targets.Count) {
         Write-Host '5. Verificación das contas conectadas (Verify)' -ForegroundColor Cyan
         Merge-DawResults (& $manage -Action Verify -Number $targets @common) 'Verify'
     }
 }
 
-$report = @($rows.Values)
-$report | Format-Table Computer, WinRM, Package, Verify, Detail -AutoSize -Wrap | Out-Host
+$report = @($rows.Values | Sort-Object Number)
+$report | Format-Table Computer, WinRM, Windows, Package, Verify, Detail -AutoSize -Wrap | Out-Host
 $directory = Get-DawToolsDirectory
 New-Item -ItemType Directory -Path $directory -Force | Out-Null
 $csv = Join-Path $directory ('deploy-{0}-{1}.csv' -f $Classroom, (Get-Date -Format 'yyyyMMdd-HHmmss'))
 $report | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8
 Write-Host "Informe: $csv"
-$failed = @($report | Where-Object { -not $_.WinRM -or $_.Package -eq 'Erro' -or $_.Verify -eq 'Erro' } | ForEach-Object Number)
+$failed = @($report | Where-Object { -not $_.WinRM -or $_.Windows -eq 'Erro' -or $_.Package -eq 'Erro' -or $_.Verify -eq 'Erro' } | ForEach-Object Number)
 if ($failed.Count) {
     Write-Warning ("Postos por revisar: {0}. Para repetilos: .\deploy.ps1 -Classroom {1} -Number {2} -PackageDirectory '{3}'" -f ($failed -join ', '), $Classroom, ($failed -join ','), $PackageDirectory)
+}
+$restartLater = @($report | Where-Object Windows -eq 'Reiniciar' | ForEach-Object Number)
+if ($restartLater.Count) {
+    Write-Warning ("Postos por reiniciar antes de activar DAW Dev: {0}. Sen sesións abertas, -PrepareWindows -RestartComputers reiníciaos." -f ($restartLater -join ', '))
 }
 $pending = @($report | Where-Object { $_.Verify -in @('Sen alumno','Sen activar') } | ForEach-Object Number)
 if ($pending.Count) {

@@ -535,12 +535,13 @@ exit 0
         try{
             $env:ProgramFiles='/pf';${env:ProgramFiles(x86)}=$null
             & $script:M {
+                $script:Tried=@()
                 function script:Get-CimInstance {param($ClassName) [pscustomobject]@{LocalPath='/users/a';Special=$false},[pscustomobject]@{LocalPath='/users/b';Special=$false},[pscustomobject]@{LocalPath='/sys';Special=$true}}
-                function script:Test-Path {param($LiteralPath,$PathType) $LiteralPath -match '^[\/](pf|users[\/]b)[\/]'}
-                function script:Get-DawCodeCommit {param($Code) if($Code -match '^[\/]pf[\/]'){'a'*40}else{'b'*40}}
+                function script:Test-Path {param($LiteralPath,$PathType) $script:Tried+=$LiteralPath; $LiteralPath -match '[\/](pf|users[\/]b)[\/]'}
+                function script:Get-DawCodeCommit {param($Code) if($Code -match '[\/]pf[\/]'){'a'*40}else{'b'*40}}
             }
             $commits=@(Get-DawInstalledCodeCommits)
-            Assert (($commits -join ',') -eq (('a'*40)+','+('b'*40))) ($commits -join ',')
+            Assert (($commits -join ',') -eq (('a'*40)+','+('b'*40))) ("commits: $($commits -join ','); paths: $((& $script:M {$script:Tried}) -join ' | ')")
         }finally{$env:ProgramFiles=$saved.PF;${env:ProgramFiles(x86)}=$saved.PF86}
     }
     Test 'deploy.ps1 builds and completes the package before copying it' {
@@ -550,6 +551,49 @@ exit 0
         Assert (($order -join ',') -eq (@($order|Sort-Object) -join ',')) "deploy.ps1 steps out of order: $($order -join ',')"
         Assert ($t.Contains('$prepare = -not ($SkipPrepare -or $SkipCopy)') -and $t.Contains('Import-Module $file -Force')) 'Package preparation must be optional and load the module from a file'
         Assert ($t.Contains("'DAW-Model-' + (Get-Date") ) 'A new build must not reuse an existing model distribution'
+    }
+    Test 'deploy.ps1 runs end to end with simulated computers' {
+        # deploy.ps1 e o módulo nun directorio propio, con check-remote.ps1 e manage.ps1 simulados.
+        $dir=Join-Path $script:Temp 'deploy-run';New-Item -ItemType Directory -Path $dir|Out-Null
+        foreach($f in 'deploy.ps1','daw-classroom.psm1'){Copy-Item (Join-Path $script:Repo "windows/classroom/$f") $dir}
+        $log=Join-Path $dir 'calls.txt'
+        [IO.File]::WriteAllText((Join-Path $dir 'check-remote.ps1'),@'
+param($Classroom,$Number,$Domain)
+foreach($n in $Number){[pscustomobject]@{Computer=('A{0}EQ{1:D2}.{2}' -f $Classroom,$n,$Domain);IP="172.21.$Classroom.$n";Diagnostico=if($n -eq 4){'Sen resposta TCP'}else{'WSMan responde'}}}
+'@)
+        [IO.File]::WriteAllText((Join-Path $dir 'manage.ps1'),@"
+param(`$Action,`$Classroom,[int[]]`$Number,`$Domain,`$PackageDirectory,`$ThrottleLimit,`$TimeoutSeconds)
+Add-Content '$log' ("`$Action "+(`$Number -join ','))
+foreach(`$n in `$Number){
+    `$computer='A{0}EQ{1:D2}.{2}' -f `$Classroom,`$n,`$Domain
+    `$error=switch(`$Action){'CopyPackage'{if(`$n -eq 3){'disco cheo'}} 'Verify'{if(`$n -eq 2){'Precísase unha única sesión de alumno conectada.'}elseif(`$n -eq 7){'Verificación x fallou: Esta conta aínda non activou DAW Dev'}}}
+    [pscustomobject]@{Computer=`$computer;Action=`$Action;Success=-not `$error;Error=`$error;Data=`$null}
+}
+"@)
+        $pkg=Join-Path $script:Temp 'deploy-package';New-Item -ItemType Directory -Path $pkg|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $pkg $name),('payload '+$name))}
+        [IO.File]::WriteAllText((Join-Path $pkg 'linux.tar.gz'),'model')
+        $h=[ordered]@{};foreach($name in Get-DawSetupFiles){$h[$name]=(Get-FileHash (Join-Path $pkg $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/workspace';Image='linux.tar.gz';Sha256=(Get-FileHash (Join-Path $pkg 'linux.tar.gz') -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$h}
+        $saved=$env:LOCALAPPDATA
+        try{
+            $env:LOCALAPPDATA=Join-Path $script:Temp 'deploy-appdata'
+            $report=@(& (Join-Path $dir 'deploy.ps1') -Classroom 31 -Number 7,2,3,4 -PackageDirectory $pkg -SkipPrepare -Verify 3>$null 6>$null)
+        }finally{$env:LOCALAPPDATA=$saved}
+        Assert (($report|ForEach-Object Number) -join ',' -eq '2,3,4,7') 'Report sorted by computer'
+        $byNumber=@{};foreach($r in $report){$byNumber[$r.Number]=$r}
+        Assert ($byNumber[4].WinRM -eq $false -and $byNumber[4].Package -eq '-' -and $byNumber[4].Detail -eq 'Sen resposta TCP')
+        Assert ($byNumber[3].Package -eq 'Erro' -and $byNumber[3].Verify -eq '-' -and $byNumber[3].Detail -eq 'disco cheo') 'A failed copy is not verified'
+        Assert ($byNumber[2].Package -eq 'OK' -and $byNumber[2].Verify -eq 'Sen alumno')
+        Assert ($byNumber[7].Package -eq 'OK' -and $byNumber[7].Verify -eq 'Sen activar')
+        Assert ((Get-Content $log) -join ';' -eq 'CopyPackage 2,3,7;Verify 2,7') ((Get-Content $log) -join ';')
+        Assert (@(Get-ChildItem (Join-Path $script:Temp 'deploy-appdata') -Recurse -Filter 'deploy-31-*.csv').Count -eq 1) 'CSV report'
+        $windows=[pscustomobject]@{Virtualization=$true;Features=$true;Wsl=$true;RebootPending=$false;Sessions=0}
+        Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'OK')
+        $windows.RebootPending=$true;Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'Reiniciar')
+        $windows.Wsl=$false;Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'Preparar')
+        $windows.Virtualization=$false;Assert ((ConvertTo-DawWindowsStatus $windows) -eq 'Erro')
+        Throws {& (Join-Path $dir 'deploy.ps1') -PackageDirectory $pkg -RestartComputers} 'RestartComputers só'
     }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
