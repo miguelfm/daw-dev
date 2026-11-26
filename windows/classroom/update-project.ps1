@@ -7,6 +7,9 @@ Comproba os SHA256 do paquete e o marcador do modelo antes de cambiar nada. Non 
 non borra ficheiros, non substitúe os de data e garda unha copia dos que substitúe.
 Sen Restart, os cambios aplícanse no seguinte daw-start. Con Restart recrea o
 contedor web se está en marcha, o que pecha unha sesión aberta de Dev Containers.
+RestartIfChanged (a activación, que lanza o propio alumno) recréao só se a copia cambiou os
+ficheiros que o definen: Dev Containers reutiliza un contedor en marcha sen pasar por Compose,
+e cun compose.override.yaml anterior quedaría sen o post_start de ~/.vscode-server.
 #>
 [CmdletBinding()]
 param(
@@ -14,7 +17,8 @@ param(
     [ValidatePattern('^([a-zA-Z0-9._-]+)?$')][string]$Distribution,
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
-    [switch]$Restart
+    [switch]$Restart,
+    [switch]$RestartIfChanged
 )
 $ErrorActionPreference='Stop'
 # Con [CmdletBinding()] e -File, Windows PowerShell 5.1 deixa baleiro $PSScriptRoot nos valores por defecto.
@@ -45,7 +49,8 @@ try{
     if(-not(Test-DawModelMarker $Distribution)){throw "A distribución $Distribution non é de DAW Dev; conservouse sen modificar."}
     $result=Invoke-DawProjectOverlay $Distribution $PackageDirectory $manifest
     foreach($name in @('Created','Replaced','Unchanged','Kept','Backup')){$status[$name]=$result.$name}
-    if($Restart){$status.Restarted=Restart-DawProjectWeb $Distribution}
+    $webChanged=@(@($result.Created)+@($result.Replaced)|Where-Object {$_ -in @('compose.yaml','compose.override.yaml') -or $_ -like 'docker/*' -or $_ -like '.devcontainer/*'})
+    if($Restart -or ($RestartIfChanged -and $webChanged.Count)){$status.Restarted=Restart-DawProjectWeb $Distribution}
     $status.Success=$true
     Write-Output "Proxecto $RequestId actualizado á revisión $($manifest.Revision)."
 }catch{$status.Error=$_.Exception.Message;throw}

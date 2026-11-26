@@ -28,7 +28,9 @@ try {
     # Os ficheiros do proxecto que CopyPackage deixou no equipo, cos seus SHA256.
     $stage = Join-Path $PSScriptRoot 'project'
     if (Test-Path -LiteralPath (Join-Path $stage 'project.json') -PathType Leaf) {
-        & (Join-Path $stage 'update-project.ps1') -PackageDirectory $stage @target
+        # Se cambia a definición do contedor web e está en marcha, recréase: Dev Containers
+        # reutilizaría o anterior (A31EQ28, 26-11-2026: ~/.vscode-server de root).
+        & (Join-Path $stage 'update-project.ps1') -PackageDirectory $stage -RestartIfChanged @target
     } else {
         Write-Host 'Este equipo aínda non ten os ficheiros do proxecto: o docente pode copialos despois.'
     }

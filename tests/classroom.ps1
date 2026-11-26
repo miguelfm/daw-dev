@@ -737,7 +737,7 @@ foreach(`$n in `$Number){
         Copy-Item (Join-Path $script:Repo 'windows/classroom/activate.ps1') $dir
         $log=Join-Path $dir 'calls.txt'
         [IO.File]::WriteAllText((Join-Path $dir 'install-user.ps1'),"param(`$PackageDirectory,[switch]`$Reinstall,[switch]`$SkipVSCode,`$Distribution) Add-Content '$log' ('install '+`$PackageDirectory+' '+`$Reinstall+' '+`$Distribution); if(`$env:DAW_TEST_FAIL){throw 'install failed'}")
-        [IO.File]::WriteAllText((Join-Path $dir 'project/update-project.ps1'),"param(`$PackageDirectory,`$Distribution) Add-Content '$log' ('project '+`$PackageDirectory+' '+`$Distribution)")
+        [IO.File]::WriteAllText((Join-Path $dir 'project/update-project.ps1'),"param(`$PackageDirectory,`$Distribution,[switch]`$RestartIfChanged) Add-Content '$log' ('project '+`$PackageDirectory+' '+`$Distribution+' '+`$RestartIfChanged)")
         $script=Join-Path $dir 'activate.ps1'
         # Sen project.json no equipo, só instala.
         $null=& $exe -NoProfile -File $script -NoPause
@@ -748,7 +748,7 @@ foreach(`$n in `$Number){
         Remove-Item $log
         $null=& $exe -NoProfile -File $script -NoPause -Reinstall -Distribution linux-proba
         $calls=@(Get-Content $log)
-        Assert ($LASTEXITCODE -eq 0 -and $calls.Count -eq 2 -and $calls[0] -eq "install $dir True linux-proba" -and $calls[1] -eq ('project '+(Join-Path $dir 'project')+' linux-proba')) ($calls -join ';')
+        Assert ($LASTEXITCODE -eq 0 -and $calls.Count -eq 2 -and $calls[0] -eq "install $dir True linux-proba" -and $calls[1] -eq ('project '+(Join-Path $dir 'project')+' linux-proba True')) ($calls -join ';')
         Remove-Item $log
         $env:DAW_TEST_FAIL='1'
         try{$out=& $exe -NoProfile -File $script -NoPause 6>&1|Out-String}finally{Remove-Item Env:\DAW_TEST_FAIL}
@@ -886,6 +886,11 @@ foreach(`$n in `$Number){
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/update-project.ps1'))
         $package=$t.IndexOf('Assert-DawProjectOverlay $PackageDirectory');$origin=$t.IndexOf('Test-DawModelMarker $Distribution');$copy=$t.IndexOf('Invoke-DawProjectOverlay')
         Assert ($package -gt 0 -and $package -lt $origin -and $origin -lt $copy)
+        # A activación recrea web se cambiou a súa definición (A31EQ28: Dev Containers reutilizaba
+        # o contedor creado co compose.override.yaml anterior, sen post_start).
+        Assert ($t -match '\$webChanged=.*compose\.override\.yaml.*docker/\*.*\.devcontainer/\*' -and $t.Contains('if($Restart -or ($RestartIfChanged -and $webChanged.Count)){$status.Restarted=Restart-DawProjectWeb $Distribution}')) 'RestartIfChanged'
+        $activate=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/activate.ps1'))
+        Assert ($activate.Contains("'update-project.ps1') -PackageDirectory `$stage -RestartIfChanged")) 'The activation must recreate a stale web container'
         $bash=Get-DawProjectOverlayScript
         Assert (-not $bash.Contains("`r")) 'Bash must receive LF even from CRLF Windows source'
         Assert ($bash -notmatch 'rm -rf|rm -r |chown|down -v|prune|--unregister|wsl --terminate')
