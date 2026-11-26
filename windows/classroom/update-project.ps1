@@ -10,13 +10,15 @@ contedor web se está en marcha, o que pecha unha sesión aberta de Dev Containe
 #>
 [CmdletBinding()]
 param(
-    [string]$PackageDirectory=$PSScriptRoot,
+    [string]$PackageDirectory,
     [ValidatePattern('^([a-zA-Z0-9._-]+)?$')][string]$Distribution,
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
     [switch]$Restart
 )
 $ErrorActionPreference='Stop'
+# Con [CmdletBinding()] e -File, Windows PowerShell 5.1 deixa baleiro $PSScriptRoot nos valores por defecto.
+if(-not $PackageDirectory){$PackageDirectory=$PSScriptRoot}
 $env:WSL_UTF8='1'
 Import-Module (Join-Path $PSScriptRoot 'daw-classroom.psm1') -Force
 if(-not $Distribution){$Distribution=Get-DawDistribution}

@@ -28,6 +28,23 @@ try{
             Assert ($e.Count -eq 0) "$($f.Name): $e"
         }
     }
+    Test 'advanced scripts do not use PSScriptRoot as a parameter default' {
+        # Con [CmdletBinding()] e powershell.exe -File, Windows PowerShell 5.1 deixa baleiro
+        # $PSScriptRoot nos valores por defecto: verify-user.ps1 fallaba coa orde documentada.
+        foreach($f in @('windows','wsl')|ForEach-Object {Get-ChildItem (Join-Path $script:Repo $_) -Recurse -Include *.ps1}){
+            $ast=[Management.Automation.Language.Parser]::ParseFile($f.FullName,[ref]$null,[ref]$null)
+            if(-not $ast.ParamBlock -or -not @($ast.ParamBlock.Attributes|Where-Object {$_.TypeName.Name -eq 'CmdletBinding'}).Count){continue}
+            foreach($p in $ast.ParamBlock.Parameters){
+                Assert (-not($p.DefaultValue -and $p.DefaultValue.Extent.Text -match 'PSScriptRoot')) "$($f.Name): $($p.Name.Extent.Text)"
+            }
+        }
+        $script=Join-Path $script:Temp 'psscriptroot.ps1'
+        [IO.File]::WriteAllText($script,"[CmdletBinding()]`r`nparam([string]`$PackageDirectory)`r`nif(-not `$PackageDirectory){`$PackageDirectory=`$PSScriptRoot}`r`n`$PackageDirectory")
+        if($IsWindows -ne $false){
+            $out=& (Join-Path $PSHOME $(if($PSVersionTable.PSEdition -eq 'Core'){'pwsh.exe'}else{'powershell.exe'})) -NoProfile -ExecutionPolicy Bypass -File $script
+            Assert ("$out".Trim() -eq $script:Temp) "With -File: [$out]"
+        }
+    }
     Test 'terminal activation uses the classroom activator in the selected distribution' {
         $package=Join-Path $script:Temp 'terminal activation'
         New-Item -ItemType Directory -Path $package|Out-Null
