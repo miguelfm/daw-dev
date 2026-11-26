@@ -312,6 +312,9 @@ cambios, Xdebug e phpMyAdmin. O comprobador arranca a contorna se está parada.
 
 ### VS Code queda en «Retrying to download VS Code Server»
 
+Na aula, o paquete leva o servidor dos commits de VS Code dos postos. Se `daw-code` avisa
+de que non ten o do teu commit, avisa ao docente.
+
 Desde a paleta de VS Code, abre **WSL: Show Log** se falla a conexión a Debian,
 ou **Dev Containers: Show Container Log** se falla ao reabrir no contedor.
 Busca a primeira mensaxe de erro xusto antes de **Retrying**.

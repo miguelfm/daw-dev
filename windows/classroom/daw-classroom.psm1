@@ -437,6 +437,10 @@ function Assert-DawPackage {
         $path=Join-Path $Directory $extra.File
         if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $extra.Sha256.ToUpperInvariant()){throw "SHA256 da imaxe Docker non coincide: $($extra.File)"}
     }
+    foreach($server in @(Get-DawPackageCodeServers $manifest)){
+        $path=Join-Path $Directory $server.File
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $server.Sha256.ToUpperInvariant()){throw "SHA256 de VS Code Server non coincide: $($server.File)"}
+    }
     return $manifest
 }
 function Get-DawPackageImages {
@@ -461,6 +465,96 @@ function Add-DawPackageImage {
     Write-DawState (Join-Path $Directory 'manifest.json') $manifest
     Assert-DawPackage $Directory|Out-Null
     return $entry
+}
+# VS Code Server sen Internet: o paquete leva o servidor de cada commit de VS Code dos postos.
+# A activación e daw-code instálano na distribución (Remote - WSL) e na caché de Dev Containers.
+function Get-DawCodeServerFile { param([string]$Commit) "vscode-server-$Commit.tar.gz" }
+function Get-DawPackageCodeServers {
+    param($Manifest)
+    if(-not $Manifest.PSObject.Properties['CodeServers']){return @()}
+    foreach($server in @($Manifest.CodeServers)){
+        if([string]$server.Commit -cnotmatch '^[0-9a-f]{40}$' -or [string]$server.File -cne (Get-DawCodeServerFile $server.Commit) -or [string]$server.Sha256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'VS Code Server do manifesto non recoñecido.'}
+        $server
+    }
+}
+function Add-DawPackageCodeServer {
+    # No profesor: copia o servidor descargado ao paquete e rexístrao co seu SHA256.
+    param([string]$Directory,[string]$Archive,[string]$Commit)
+    if($Commit -cnotmatch '^[0-9a-f]{40}$'){throw "Commit de VS Code non válido: $Commit"}
+    $manifest=Assert-DawPackage $Directory
+    $file=Get-DawCodeServerFile $Commit
+    $target=Join-Path $Directory $file
+    if([IO.Path]::GetFullPath($Archive) -ne [IO.Path]::GetFullPath($target)){Copy-Item -LiteralPath $Archive -Destination $target -Force}
+    $entry=[pscustomobject]@{Commit=$Commit;File=$file;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}
+    $servers=@(Get-DawPackageCodeServers $manifest|Where-Object {$_.Commit -ne $Commit})+$entry
+    $manifest|Add-Member NoteProperty CodeServers $servers -Force
+    Write-DawState (Join-Path $Directory 'manifest.json') $manifest
+    Assert-DawPackage $Directory|Out-Null
+    return $entry
+}
+function Get-DawCodeCommit {
+    # O commit do VS Code instalado, de product.json, sen abrir VS Code.
+    param([string]$Code)
+    $product=Join-Path (Split-Path -Parent (Split-Path -Parent (Find-DawCodeCli $Code))) 'product.json'
+    $data=Get-Content -LiteralPath $product -Raw -Encoding UTF8|ConvertFrom-Json
+    if([string]$data.commit -cnotmatch '^[0-9a-f]{40}$' -or $data.quality -ne 'stable'){throw "VS Code sen commit estable recoñecido: $product"}
+    return [string]$data.commit
+}
+function Get-DawCodeServerInstallScript {
+    # Como ad: extrae o servidor nas rutas que usan Remote - WSL e a CLI de VS Code.
+    $text=@'
+set -euo pipefail
+archive=$(wslpath -u "$1")
+commit=$2
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || { echo "Commit non válido: $commit" >&2; exit 1; }
+for dest in "$HOME/.vscode-server/bin/$commit" "$HOME/.vscode-server/cli/servers/Stable-$commit/server"; do
+    [[ ! -x $dest/node ]] || continue
+    mkdir -p -- "$(dirname -- "$dest")"
+    tmp=$(mktemp -d "$(dirname -- "$dest")/.daw-server-XXXXXX")
+    tar -xzf "$archive" -C "$tmp" --strip-components 1
+    [[ -x $tmp/node ]] || { rm -rf -- "$tmp"; echo "O arquivo non contén VS Code Server." >&2; exit 1; }
+    rm -rf -- "$dest"
+    mv -- "$tmp" "$dest"
+done
+echo "ready $commit"
+'@
+    Expand-DawScriptTemplate $text
+}
+function Initialize-DawCodeServer {
+    # Prepara o VS Code Server do paquete para o VS Code desta conta. Sen servidor para ese commit
+    # devolve Missing: VS Code descargarao de Internet. Con ForContainer copia tamén o arquivo na
+    # caché de Windows de Dev Containers, que non usa o servidor de WSL.
+    param([string]$Distribution,[string]$Code,[string]$PackageDirectory=(Get-DawPackageDirectory),[switch]$ForContainer)
+    $commit=Get-DawCodeCommit $Code
+    $manifest=Get-Content -LiteralPath (Join-Path $PackageDirectory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
+    $server=@(Get-DawPackageCodeServers $manifest|Where-Object {$_.Commit -eq $commit})|Select-Object -First 1
+    if(-not $server){return [pscustomobject]@{Commit=$commit;Status='Missing'}}
+    $archive=Join-Path $PackageDirectory $server.File
+    $verified=$false
+    $installed=$true
+    try{Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','test','-x',"/home/ad/.vscode-server/bin/$commit/node")|Out-Null}catch{$installed=$false}
+    if(-not $installed){
+        if((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $server.Sha256.ToUpperInvariant()){throw "SHA256 de VS Code Server non coincide: $($server.File)"}
+        $verified=$true
+        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawCodeServerInstallScript),'daw-code-server',$archive,$commit)|Out-Null
+    }
+    if($ForContainer){
+        $directory=Join-Path $env:TEMP "vsch\serverCache\$commit"
+        $target=Join-Path $directory 'vscode-server-linux-x64.tar.gz'
+        $current=(Test-Path -LiteralPath $target -PathType Leaf) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $server.Sha256.ToUpperInvariant()
+        if(-not $current){
+            if(-not $verified -and (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $server.Sha256.ToUpperInvariant()){throw "SHA256 de VS Code Server non coincide: $($server.File)"}
+            New-Item -ItemType Directory -Path $directory -Force|Out-Null
+            $pending=$target+'.'+[guid]::NewGuid().ToString('N')+'.tmp'
+            try{
+                Copy-Item -LiteralPath $archive -Destination $pending
+                if((Get-FileHash -LiteralPath $pending -Algorithm SHA256).Hash -ne $server.Sha256.ToUpperInvariant()){throw 'A copia de VS Code Server para Dev Containers non coincide.'}
+                if(Test-Path -LiteralPath $target -PathType Leaf){Remove-Item -LiteralPath $target -Force}
+                [IO.File]::Move($pending,$target)
+            }finally{if(Test-Path -LiteralPath $pending){Remove-Item -LiteralPath $pending -Force}}
+        }
+    }
+    return [pscustomobject]@{Commit=$commit;Status=if($installed){'Ready'}else{'Installed'}}
 }
 function Update-DawPackage {
     param([string]$Directory,[string]$Source=$PSScriptRoot)

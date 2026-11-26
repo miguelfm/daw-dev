@@ -335,6 +335,38 @@ O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compr�
 conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
 Compose non para os servizos dun perfil.
 
+### VS Code Server sen Internet
+
+Ao abrir o proxecto en WSL ou no Dev Container, VS Code necesita o VS Code Server do seu
+mesmo commit. Se o descarga, a rede da aula pode esgotar o tempo («Retrying to download VS
+Code Server»). Por iso o paquete leva o servidor de cada commit de VS Code que haxa nos postos:
+
+1. No profesor, co commit do VS Code dos postos: a segunda liña de `code --version` nun posto,
+   ou o que amosa `-Action Status` en `CodeServer` (`Missing <commit>`). O VS Code do profesor
+   pode ser máis novo, así que non se usa o seu:
+
+   ```powershell
+   .\windows\classroom\add-vscode-server.ps1 -PackageDirectory C:\DAW-Paquete-2026 -Commit <commit>
+   ```
+
+   Descarga `https://update.code.visualstudio.com/commit:<commit>/server-linux-x64/stable`, cópiao
+   ao paquete como `vscode-server-<commit>.tar.gz` e rexístrao en `manifest.json` (`CodeServers`)
+   co seu SHA256. Con `-Archive` usa un ficheiro xa descargado. Pódense ter varios commits.
+2. `CopyPackage` cópiao aos postos e o posto comproba o SHA256. Os ficheiros que xa están no
+   posto co mesmo tamaño e data non se volven copiar.
+3. A activación instala o servidor do commit do VS Code do posto en `~/.vscode-server` da
+   distribución (Remote - WSL) e copia o arquivo en
+   `%TEMP%\vsch\serverCache\<commit>\vscode-server-linux-x64.tar.gz` (Dev Containers).
+   `daw-code` repíteo antes de abrir VS Code, polo que tamén serve para as contas xa activadas.
+
+Se o paquete non ten o commit do VS Code do posto, a activación e `daw-code` avisan e VS Code
+descarga o servidor de Internet. `-Action Status` amosa en `CodeServer` o resultado de cada
+conta (`Installed`, `Ready` ou `Missing` co commit).
+
+Os postos teñen unha directiva que impide actualizar VS Code, así que o commit só cambia cando
+a administración actualiza VS Code nos postos. Daquela, executa de novo `add-vscode-server.ps1`
+co commit novo e `CopyPackage`. As contas reciben o servidor no seguinte `daw-code`.
+
 ### Contrasinais
 
 MariaDB usa `abc123..` para `dwcs` e `root`. As contas de Linux non teñen contrasinal:

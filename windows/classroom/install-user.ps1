@@ -9,7 +9,7 @@ o seu estado e os seus lanzadores). Antes de eliminar unha distribución copia a
 do proxecto novo. O resto do contido da distribución pérdese: o alumnado garda antes o que precise.
 Unha distribución co mesmo paquete consérvase. Se procede doutro paquete, só se substitúe
 con -Reinstall, que a elimina con todo o seu contido. Nunca se elimina unha distribución
-sen o marcador do modelo. SkipVSCode omite as extensións de VS Code.
+sen o marcador do modelo. SkipVSCode omite as extensións e o VS Code Server do paquete.
 #>
 [CmdletBinding()]
 param(
@@ -34,7 +34,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeServer=$null;CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -82,7 +82,18 @@ try{
     $status.WebRestored=@(Restore-DawPendingWebRoot $Distribution $pendingRestore)
     foreach($backup in $status.WebRestored){Write-Output "Copiouse en www o contido da raíz web anterior. A copia consérvase en $backup."}
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath $project -LinuxUser ad
-    if(-not $SkipVSCode){$status.CodeExtensions=@(Install-DawCodeExtensions)}
+    if(-not $SkipVSCode){
+        $status.CodeExtensions=@(Install-DawCodeExtensions)
+        # VS Code Server do paquete, para non descargalo na aula. É unha axuda: sen el, VS Code descárgao.
+        try{
+            $server=Initialize-DawCodeServer -Distribution $Distribution -Code (Find-DawCode) -PackageDirectory $PackageDirectory -ForContainer
+            $status.CodeServer="$($server.Status) $($server.Commit)"
+            if($server.Status -eq 'Missing'){Write-Warning "O paquete non ten VS Code Server para o commit $($server.Commit): VS Code descargarao."}
+        }catch{
+            $status.CodeServer="Error: $($_.Exception.Message)"
+            Write-Warning "Non se preparou VS Code Server: $($_.Exception.Message)"
+        }
+    }
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
     Write-Output "Instalación $RequestId comprobada. Código web: $(ConvertTo-DawWslPath $Distribution "$project/www")"

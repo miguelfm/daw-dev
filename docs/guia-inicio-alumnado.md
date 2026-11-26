@@ -165,9 +165,11 @@ Para depurar, abre VS Code dentro do contedor.
   escolle **DAW Dev → Activar DAW Dev** no menú Inicio.
 - **A activación remata cun erro.** Avisa ao docente. O rexistro está en
   `%LOCALAPPDATA%\DAW-Dev`.
-- **VS Code queda en «Retrying to download VS Code Server».** Usa
+- **VS Code queda en «Retrying to download VS Code Server».** O servidor
+  vén no paquete da aula, pero só para a versión de VS Code dos postos: se
+  `daw-code` avisa de que falta, avisa ao docente. Mentres, usa
   `daw-code -Local` para seguir editando e `daw-web-shell` para usar PHP ou
-  Composer. Avisa ao docente se a descarga segue bloqueada.
+  Composer.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
 - **Windows non deixa gardar un ficheiro creado como `root`.** Desde

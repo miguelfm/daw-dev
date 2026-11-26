@@ -86,35 +86,19 @@ function Get-DawDevContainerCommand([string]$CodeExe, [string]$CodeCommand) {
     return $shim
 }
 
-function Initialize-DawCodeCache([string]$CodeCommand, [switch]$ForContainer) {
-    $cacheDirectory = Join-Path $classroomPackage 'vscode-server'
-    $installer = Join-Path $cacheDirectory 'instalar.ps1'
-    # Só o paquete da aula trae a caché; noutros equipos non hai nada que preparar.
-    if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { return }
-    $result = & $installer -Distribution $Distribution -CodeCommand $CodeCommand -AllowMissing
-    if (-not $ForContainer) { return }
-    $match = [regex]::Match(($result -join ' '), '\b(?:Ready|Installed) ([0-9a-f]{40})\b')
-    if (-not $match.Success) { return }
-    $commit = $match.Groups[1].Value
-    $manifest = Get-Content -LiteralPath (Join-Path $cacheDirectory 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $entry = $manifest | Where-Object Commit -eq $commit | Select-Object -First 1
-    if (-not $entry -or $entry.Sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'The classroom VS Code Server checksum is missing.' }
-    # Dev Containers uses a separate Windows download cache from Remote - WSL.
-    $directory = Join-Path $env:TEMP "vsch\serverCache\$commit"
-    $archive = Join-Path $directory 'vscode-server-linux-x64.tar.gz'
-    if ((Test-Path -LiteralPath $archive -PathType Leaf) -and (Get-FileHash -LiteralPath $archive).Hash -eq $entry.Sha256) { return }
-    New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    $pending = $archive + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+function Initialize-DawCodeCache([string]$CodeExe, [switch]$ForContainer) {
+    # Na aula, o paquete leva o VS Code Server do commit dos postos: evita descargalo
+    # (e os timeouts da rede) en Remote - WSL e en Dev Containers. Noutros equipos non hai paquete.
+    $module = Join-Path $classroomPackage 'daw-classroom.psm1'
+    if (-not (Test-Path -LiteralPath $module -PathType Leaf)) { return }
     try {
-        Copy-Item -LiteralPath (Join-Path $cacheDirectory "$commit.tar.gz") -Destination $pending
-        if ((Get-FileHash -LiteralPath $pending).Hash -ne $entry.Sha256) { throw 'The Dev Containers cache checksum does not match.' }
-        if (Test-Path -LiteralPath $archive -PathType Leaf) {
-            [IO.File]::Replace($pending, $archive, ($pending + '.previous'))
-        } else {
-            [IO.File]::Move($pending, $archive)
+        Import-Module $module -Force
+        $result = Initialize-DawCodeServer -Distribution $Distribution -Code $CodeExe -PackageDirectory $classroomPackage -ForContainer:$ForContainer
+        if ($result.Status -eq 'Missing') {
+            Write-Warning "The classroom package has no VS Code Server for commit $($result.Commit); VS Code will download it."
         }
-    } finally {
-        if (Test-Path -LiteralPath $pending) { Remove-Item -LiteralPath $pending -Force }
+    } catch {
+        Write-Warning "Could not prepare the classroom VS Code Server: $($_.Exception.Message)"
     }
 }
 
@@ -186,7 +170,7 @@ switch ($Action.ToLowerInvariant()) {
             if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
             $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
         }
-        if ($useWslRemote) { Initialize-DawCodeCache $codeCmd -ForContainer:$Container }
+        if ($useWslRemote) { Initialize-DawCodeCache $codeExe -ForContainer:$Container }
         if ($Container) {
             $devContainer = Get-DawDevContainerCommand $codeExe $codeCmd
             & $devContainer open $targetPath --disable-telemetry

@@ -95,6 +95,7 @@ if ($Action -eq 'CopyPackage') {
     $manifest = Assert-DawPackage $PackageDirectory
     $files += $manifest.Image
     $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
+    $files += @(Get-DawPackageCodeServers $manifest | ForEach-Object { $_.File })
 }
 $numbers = @($Number | Sort-Object -Unique)
 if ($ThrottleLimit -gt 1 -and $numbers.Count -gt 1) {
@@ -220,7 +221,12 @@ foreach ($n in $Number) {
                         } -ArgumentList $moduleSource
                         foreach ($file in $files) {
                             # SMB desde o profesor evita o custo de serializar un tar grande por WinRM.
-                            Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination "$remotePackage\$file" -Force
+                            # Un ficheiro co mesmo tamaño e data non se volve copiar (a imaxe ocupa 1,4 GB):
+                            # Assert-DawPackage comproba despois no posto o SHA256 de todos.
+                            $local = Get-Item -LiteralPath (Join-Path $PackageDirectory $file)
+                            $remote = Get-Item -LiteralPath "$remotePackage\$file" -ErrorAction SilentlyContinue
+                            if ($remote -and $remote.Length -eq $local.Length -and $remote.LastWriteTimeUtc -eq $local.LastWriteTimeUtc) { continue }
+                            Copy-Item -LiteralPath $local.FullName -Destination "$remotePackage\$file" -Force
                         }
                         Invoke-Command -Session $session -ScriptBlock {
                             param($enableAuto)
@@ -257,7 +263,7 @@ foreach ($n in $Number) {
                                 $path = Join-Path $_.LocalPath $stateFile
                                 if (Test-Path -LiteralPath $path) {
                                     $state = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-                                    [pscustomobject]@{ Profile = $_.LocalPath; User = $state.User; Success = $state.Success; Error = $state.Error; CheckedUtc = $state.CheckedUtc; RequestId = $state.RequestId; Phase = $state.Phase }
+                                    [pscustomobject]@{ Profile = $_.LocalPath; User = $state.User; Success = $state.Success; Error = $state.Error; CheckedUtc = $state.CheckedUtc; RequestId = $state.RequestId; Phase = $state.Phase; CodeServer = $state.CodeServer }
                                 }
                             }
                         } -ArgumentList $installStateFile

@@ -408,6 +408,75 @@ exit 0
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
         Assert ($t.Contains('Get-DawPackageImages $manifest')) 'CopyPackage must copy the extra images'
     }
+    Test 'VS Code Server in the package is registered, verified and copied' {
+        $dest=Join-Path $script:Temp 'package-code-server'
+        New-Item -ItemType Directory -Path $dest -Force|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
+        $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
+        $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/workspace';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        $archive=Join-Path $script:Temp 'server.tar.gz';[IO.File]::WriteAllText($archive,'server bytes')
+        Throws {Add-DawPackageCodeServer $dest $archive 'abc'} 'non válido'
+        $commit='0123456789abcdef0123456789abcdef01234567'
+        $entry=Add-DawPackageCodeServer $dest $archive $commit
+        Assert ($entry.File -eq "vscode-server-$commit.tar.gz" -and (Test-Path (Join-Path $dest $entry.File)))
+        $null=Add-DawPackageCodeServer $dest $archive $commit
+        $servers=@(Get-DawPackageCodeServers (Assert-DawPackage $dest))
+        Assert ($servers.Count -eq 1 -and $servers[0].Commit -eq $commit) 'Repeating the commit must replace its entry'
+        [IO.File]::WriteAllText((Join-Path $dest $entry.File),'tampered')
+        Throws {Assert-DawPackage $dest} 'VS Code Server'
+        Throws {Get-DawPackageCodeServers ([pscustomobject]@{CodeServers=@([pscustomobject]@{Commit=$commit;File='../x.tar.gz';Sha256=('a'*64)})})} 'non recoñecido'
+        $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
+        Assert ($t.Contains('Get-DawPackageCodeServers $manifest')) 'CopyPackage must copy the VS Code Servers'
+    }
+    Test 'the VS Code commit comes from product.json of the current version' {
+        $root=Join-Path $script:Temp 'vscode-commit'
+        $out=Join-Path $root '6a49527b96/resources/app/out';New-Item -ItemType Directory -Path $out,(Join-Path $root 'bin') -Force|Out-Null
+        Set-Content -LiteralPath (Join-Path $out 'cli.js') ''
+        [IO.File]::WriteAllText((Join-Path $root 'bin/code.cmd'),"@echo off`r`n`"%~dp0..\Code.exe`" `"%~dp0..\6a49527b96\resources\app\out\cli.js`" %*`r`n")
+        $product=Join-Path $root '6a49527b96/resources/app/product.json'
+        [IO.File]::WriteAllText($product,'{"commit":"6a49527b96aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","quality":"stable"}')
+        Assert ((Get-DawCodeCommit (Join-Path $root 'Code.exe')) -eq '6a49527b96aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+        [IO.File]::WriteAllText($product,'{"commit":"6a49527b96aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","quality":"insider"}')
+        Throws {Get-DawCodeCommit (Join-Path $root 'Code.exe')} 'estable'
+    }
+    Test 'the package VS Code Server is installed in WSL and copied to the Dev Containers cache' {
+        $package=Join-Path $script:Temp 'code-server-package';New-Item -ItemType Directory -Path $package -Force|Out-Null
+        $commit='0123456789abcdef0123456789abcdef01234567'
+        $archive=Join-Path $package "vscode-server-$commit.tar.gz";[IO.File]::WriteAllText($archive,'server bytes')
+        $sha=(Get-FileHash $archive -Algorithm SHA256).Hash
+        Write-DawState (Join-Path $package 'manifest.json') @{CodeServers=@(@{Commit=$commit;File="vscode-server-$commit.tar.gz";Sha256=$sha})}
+        $saved=$env:TEMP
+        try{
+            $env:TEMP=Join-Path $script:Temp 'code-server-temp'
+            & $script:M {
+                param($commit)
+                $script:Commit=$commit;$script:Installed=$false;$script:Calls=@()
+                function script:Get-DawCodeCommit {param($Code) $script:Commit}
+                function script:Invoke-DawNative {
+                    param($File,$Arguments)
+                    $script:Calls+=, ($Arguments -join ' ')
+                    if($Arguments -contains 'test' -and -not $script:Installed){throw 'wsl.exe (exit 1)'}
+                    if($Arguments -contains 'daw-code-server'){$script:Installed=$true;"ready $script:Commit"}
+                }
+            } $commit
+            $r=Initialize-DawCodeServer -Distribution linux -Code 'Code.exe' -PackageDirectory $package -ForContainer
+            $calls=@(& $script:M {$script:Calls})
+            Assert ($r.Status -eq 'Installed' -and $r.Commit -eq $commit)
+            Assert (@($calls -match "(?s)^-d linux -u ad --exec bash -c .* daw-code-server .*vscode-server-$commit\.tar\.gz $commit$").Count -eq 1) ($calls -join ';')
+            $cache=Join-Path $env:TEMP "vsch/serverCache/$commit/vscode-server-linux-x64.tar.gz"
+            Assert ((Get-FileHash $cache -Algorithm SHA256).Hash -eq $sha) 'Dev Containers cache'
+            & $script:M {$script:Calls=@()}
+            $r=Initialize-DawCodeServer -Distribution linux -Code 'Code.exe' -PackageDirectory $package
+            Assert ($r.Status -eq 'Ready' -and -not(@(& $script:M {$script:Calls}) -match 'daw-code-server')) 'An installed server is not extracted again'
+            & $script:M {$script:Commit='fedcba9876543210fedcba9876543210fedcba98'}
+            Assert ((Initialize-DawCodeServer -Distribution linux -Code 'Code.exe' -PackageDirectory $package).Status -eq 'Missing')
+        }finally{$env:TEMP=$saved}
+        $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1'))
+        Assert ($daw.Contains('Initialize-DawCodeServer -Distribution $Distribution -Code $CodeExe') -and -not $daw.Contains('instalar.ps1'))
+        $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
+        Assert ($install.Contains('Initialize-DawCodeServer -Distribution $Distribution -Code (Find-DawCode)'))
+    }
     Test 'Angular is a profiled service started, stopped and logged by the launcher' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))

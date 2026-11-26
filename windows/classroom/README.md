@@ -8,6 +8,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `build-package.ps1` | Crea o modelo e o paquete da aula (executa `setup-model.sh` no modelo) |
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
+| `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `manage.ps1` | Accións nos postos por WinRM; `-ThrottleLimit` atende varios á vez |
 | `check-remote.ps1`, `enable-winrm.ps1` | Diagnóstico e activación de WinRM, desde `manage.ps1` |
 | `power-on.ps1`, `power-off.ps1` | Acendido por Wake-on-LAN (`a31-macs.csv`) e apagado da aula |
