@@ -16,7 +16,7 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 3. Constrúe **un modelo limpo Debian**, con Docker Engine, Compose, o proxecto e as tres imaxes descargadas.
 4. Copia o modelo unha vez a cada equipo, en `C:\ProgramData\DAW-Aula`, protexido contra escritura do alumnado.
 5. **Activación da contorna:**
-   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante o script `iniciar-daw.cmd` ou a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
+   - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 31` (ou `-Aula 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoInicio` a `CopiarModelo` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
 6. A contorna configura o usuario predeterminado de Linux como **`ad`**. O acceso directo **«DAW - Proxectos (www)»** do Escritorio abre o `www` do proxecto en Debian. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
 
@@ -41,7 +41,7 @@ WinRM restrínxese ao IP do profesor da aula. Non se activa Basic nin se permite
 Kerberos cifra o contido das sesións tamén usando HTTP/5985. Se xa hai regras WinRM adicionais creadas polo
 centro, a administración debe comprobar que non amplían o acceso: o script axusta as regras estándar HTTP.
 Se a política do centro bloquea PsExec ou a administración SMB, a alternativa é unha GPO de arranque para
-executar `wsl/aula/habilitar-winrm.ps1`; Veyon StartApp executa co usuario conectado e non concede elevación.
+executar `windows/classroom/enable-winrm.ps1`; Veyon StartApp executa co usuario conectado e non concede elevación.
 
 ## 1. Diagnóstico desde o profesor
 
@@ -49,10 +49,10 @@ Desde a raíz deste repositorio:
 
 ```powershell
 # Proba pequena, aula 31
-.\wsl\aula\gestionar-aula.ps1 -Action Comprobar -Aula 31 -Numero 1 | Format-Table -AutoSize
+.\windows\classroom\manage.ps1 -Action Comprobar -Aula 31 -Numero 1 | Format-Table -AutoSize
 
 # Aula de destino completa: non modifica os equipos
-.\wsl\aula\gestionar-aula.ps1 -Action Comprobar -Aula 34 | Format-Table -AutoSize
+.\windows\classroom\manage.ps1 -Action Comprobar -Aula 34 | Format-Table -AutoSize
 ```
 
 Os portos son `5985` (WinRM HTTP), `5986` (WinRM HTTPS) e `11100` (Veyon).
@@ -68,8 +68,8 @@ Invoke-Command -ComputerName A31EQ01.iesrodolfoucha.es -Authentication Kerberos 
 Comeza sempre cun equipo libre e despois estende o procedemento.
 
 ```powershell
-.\wsl\aula\gestionar-aula.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
-.\wsl\aula\gestionar-aula.ps1 -Action PrepararWSL -Aula 31 -Numero 1
+.\windows\classroom\manage.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
+.\windows\classroom\manage.ps1 -Action PrepararWSL -Aula 31 -Numero 1
 ```
 
 O primeiro comando descarga PsExec desde Microsoft se falta, comproba a súa sinatura e executa a preparación
@@ -89,12 +89,12 @@ Invoke-Command -ComputerName $equipos -Authentication Kerberos -ScriptBlock {
 }
 ```
 
-Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, pódese empregar `wsl/aula/gestionar-aula-paralelo.ps1`, que executa as fases de `PrepararWSL` e `CopiarModelo` cun límite interno de 5 equipos mediante *jobs* de PowerShell. Pódese axustar con `-ThrottleLimit`; o tempo depende da rede e dos discos:
+Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aula completa, engade `-ThrottleLimit` a `manage.ps1`: as accións `PrepararWSL`, `CopiarModelo` e `ActualizarProxecto` atenden entón ata ese número de equipos á vez, cada un nun *job* de PowerShell (máximo 10). O tempo depende da rede e dos discos:
 
 ```powershell
 # Preparación concorrente en lotes de 5
-.\wsl\aula\gestionar-aula-paralelo.ps1 -Action PrepararWSL -Aula 34 -Numero @(1..5)
-.\wsl\aula\gestionar-aula-paralelo.ps1 -Action CopiarModelo -Aula 34 -Numero @(1..5)
+.\windows\classroom\manage.ps1 -Action PrepararWSL -Aula 34 -Numero @(1..5) -ThrottleLimit 5
+.\windows\classroom\manage.ps1 -Action CopiarModelo -Aula 34 -Numero @(1..5) -ThrottleLimit 5 -PackageDirectory C:\DAW-Paquete-2026
 ```
 
 ## 3. Construír o modelo unha vez
@@ -102,7 +102,7 @@ Despois do reinicio comproba de novo WinRM. Para acelerar o despregamento na aul
 No profesor, con WSL2 xa instalado, PowerShell normal, Git e acceso a Internet:
 
 ```powershell
-.\wsl\aula\preparar-modelo.ps1 -OutputDirectory C:\DAW-Paquete-2026
+.\windows\classroom\build-package.ps1 -OutputDirectory C:\DAW-Paquete-2026
 ```
 
 O directorio de saída debe ser novo. O script crea unha distribución separada `DAW-Modelo` e nunca usa a
@@ -133,7 +133,7 @@ sen reinstalar Debian. Tamén podes aproveitar imaxes xa descargadas nunha Debia
 
 ```powershell
 wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.6-ad mariadb:lts phpmyadmin:latest
-.\wsl\aula\preparar-modelo.ps1 -OutputDirectory C:\DAW-Paquete-2026 -Resume -DockerImagesArchive C:\DAW-images.tar
+.\windows\classroom\build-package.ps1 -OutputDirectory C:\DAW-Paquete-2026 -Resume -DockerImagesArchive C:\DAW-images.tar
 ```
 
 Só se copian imaxes; os volumes, contedores e datos do profesor non forman parte de `docker image save`.
@@ -141,20 +141,20 @@ Só se copian imaxes; os volumes, contedores e datos do profesor non forman part
 ## 4. Copiar aos equipos e activar por usuario
 
 ```powershell
-.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -Aula 31 -Numero 1 -PackageDirectory C:\DAW-Paquete-2026
+.\windows\classroom\manage.ps1 -Action CopiarModelo -Aula 31 -Numero 1 -PackageDirectory C:\DAW-Paquete-2026
 ```
 
 Verifica o SHA256 antes e despois da copia. A carpeta local só permite escritura a SYSTEM e Administradores;
 os usuarios teñen lectura e execución. Non depende de compartir credenciais nin dun servidor accesible
 no momento de iniciar sesión.
 
-Por defecto retira a entrada xestionada `DAWAula` en `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`, conservando a activación baixo demanda. Para unha aula exclusiva, `-AutoInicio` permite expresamente executar o instalador na conta que inicia sesión. Non se modifica a política permanente de execución de PowerShell. A copia comproba tamén os hashes dos scripts; actualizar paquetes antigos con `actualizar-paquete.ps1`.
+Por defecto retira a entrada xestionada `DAWAula` en `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`, conservando a activación baixo demanda. Para unha aula exclusiva, `-AutoInicio` permite expresamente executar o instalador na conta que inicia sesión. Non se modifica a política permanente de execución de PowerShell. A copia comproba tamén os hashes dos scripts; actualizar paquetes antigos con `update-package.ps1`.
 
 Se xa está conectado o alumno, non necesita pechar sesión:
 
 ```powershell
-.\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 31 -Numero 1
-.\wsl\aula\gestionar-aula.ps1 -Action Estado -Aula 31 -Numero 1 | Format-List
+.\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 31 -Numero 1
+.\windows\classroom\manage.ps1 -Action Estado -Aula 31 -Numero 1 | Format-List
 ```
 
 A tarefa usa `LogonType Interactive` e `RunLevel Limited`: non pide contrasinais nin usa SYSTEM.
@@ -172,7 +172,7 @@ Nas aulas que se comparten con outros ciclos ou materias onde o resto do alumnad
 - **Sen auto-inicio en `HKLM`:** Retírase a entrada `DAWAula` de `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`. Deste xeito, os alumnos alleos traballan sen que Windows execute ningún proceso nin xere accesos directos.
 - **Activación puntual na clase de DAW:** Cando os alumnos do módulo están cos equipos iniciados, o profesor activa a contorna desde o seu equipo cun só comando:
   ```powershell
-  .\wsl\aula\gestionar-aula.ps1 -Action InstalarUsuario -Aula 34
+  .\windows\classroom\manage.ps1 -Action InstalarUsuario -Aula 34
   ```
 - A importación execútase de xeito limpo, interactivo e unicamente no perfil do alumno de DAW que estea presente nese posto.
 
@@ -182,14 +182,14 @@ Para iso está a acción seguinte.
 
 ### Actualizar os ficheiros dos proxectos xa importados
 
-`ActualizarProxecto` copia `wsl/aula/proxecto/ficheiros` en `/home/ad/proxectos/daw-dev` da
+`ActualizarProxecto` copia `windows/classroom/overlay` en `/home/ad/proxectos/daw-dev` da
 Debian do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
-regras da copia están no [README dos ficheiros do proxecto](../wsl/aula/proxecto/README.md).
+regras da copia están no [README dos ficheiros do proxecto](../windows/classroom/README.md).
 
 ```powershell
 # Primeiro nun posto; despois no resto, de 5 en 5
-.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16 | Format-List
-.\wsl\aula\gestionar-aula-paralelo.ps1 -Action ActualizarProxecto -Aula 34 -Numero @(1..35)
+.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16 | Format-List
+.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero @(1..35) -ThrottleLimit 5
 ```
 
 Para cada posto:
@@ -216,13 +216,13 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
   necesita outra vez `ActualizarProxecto`.
 
 Para distribuír cambios nos lanzadores de Windows ou no acceso directo do Escritorio,
-actualiza o paquete con `actualizar-paquete.ps1`, cópiao aos postos e volve executar
+actualiza o paquete con `update-package.ps1`, cópiao aos postos e volve executar
 **Activar DAW Dev** na conta do alumno. `ActualizarProxecto` aplica os ficheiros de
 Debian. A activación instala os lanzadores e actualiza o acceso directo.
 
 #### Proposta para migrar o proxecto a `~/daw`
 
-A ruta proposta en `Debian-DAW` é `/home/ad/daw` (`~/daw`). Cada proxecto adicional pode ter o
+A ruta proposta na distribución `Debian` é `/home/ad/daw` (`~/daw`). Cada proxecto adicional pode ter o
 seu propio cartafol baixo `/home/ad`. Nunha proba illada, a ruta antiga como ligazón simbólica
 permitiu abrir o proxecto con `wsl --cd`, conservou o nome `daw-dev` e o volume `daw-dev_db_data`
 en Compose e resolveu a montaxe de `www` na ruta nova.
@@ -275,10 +275,10 @@ En PowerShell, rexistra o arquivo no mesmo paquete de aula que xa se usa nos pos
 
 ```powershell
 $paquete = 'C:\DAW-Paquete-2026'
-.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
-.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive C:\ruta\daw-dev-php86-ad.tar.gz -Name ghcr.io/miguelfm/dwcs-php:8.6-ad
-.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
-.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+.\windows\classroom\update-package.ps1 -PackageDirectory $paquete
+.\windows\classroom\add-package-image.ps1 -PackageDirectory $paquete -Archive C:\ruta\daw-dev-php86-ad.tar.gz -Name ghcr.io/miguelfm/dwcs-php:8.6-ad
+.\windows\classroom\manage.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
+.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
 ```
 
 No posto de proba, a conta do alumno pode usar tamén **Activar DAW Dev** para aplicar
@@ -349,7 +349,7 @@ sen Internet:
 
 ```powershell
 # Na Debian do profesor: docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
-.\wsl\aula\engadir-imaxe.ps1 -PackageDirectory "$HOME\Projects\daw-aula-paquete-20261111-final" -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+.\windows\classroom\add-package-image.ps1 -PackageDirectory "$HOME\Projects\daw-aula-paquete-20261111-final" -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
 ```
 
 O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
@@ -362,7 +362,7 @@ Compose non para os servizos dun perfil.
 MariaDB usa `abc123..`, o contrasinal da MV da aula, para `dwcs` e `root`. Nas contas
 xa activadas, `ActualizarProxecto` cambia no `.env` o contrasinal por defecto anterior,
 e MariaDB cambia o dos usuarios do volume a primeira vez que arranca co
-`compose.yaml` novo (`docker/mariadb/saude.sh`). As contas de Linux non teñen
+`compose.yaml` novo (`docker/mariadb/healthcheck.sh`). As contas de Linux non teñen
 contrasinal, ao contrario ca na MV: `ad` usa `sudo` sen contrasinal no contedor, e
 na Debian está bloqueada e sen `sudo`. A guía do alumnado recólleo.
 
@@ -382,15 +382,15 @@ scripts/empaquetar.sh
 
 ```powershell
 $paquete = 'C:\DAW-Paquete-2026'
-.\wsl\aula\actualizar-paquete.ps1 -PackageDirectory $paquete
+.\windows\classroom\update-package.ps1 -PackageDirectory $paquete
 foreach ($p in @(
     @('daw-doc-php.tar.gz', 'ghcr.io/miguelfm/daw-doc-php:en'),
     @('daw-doc-devdocs.tar.gz', 'ghcr.io/miguelfm/daw-doc-devdocs:latest'),
     @('daw-doc-laravel.tar.gz', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'))) {
-    .\wsl\aula\engadir-imaxe.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
+    .\windows\classroom\add-package-image.ps1 -PackageDirectory $paquete -Archive "C:\ruta\dist\$($p[0])" -Name $p[1]
 }
-.\wsl\aula\gestionar-aula.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
-.\wsl\aula\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+.\windows\classroom\manage.ps1 -Action CopiarModelo -PackageDirectory $paquete -Aula 34 -Numero 16
+.\windows\classroom\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
 ```
 
 `ActualizarProxecto` leva o `compose.yaml` co perfil `doc`, e **Activar DAW Dev**, a
@@ -401,7 +401,7 @@ segundos. Como os outros servizos, os portos só escoitan en `127.0.0.1`, e
 a súa copia da capa de nginx.
 
 Para renovar a documentación, volve xerar os arquivos no repositorio de
-`daw-doc` e rexístraos no paquete con `engadir-imaxe.ps1`. Nas contas que xa
+`daw-doc` e rexístraos no paquete con `add-package-image.ps1`. Nas contas que xa
 teñen esas etiquetas en Docker, verifica o paquete e carga os arquivos novos
 con `docker load -i` antes de executar `daw-start-doc`. O lanzador reutiliza as
 imaxes locais cando xa están cargadas.
@@ -472,10 +472,10 @@ Ao rematar a xornada, o profesorado pode apagar todos os equipos da aula de form
 
 ```powershell
 # Desde PowerShell no equipo 100:
-.\wsl\aula\gestionar-aula.ps1 -Action Apagar -Aula 34
+.\windows\classroom\manage.ps1 -Action Apagar -Aula 34
 
 # Ou chamando directamente ao script de apagado:
-.\wsl\aula\apagar-aula.ps1 -Aula 34
+.\windows\classroom\power-off.ps1 -Aula 34
 ```
 
 ### Arquitectura de apagado en dúas fases (tolerante a fallos)
@@ -499,13 +499,13 @@ Para acender os equipos dos alumnos ao inicio da xornada sen desprazarse posto p
 
 ```powershell
 # Acender todos os equipos da Aula 31:
-.\wsl\aula\acender-aula.ps1 -Aula 31
+.\windows\classroom\power-on.ps1 -Aula 31
 
 # Acender un posto específico (ex. equipo 01) con monitorización:
-.\wsl\aula\acender-aula.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
+.\windows\classroom\power-on.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
 ```
 
-Tamén pode empregarse a interface gráfica de **Veyon Master** seleccionando os equipos e premendo no botón **«Encender»**, grazas ao saneamento e rexistro previo das MACs en `BuiltinDirectory/NetworkObjects` (rexistradas no ficheiro de apoio `wsl/aula/a31-macs.csv`).
+Tamén pode empregarse a interface gráfica de **Veyon Master** seleccionando os equipos e premendo no botón **«Encender»**, grazas ao saneamento e rexistro previo das MACs en `BuiltinDirectory/NetworkObjects` (rexistradas no ficheiro de apoio `windows/classroom/a31-macs.csv`).
 
 
 ## Fontes e comprobacións

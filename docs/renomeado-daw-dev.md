@@ -59,7 +59,7 @@ Para iniciar só o web, executa `daw-start`. Para comprobar a contorna completa:
 
 ```bash
 daw-start-all
-./scripts/comprobar.sh
+./scripts/check.sh
 ```
 
 Os novos contedores chámanse `daw-web`, `daw-db` e `daw-phpmyadmin`.
@@ -78,7 +78,7 @@ Actualiza o repositorio, renomea o cartafol a `daw-dev` e axusta o `.env` como n
 Desde a nova raíz do repositorio, executa:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-commands.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\install-daw-commands.ps1
 ```
 
 O instalador crea os lanzadores `daw-*.cmd` e retira os antigos `dwcs*.cmd` ou `daw-dev-*.cmd` cando apuntan

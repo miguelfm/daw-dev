@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Proba de BD usada por comprobar-alumno.ps1, só nunha conta de proba.
+# Proba de BD usada por check-user.ps1, só nunha conta de proba.
 set -euo pipefail
 action=${1:?write|read|clean}
 token=${2:?token}

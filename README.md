@@ -49,7 +49,7 @@ O teu código vai na carpeta **`www/`**. Os cambios vense ao recargar o navegado
 Para comprobar a contorna completa (servidor, base de datos, Composer, permisos, Xdebug...):
 
 ```bash
-./scripts/comprobar.sh
+./scripts/check.sh
 ```
 
 > **Linux:** a imaxe publicada usa o UID 1000, o do primeiro usuario de case todas as distribucións. Se o teu é
@@ -109,7 +109,7 @@ Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-conted
 | Executar un script PHP por consola      | `docker compose exec -u ad web php script.php` |
 | Reconstruír tras cambiar Dockerfile/ini | `docker compose up -d --build`                  |
 | Actualizar o servidor web               | `docker compose pull web && docker compose up -d --no-deps web` |
-| Comprobar que todo funciona             | `./scripts/comprobar.sh`                        |
+| Comprobar que todo funciona             | `./scripts/check.sh`                        |
 | Borrar contedores e volumes xestionados, **incluída a BD** | `docker compose down -v`             |
 
 ### Consola do contedor web
@@ -337,7 +337,7 @@ contorna orixinal para manter compatibles os exercicios e as bases de datos exis
 O contrasinal é o mesmo da MV da aula. Un `.env` ou un volume de MariaDB anteriores
 ao 24-11-2026 levan o contrasinal por defecto anterior: as ordes `daw-start` cambian
 o do `.env`, e MariaDB, ao arrancar, o dos usuarios `root` e `dwcs` que aínda o teñan
-(`docker/mariadb/saude.sh`). Un contrasinal posto a man non se toca.
+(`docker/mariadb/healthcheck.sh`). Un contrasinal posto a man non se toca.
 
 As contas de Linux non teñen contrasinal, ao contrario ca na MV da aula, onde `ad`
 ten `abc123..`: no contedor, `ad` usa `sudo` sen contrasinal; na Debian da aula,
@@ -418,7 +418,7 @@ Se en Windows `localhost` funciona ao arrancar e deixa de responder ao pouco,
 consulta [o peche de WSL tras o arranque](docs/windows11-contedores.md#localhost-deixa-de-responder-pouco-despois-do-arranque).
 A guía inclúe o diagnóstico, a protección dos lanzadores e a proba de permanencia.
 
-Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos casos, como arranxala.
+Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos, como arranxala.
 
 | Síntoma | Solución |
 |---------|----------|
@@ -445,9 +445,10 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 │       ├── client/daw-dev.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
 │       └── init/             # scripts .sql iniciais
 ├── www/                      # ← O TEU CÓDIGO (DocumentRoot; carpetas locais como dwcs/ ignoradas en git)
-├── scripts/comprobar.sh      # comprobación automática da contorna
+├── scripts/                  # comandos daw-* de Linux, check.sh (comprobación da contorna) e scripts que se executan en WSL
 ├── docs/                     # guías de Windows 11 + WSL2 (administración e alumnado)
-├── wsl/                      # scripts de instalación para Windows 11 + WSL2
+├── windows/                  # comandos daw-* de Windows e instalación de WSL2
+│   └── classroom/            # despregamento na aula (paquete, WinRM, ficheiros do proxecto)
 ├── .github/workflows/ci.yml  # probas e publicación das imaxes en ghcr.io
 ├── .vscode/                  # launch.json (Xdebug) e extensións recomendadas
 └── .devcontainer/            # configuración opcional de Dev Container
@@ -471,7 +472,7 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
 - **En Compose base, Apache executa PHP como `ad`**, co UID indicado ao construír a imaxe. Na aula, o override executa Apache como `www-data`, igual ca na MV.
 - **OPcache** está activo con `revalidate_freq=0` para que os cambios se vexan ao momento.
-- **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/comprobar.sh`
+- **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/check.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
   `ghcr.io/miguelfm/daw-dev:8.6-ad` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.6-ad`.
   Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
@@ -486,6 +487,6 @@ Primeiro executa `./scripts/comprobar.sh`: indica que parte falla e, en moitos c
 
 ## Mantemento dos scripts de aula (13/11/2026)
 
-A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia do xestor paralelo está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `wsl/aula/actualizar-paquete.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
+A integración WSL/WinRM agora valida o modelo antes de migrar, conserva o modo baixo demanda, verifica o IDE e espera o resultado real da tarefa do alumno. A concorrencia de `manage.ps1 -ThrottleLimit` está limitada. Antes de reutilizar un paquete antigo, actualizar os seus scripts con `windows/classroom/update-package.ps1`: a imaxe Debian e o seu SHA-256 consérvanse.
 
-Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/aula.ps1`, `tests/migration.py` e `tests/proxecto.py`.
+Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/migration.py` e `tests/overlay.py`.

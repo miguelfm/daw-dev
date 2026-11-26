@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Comproba que a contorna DAW Dev funciona e mostra un informe.
 #
-# Uso:  ./scripts/comprobar.sh [--build]
+# Uso:  ./scripts/check.sh [--build]
 #   --build        reconstrúe a imaxe antes de comprobar
 #
 # Arranca a contorna se non está en marcha. Non borra datos nin cambia a configuración:

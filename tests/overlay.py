@@ -8,7 +8,7 @@ import hashlib, json, os, pathlib, shutil, subprocess, tempfile
 
 repo = pathlib.Path(__file__).resolve().parents[1]
 pwsh = os.environ.get('PWSH_BIN', 'pwsh')
-overlay = repo / 'wsl/aula/proxecto/ficheiros'
+overlay = repo / 'windows/classroom/overlay'
 STUB = r'''#!/usr/bin/env python3
 import json,os,pathlib,sys
 args=sys.argv[1:]
@@ -36,13 +36,13 @@ def snapshot(root):
         state[rel] = ('link', os.readlink(p)) if p.is_symlink() else ('dir',) if p.is_dir() else ('file', p.read_bytes(), p.stat().st_mode & 0o777)
     return state
 
-with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
+with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     base = pathlib.Path(tmp)
     script = base / 'overlay.sh'
     if os.environ.get('DAW_OVERLAY_SCRIPT'):
         shutil.copy(os.environ['DAW_OVERLAY_SCRIPT'], script)
     else:
-        env = dict(os.environ, DAW_TEST_MODULE=str(repo / 'wsl/aula/daw-aula.psm1'), DAW_TEST_OUTPUT=str(script))
+        env = dict(os.environ, DAW_TEST_MODULE=str(repo / 'windows/classroom/daw-aula.psm1'), DAW_TEST_OUTPUT=str(script))
         subprocess.run([pwsh, '-NoProfile', '-Command',
             'Import-Module $env:DAW_TEST_MODULE -Force; [IO.File]::WriteAllText($env:DAW_TEST_OUTPUT,(Get-DawProjectOverlayScript),(New-Object Text.UTF8Encoding($false)))'],
             env=env, check=True)
@@ -55,6 +55,8 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
     def fixture(name):
         root = base / name
         src = root / 'src'; shutil.copytree(overlay, src)
+        # As in New-DawProjectStage, the stage also carries the repository Compose and Angular files.
+        shutil.copy(repo / 'compose.yaml', src / 'compose.yaml'); shutil.copytree(repo / 'docker/angular', src / 'docker/angular')
         project = root / 'home/ad/proxectos/daw-dev'
         (project / 'www').mkdir(parents=True); (project / '.devcontainer').mkdir()
         (project / 'compose.yaml').write_text('services: {}\n')
@@ -201,7 +203,7 @@ with tempfile.TemporaryDirectory(prefix='daw-proxecto-') as tmp:
         web = json.loads(config.stdout)['services']['web']
         assert web['image'] == 'example.invalid/dwcs-php:8.6-ad' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
-        assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-aula.ini' in targets, targets
+        assert '/home/ad/html' in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']
         count += 1; print('PASS real docker compose accepts the classroom project files')
     else:

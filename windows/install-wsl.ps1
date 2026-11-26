@@ -20,9 +20,9 @@
     Reinicia o equipo ao rematar, se fai falta.
 
 .EXAMPLE
-    .\instalar-wsl-admin.ps1
+    .\install-wsl.ps1
 .EXAMPLE
-    .\instalar-wsl-admin.ps1 -MsiPath \\servidor\dwcs\wsl.3.0.1.0.x64.msi -Reiniciar
+    .\install-wsl.ps1 -MsiPath \\servidor\dwcs\wsl.3.0.1.0.x64.msi -Reiniciar
 #>
 param(
     [string]$MsiPath,

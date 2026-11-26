@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Só se executa na distribución NOVA creada por preparar-modelo.ps1.
+# Só se executa na distribución NOVA creada por build-package.ps1.
 set -euo pipefail
 action=${1:?install|images|seal}
 project=/home/ad/proxectos/daw-dev
@@ -18,7 +18,7 @@ install)
     passwd --lock ad
     mkdir -p "$project"
     tar -xf "${2:?sources.tar}" -C "$project"
-    cp -a "$project/wsl/aula/proxecto/ficheiros/." "$project/"
+    cp -a "$project/windows/classroom/overlay/." "$project/"
     ln -s "$project/www" /home/ad/www
     cat > /etc/wsl.conf <<'EOF'
 [boot]
@@ -26,30 +26,16 @@ systemd=true
 [user]
 default=ad
 EOF
-    SUDO_USER=ad bash "$project/wsl/instalar-docker.sh"
+    SUDO_USER=ad bash "$project/scripts/install-docker.sh"
     cp "$project/.env.example" "$project/.env"
     sed -i -e 's/^WEB_PORT=.*/WEB_PORT=127.0.0.1:80/' \
            -e 's/^PMA_PORT=.*/PMA_PORT=127.0.0.1:8081/' \
            -e 's/^DB_PORT=.*/DB_PORT=127.0.0.1:3306/' "$project/.env"
     chown -R ad:ad /home/ad
-    # Comandos dispoñibles tamén dentro de Debian, en terminais interactivas.
-    cat > /usr/local/bin/daw-aula-command <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cd /home/ad/proxectos/daw-dev
-case "${0##*/}" in
-  daw-start|daw-star) exec docker compose up -d --wait --wait-timeout 300 --no-deps web "$@" ;;
-  daw-start-all) exec docker compose up -d --wait --wait-timeout 300 "$@" ;;
-  daw-start-db) exec docker compose up -d --wait --wait-timeout 300 db web "$@" ;;
-  daw-stop) exec docker compose stop "$@" ;;
-  daw-status) exec docker compose ps --all "$@" ;;
-  daw-web-root) exec bash scripts/daw.sh web-root "$@" ;;
-  daw-web-shell|daw-shell) exec bash scripts/daw.sh web-shell "$@" ;;
-esac
-EOF
-    chmod 755 /usr/local/bin/daw-aula-command
+    # Comandos dispoñibles tamén dentro de Debian: os mesmos de scripts/daw.sh, que
+    # escolle a orde polo nome da ligazón e resolve o proxecto desde a súa ruta real.
     for command in daw-start daw-star daw-start-all daw-start-db daw-stop daw-status daw-web-root daw-web-shell daw-shell; do
-        ln -s /usr/local/bin/daw-aula-command "/usr/local/bin/$command"
+        ln -s "$project/scripts/daw.sh" "/usr/local/bin/$command"
     done
     printf '%s\n' 'daw-aula-v1' > /etc/daw-aula-modelo
     ;;

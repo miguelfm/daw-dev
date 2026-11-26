@@ -11,8 +11,8 @@ services:
     volumes:
       # Os datos da MV quedan fóra da raíz web
       - ./datos:/home/ad/datos
-      - ./docker/aula/zz-aula.ini:/usr/local/etc/php/conf.d/zz-aula.ini:ro
-      - ./docker/aula/000-default.conf:/etc/apache2/sites-available/000-default.conf:ro
+      - ./docker/classroom/zz-classroom.ini:/usr/local/etc/php/conf.d/zz-classroom.ini:ro
+      - ./docker/classroom/000-default.conf:/etc/apache2/sites-available/000-default.conf:ro
     command:
       - bash
       - -c

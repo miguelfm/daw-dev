@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Instala Docker Engine en Debian (WSL2) para a contorna DAW Dev.
-# Uso, dentro de Debian:  sudo bash instalar-docker.sh
+# Uso, dentro de Debian:  sudo bash install-docker.sh
 # Non precisa permisos de administrador de Windows: só o contrasinal do teu usuario de Debian.
 set -euo pipefail
 

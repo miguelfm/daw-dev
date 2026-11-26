@@ -6,15 +6,19 @@ Desprega DAW Dev desde o equipo 100. Por defecto aula 34, equipos 1-35.
 Comprobar: só diagnóstico. HabilitarWinRM: bootstrap con PsExec asinado de Microsoft.
 PrepararWSL: características + MSI oficial (non reinicia). CopiarModelo: copia local
 protexida e baixo demanda (AutoInicio opt-in). InstalarUsuario: tarefa sen
-elevación na sesión activa. ActualizarProxecto: copia wsl\aula\proxecto\ficheiros no
+elevación na sesión activa. ActualizarProxecto: copia windows\classroom\overlay no
 proxecto da Debian do alumno conectado, sen tocar www (Reiniciar recrea o contedor
 web se está en marcha). Estado: consulta logs por perfil. Non almacena contrasinais.
+ThrottleLimit atende ata ese número de postos á vez en PrepararWSL, CopiarModelo e
+ActualizarProxecto; por defecto, un tras outro.
 .EXAMPLE
-.\gestionar-aula.ps1 -Action Comprobar -Aula 31 -Numero 1
+.\manage.ps1 -Action Comprobar -Aula 31 -Numero 1
 .EXAMPLE
-.\gestionar-aula.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
+.\manage.ps1 -Action HabilitarWinRM -Aula 31 -Numero 1
 .EXAMPLE
-.\gestionar-aula.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+.\manage.ps1 -Action ActualizarProxecto -Aula 34 -Numero 16
+.EXAMPLE
+.\manage.ps1 -Action CopiarModelo -Aula 34 -Numero (1..35) -ThrottleLimit 5 -PackageDirectory C:\DAW-Paquete-2026
 #>
 [CmdletBinding()]
 param(
@@ -31,17 +35,21 @@ param(
     [switch]$SenVSCode,
     [switch]$Reiniciar,
     [ValidateRange(5,7200)][int]$TimeoutSeconds=1800,
+    [ValidateRange(1,10)][int]$ThrottleLimit = 1,
     [string]$PsExecPath = (Join-Path $env:LOCALAPPDATA 'DAW-Aula-Tools\PsExec64.exe')
 )
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
 Import-Module (Join-Path $PSScriptRoot 'daw-aula.psm1') -Force
+if ($ThrottleLimit -gt 1 -and $Action -notin @('PrepararWSL','CopiarModelo','ActualizarProxecto')) {
+    throw 'ThrottleLimit só se usa con PrepararWSL, CopiarModelo e ActualizarProxecto.'
+}
 if ($Action -eq 'Comprobar') {
-    & (Join-Path $PSScriptRoot 'comprobar-remoto.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
+    & (Join-Path $PSScriptRoot 'check-remote.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
     return
 }
 if ($Action -eq 'Apagar') {
-    & (Join-Path $PSScriptRoot 'apagar-aula.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
+    & (Join-Path $PSScriptRoot 'power-off.ps1') -Aula $Aula -Numero $Numero -Dominio $Dominio
     return
 }
 function Assert-MicrosoftSignature([string]$Path) {
@@ -82,6 +90,24 @@ if ($Action -eq 'CopiarModelo') {
     $files += $manifest.Image
     $files += @(Get-DawPackageImages $manifest | ForEach-Object { $_.File })
 }
+$numbers = @($Numero | Sort-Object -Unique)
+if ($ThrottleLimit -gt 1 -and $numbers.Count -gt 1) {
+    # Cada posto nunha execución propia deste script, con ThrottleLimit execucións á vez.
+    $worker = {
+        param($n,$script,$action,$aula,$domain,$package,$msi,$auto,$restart,$seconds)
+        $ErrorActionPreference = 'Stop'
+        try {
+            $data = @(& $script -Action $action -Aula $aula -Numero @($n) -Dominio $domain -PackageDirectory $package -WslMsi $msi -AutoInicio:$auto -Reiniciar:$restart -TimeoutSeconds $seconds)
+            $records = @($data | Where-Object { $_ -and $_.PSObject.Properties['Success'] -and $_.PSObject.Properties['Equipo'] })
+            if ($records.Count -ne 1) { throw 'Resposta ausente ou ambigua do xestor.' }
+            $records[0]
+        } catch { [pscustomobject]@{ Equipo = ('A{0}EQ{1:D2}.{2}' -f $aula,$n,$domain); Action = $action; Success = $false; Error = $_.Exception.Message; Data = $null } }
+    }
+    $arguments = @($PSCommandPath,$Action,$Aula,$Dominio,$PackageDirectory,$WslMsi,$AutoInicio.IsPresent,$Reiniciar.IsPresent,$TimeoutSeconds)
+    $result = @(Invoke-DawBoundedJobs $numbers $ThrottleLimit $worker $arguments)
+    if ($result.Count -ne $numbers.Count) { throw 'Faltan resultados dalgúns postos. Non se declara éxito.' }
+    return $result
+}
 $projectStage = $null
 if ($Action -in @('ActualizarProxecto','CopiarModelo')) {
     # Preparado unha vez no profesor: ficheiros do proxecto, actualizador e módulo, con SHA256.
@@ -98,11 +124,11 @@ foreach ($n in $Numero) {
     try {
         switch ($Action) {
             'HabilitarWinRM' {
-                Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'habilitar-winrm.ps1') -Destination "\\$computer\admin$\Temp\daw-habilitar-winrm.ps1" -Force
+                Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'enable-winrm.ps1') -Destination "\\$computer\admin$\Temp\daw-enable-winrm.ps1" -Force
                 $previousPreference = $ErrorActionPreference
                 $ErrorActionPreference = 'Continue'
                 try {
-                    & $PsExecPath "\\$computer" -accepteula -nobanner -n 10 -r DAWAulaBootstrap -s powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\Windows\Temp\daw-habilitar-winrm.ps1 -ProfesorIP "172.21.$Aula.100" 2>&1 | ForEach-Object { "$_" }
+                    & $PsExecPath "\\$computer" -accepteula -nobanner -n 10 -r DAWAulaBootstrap -s powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\Windows\Temp\daw-enable-winrm.ps1 -ProfesorIP "172.21.$Aula.100" 2>&1 | ForEach-Object { "$_" }
                     $bootstrapExit = $LASTEXITCODE
                 } finally { $ErrorActionPreference = $previousPreference }
                 if ($bootstrapExit -ne 0) { throw "PsExec rematou con $bootstrapExit." }
@@ -143,7 +169,7 @@ foreach ($n in $Numero) {
                     'PrepararWSL' {
                         $remoteMsi = 'C:\Windows\Temp\daw-wsl.x64.msi'
                         Copy-Item -LiteralPath $WslMsi -Destination $remoteMsi -ToSession $session -Force
-                        $script = Join-Path (Split-Path -Parent $PSScriptRoot) 'instalar-wsl-admin.ps1'
+                        $script = Join-Path (Split-Path -Parent $PSScriptRoot) 'install-wsl.ps1'
                         $details = Invoke-Command -Session $session -FilePath $script -ArgumentList $remoteMsi
                         Write-Host "[$computer] Non se reiniciou automaticamente. Revisa RestartRequired."
                     }

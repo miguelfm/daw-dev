@@ -18,7 +18,7 @@ Start-Transcript -LiteralPath (Join-Path $stateDir 'proba.log') -Append | Out-Nu
 $report = [ordered]@{ User = [Security.Principal.WindowsIdentity]::GetCurrent().Name; WindowsAdmin = $false; Success = $false; Error = $null }
 $token = [Guid]::NewGuid().ToString('N')
 $project = '/home/ad/proxectos/daw-dev'
-$fixture = (& wsl.exe -d $Distribution -u ad --exec wslpath -a -u (Join-Path $PSScriptRoot 'proba-persistencia.sh')) -join ''
+$fixture = (& wsl.exe -d $Distribution -u ad --exec wslpath -a -u (Join-Path $PSScriptRoot 'db-persistence.sh')) -join ''
 $fixture = $fixture.Trim()
 function Invoke-NativeChecked([scriptblock]$Command) {
     $previous = $ErrorActionPreference

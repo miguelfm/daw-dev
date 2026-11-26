@@ -1,0 +1,337 @@
+﻿param(
+    [string]$Action = 'help',
+    [string]$Distribution = 'Debian',
+    # Ruta absoluta dentro de Debian, ou ruta Windows da copia habitual.
+    [string]$ProjectPath,
+    [ValidatePattern('^[a-z_][a-z0-9_-]*$')][string]$LinuxUser,
+    [switch]$Open,
+    [switch]$Local,
+    [switch]$Container,
+    [string]$PackageDirectory,
+    [switch]$SkipVSCode
+)
+
+$ErrorActionPreference = 'Stop'
+# Ruta literal: a variable ProgramData non existe fóra de Windows (probas en Linux).
+$classroomPackage = if ($env:DAW_AULA_PACKAGE) { $env:DAW_AULA_PACKAGE } else { 'C:\ProgramData\DAW-Aula' }
+if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
+$wslArgs = @('-d', $Distribution)
+if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
+$startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
+# Angular (DWCC): imaxe publicada e, na aula, copia no paquete para cargala sen Internet.
+$angularImage = 'ghcr.io/miguelfm/dwcc-angular:22'
+$angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } else { "$classroomPackage\dwcc-angular.tar.gz" }
+# Documentación sen conexión (daw-doc): na aula, as tres imaxes van no paquete.
+$docImages = [ordered]@{
+    'ghcr.io/miguelfm/daw-doc-php:en' = 'daw-doc-php.tar.gz'
+    'ghcr.io/miguelfm/daw-doc-devdocs:latest' = 'daw-doc-devdocs.tar.gz'
+    'ghcr.io/miguelfm/daw-doc-laravel:13.x' = 'daw-doc-laravel.tar.gz'
+}
+$docArchiveDirectory = if ($env:DAW_DOC_ARCHIVES) { $env:DAW_DOC_ARCHIVES } else { $classroomPackage }
+
+function Initialize-AngularKey {
+    # Chave da conta de Windows e entrada dwcc-angular de ~/.ssh/config, só a primeira vez.
+    $sshDir = if ($env:DAW_SSH_DIR) { $env:DAW_SSH_DIR } else { Join-Path $HOME '.ssh' }
+    New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
+    $key = Join-Path $sshDir 'dwcc_angular'
+    if (-not (Test-Path -LiteralPath "$key.pub")) {
+        if (Test-Path -LiteralPath $key) { throw "$key exists without $key.pub. Rename it and try again." }
+        $keygen = Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue
+        if (-not $keygen) { throw 'The Windows OpenSSH client (ssh-keygen) is not installed.' }
+        # Argumentos nunha soa cadea: -N "" (sen frase de paso) chega igual en PowerShell 5.1 e 7.
+        $keyArgs = '-q -t ed25519 -N "" -C dwcc-angular -f "' + $key + '"'
+        $p = Start-Process -FilePath $keygen.Source -ArgumentList $keyArgs -NoNewWindow -Wait -PassThru
+        if ($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath "$key.pub")) { throw 'ssh-keygen could not create the dwcc_angular key.' }
+    }
+    $config = Join-Path $sshDir 'config'
+    $text = if (Test-Path -LiteralPath $config) { [IO.File]::ReadAllText($config) } else { '' }
+    if ($text -notmatch '(?im)^\s*Host\s+dwcc-angular\s*$') {
+        $identity = if ($env:DAW_SSH_DIR) { '"' + $key + '"' } else { '~/.ssh/dwcc_angular' }
+        $nl = "`r`n"
+        $block = "Host dwcc-angular$nl    HostName 127.0.0.1$nl    Port 2222$nl    User node$nl    IdentityFile $identity$nl    IdentitiesOnly yes$nl"
+        if ($text -and -not $text.EndsWith("`n")) { $block = $nl + $block }
+        [IO.File]::AppendAllText($config, $block, (New-Object Text.UTF8Encoding($false)))
+    }
+    ([IO.File]::ReadAllText("$key.pub")).Trim()
+}
+
+function Get-DawDevContainerCommand([string]$CodeExe, [string]$CodeCommand) {
+    $extensions = Join-Path $env:USERPROFILE '.vscode\extensions'
+    $extension = Get-ChildItem -LiteralPath $extensions -Directory -Filter 'ms-vscode-remote.remote-containers-*' -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'dev-containers-user-cli\bin\devcontainer.cmd') -PathType Leaf } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $extension) { throw 'The Dev Containers extension is required for daw-code -Container.' }
+    $cliLine = [regex]::Match([IO.File]::ReadAllText($CodeCommand), '%~dp0([^"%]*?resources\\app\\out\\cli\.js)')
+    if (-not $cliLine.Success) { throw 'Could not determine the current VS Code app directory.' }
+    $cliPath = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $CodeCommand) $cliLine.Groups[1].Value))
+    if (-not (Test-Path -LiteralPath $cliPath -PathType Leaf)) { throw 'The current VS Code CLI was not found.' }
+    $appRoot = Split-Path -Parent (Split-Path -Parent $cliPath)
+    # The official Dev Containers CLI reads these files next to its Windows shim.
+    # Keep a DAW-specific shim so the extension's usual CLI is left to VS Code.
+    $directory = Join-Path $env:APPDATA 'Code\User\globalStorage\ms-vscode-remote.remote-containers\daw-cli-bin'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $metadata = @{
+        'vscode-app-root' = $appRoot
+        'vscode-path' = $CodeExe
+        'vscode-quality' = 'stable'
+        'remote-containers-path' = $extension.FullName
+    }
+    foreach ($entry in $metadata.GetEnumerator()) {
+        [IO.File]::WriteAllText((Join-Path $directory $entry.Key), $entry.Value, (New-Object Text.UTF8Encoding($false)))
+    }
+    $shim = Join-Path $directory 'devcontainer.cmd'
+    Copy-Item -LiteralPath (Join-Path $extension.FullName 'dev-containers-user-cli\bin\devcontainer.cmd') -Destination $shim -Force
+    return $shim
+}
+
+function Initialize-DawCodeCache([string]$CodeCommand, [switch]$ForContainer) {
+    $cacheDirectory = Join-Path $classroomPackage 'vscode-server'
+    $installer = Join-Path $cacheDirectory 'instalar.ps1'
+    # Só o paquete da aula trae a caché; noutros equipos non hai nada que preparar.
+    if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { return }
+    $result = & $installer -Distribution $Distribution -CodeCommand $CodeCommand -AllowMissing
+    if (-not $ForContainer) { return }
+    $match = [regex]::Match(($result -join ' '), '\b(?:Ready|Installed) ([0-9a-f]{40})\b')
+    if (-not $match.Success) { return }
+    $commit = $match.Groups[1].Value
+    $manifest = Get-Content -LiteralPath (Join-Path $cacheDirectory 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $entry = $manifest | Where-Object Commit -eq $commit | Select-Object -First 1
+    if (-not $entry -or $entry.Sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'The classroom VS Code Server checksum is missing.' }
+    # Dev Containers uses a separate Windows download cache from Remote - WSL.
+    $directory = Join-Path $env:TEMP "vsch\serverCache\$commit"
+    $archive = Join-Path $directory 'vscode-server-linux-x64.tar.gz'
+    if ((Test-Path -LiteralPath $archive -PathType Leaf) -and (Get-FileHash -LiteralPath $archive).Hash -eq $entry.Sha256) { return }
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $pending = $archive + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        Copy-Item -LiteralPath (Join-Path $cacheDirectory "$commit.tar.gz") -Destination $pending
+        if ((Get-FileHash -LiteralPath $pending).Hash -ne $entry.Sha256) { throw 'The Dev Containers cache checksum does not match.' }
+        if (Test-Path -LiteralPath $archive -PathType Leaf) {
+            [IO.File]::Replace($pending, $archive, ($pending + '.previous'))
+        } else {
+            [IO.File]::Move($pending, $archive)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $pending) { Remove-Item -LiteralPath $pending -Force }
+    }
+}
+
+# Repón os lanzadores daw-* que falten e o PATH, sen tocar os existentes: unha instalación
+# anterior recibe así as ordes novas (como daw-activate) ao usar calquera delas.
+$launcherInstaller = Join-Path $PSScriptRoot 'install-daw-commands.ps1'
+if ($env:USERPROFILE -and -not $env:DAW_SKIP_LAUNCHER_REPAIR -and (Test-Path -LiteralPath $launcherInstaller -PathType Leaf)) {
+    $repairArgs = @{ Distribution = $Distribution; Repair = $true }
+    if ($ProjectPath.StartsWith('/')) { $repairArgs.LinuxProjectPath = $ProjectPath }
+    if ($LinuxUser) { $repairArgs.LinuxUser = $LinuxUser }
+    try { & $launcherInstaller @repairArgs | Out-Null }
+    catch { Write-Warning "Could not restore the missing daw-* launchers: $($_.Exception.Message)" }
+}
+
+switch ($Action.ToLowerInvariant()) {
+    { $_ -in 'help', '--help' } {
+        Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
+        Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code'
+        Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-activate | daw-help'
+        Write-Output '  daw-activate: install or update the classroom setup from its deployed package.'
+        Write-Output '  daw-start: start only the web service without starting dependencies.'
+        Write-Output '  daw-star: alias for daw-start.'
+        Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
+        Write-Output '  daw-start-db: start MariaDB and the web service together.'
+        Write-Output '  daw-start-angular: start the Angular container; connect VS Code by SSH to dwcc-angular.'
+        Write-Output '  daw-start-doc: start the offline PHP manual (8080), DevDocs (5042) and Laravel docs (8088).'
+        Write-Output '  Other running containers are left running.'
+        Write-Output '  daw-stop: stop DAW Dev containers, Angular and the docs included, without deleting data.'
+        Write-Output '  daw-stop-all: stop all containers: development, documentation and Angular.'
+        Write-Output '  daw-stop-doc: stop only the offline documentation containers.'
+        Write-Output '  daw-status: show names, status and ports, including stopped containers.'
+        Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
+        Write-Output '  daw-web-shell: open Bash in the Apache/PHP web container as user ad.'
+        Write-Output '  daw-shell: alias for daw-web-shell.'
+        Write-Output '  daw-wsl-shell: open Debian in WSL at the project directory without starting Docker.'
+        Write-Output '  daw-code: open the project directly in VS Code.'
+        Write-Output '  daw-code -Container: open the project directly in its PHP Dev Container.'
+        Write-Output '  daw-code -Local: edit in Windows without VS Code Server.'
+        Write-Output '  daw-web-root: show the Windows and Debian paths to the Apache web root.'
+        Write-Output '                Add -Open to open the Windows path in File Explorer.'
+        Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
+        exit 0
+    }
+    'activate' {
+        $package = if ($PackageDirectory) { $PackageDirectory } else { $classroomPackage }
+        $activator = Join-Path $package 'activar-dawdev.ps1'
+        if (-not (Test-Path -LiteralPath $activator -PathType Leaf)) {
+            throw "The classroom package has not been deployed to $package."
+        }
+        & $activator -Distribution $Distribution -SenVSCode:$SkipVSCode -SenPausa
+        exit $LASTEXITCODE
+    }
+    'code' {
+        if ($Local -and $Container) { throw 'Choose either -Local or -Container.' }
+        $codeCmd = 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
+        if (-not (Test-Path -LiteralPath $codeCmd -PathType Leaf)) {
+            $command = Get-Command code.cmd -ErrorAction SilentlyContinue
+            if (-not $command) { throw 'Non se atopou VS Code no equipo.' }
+            $codeCmd = $command.Source
+        }
+        $codeExe = Join-Path (Split-Path -Parent (Split-Path -Parent $codeCmd)) 'Code.exe'
+        if (-not (Test-Path -LiteralPath $codeExe -PathType Leaf)) { throw 'Non se atopou Code.exe.' }
+
+        $targetPath = $ProjectPath
+        $useWslRemote = $ProjectPath.StartsWith('/') -and -not $Local
+        if ($ProjectPath.StartsWith('/')) {
+            & wsl.exe @wslArgs --exec test -d $ProjectPath
+            if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
+            $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+        }
+        if ($useWslRemote) { Initialize-DawCodeCache $codeCmd -ForContainer:$Container }
+        if ($Container) {
+            $devContainer = Get-DawDevContainerCommand $codeExe $codeCmd
+            & $devContainer open $targetPath --disable-telemetry
+            exit $LASTEXITCODE
+        }
+        $codeArgs = if ($useWslRemote) {
+            $path = ($ProjectPath -split '/' | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+            @('--folder-uri', "vscode-remote://wsl+$Distribution$path")
+        } else {
+            '"' + $targetPath + '"'
+        }
+        Start-Process -FilePath $codeExe -ArgumentList $codeArgs -WorkingDirectory $env:USERPROFILE
+        exit 0
+    }
+    'wsl-shell' {
+        & wsl.exe @wslArgs --cd $ProjectPath
+        exit $LASTEXITCODE
+    }
+    'start' { $composeArgs = $startArgs + @('--no-deps', 'web') }
+    'start-all' { $composeArgs = $startArgs }
+    'start-db' { $composeArgs = $startArgs + @('db', 'web') }
+    'start-angular' { $composeArgs = @('--profile', 'angular') + $startArgs + @('angular') }
+    'start-doc' { $composeArgs = @('--profile', 'doc') + $startArgs + @('doc-php', 'doc-devdocs', 'doc-laravel') }
+    # Compose só para os servizos dun perfil se se lle indica o perfil.
+    'stop' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }
+    'stop-all' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }
+    'stop-doc' { $composeArgs = @('--profile', 'doc', 'stop', 'doc-php', 'doc-devdocs', 'doc-laravel') }
+    'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
+    'logs' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'logs', '--tail', '100', '-f') }
+    'shell' { $composeArgs = @('exec', '-u', 'ad', 'web', 'bash') }
+    { $_ -in 'web-root', 'www' } { }
+    default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
+}
+
+if ($ProjectPath.StartsWith('/')) {
+    & wsl.exe @wslArgs --exec test -f ($ProjectPath.TrimEnd('/') + '/compose.yaml')
+    if ($LASTEXITCODE -ne 0) { throw "compose.yaml was not found in ${Distribution}:$ProjectPath" }
+} elseif (!(Test-Path -LiteralPath (Join-Path $ProjectPath 'compose.yaml'))) {
+    throw "compose.yaml was not found in $ProjectPath"
+}
+# systemd pode estar rematando o arranque de Docker cando WSL acaba de abrir.
+& wsl.exe @wslArgs --exec bash -c 'for i in {1..30}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
+if ($LASTEXITCODE -ne 0) { throw 'Docker did not start in WSL. Ask the teacher to check the Docker service.' }
+if ($Action -in 'web-root', 'www') {
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        $webRoots = @('/var/www/html', '/home/ad/html')
+        $containers = @(& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --all --quiet web)
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        # Excluír contedores temporais de `docker compose run`.
+        $mountJson = if ($containers.Count) {
+            $mountFormat = '{{if ne (index .Config.Labels `com.docker.compose.oneoff`) `True`}}{{json .Mounts}}{{end}}'
+            $inspect = & wsl.exe @wslArgs --exec docker inspect --type container --format $mountFormat @containers
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $inspect | Where-Object { $_ }
+        }
+        $sources = if ($mountJson) {
+            foreach ($entry in $mountJson) {
+                $mounts = ConvertFrom-Json -InputObject $entry
+                $mounts | Where-Object { $_.Type -eq 'bind' -and $_.Destination -cin $webRoots } | ForEach-Object { $_.Source }
+            }
+        } else {
+            $config = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose config --format json web
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            ($config -join "`n" | ConvertFrom-Json).services.web.volumes |
+                Where-Object { $_.type -eq 'bind' -and $_.target -cin $webRoots } | ForEach-Object { $_.source }
+        }
+        if (-not $sources) { throw 'The web service has no host directory mounted at /var/www/html or /home/ad/html.' }
+        $paths = foreach ($source in ($sources | Select-Object -Unique)) {
+            $windowsPath = & wsl.exe @wslArgs --exec wslpath -w $source
+            if ($LASTEXITCODE -ne 0 -or -not $windowsPath) { throw "Could not translate the web directory to a Windows path: $source" }
+            [pscustomobject]@{ Windows = $windowsPath; Debian = $source }
+        }
+    } finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+    foreach ($path in $paths) {
+        Write-Output $path.Windows
+        if ($Action -eq 'web-root') { Write-Output $path.Debian }
+        if ($Open) { Invoke-Item -LiteralPath $path.Windows }
+    }
+    exit 0
+}
+if ($Action.ToLowerInvariant().StartsWith('start')) {
+    # Un .env anterior ao 24-11-2026 leva o contrasinal por defecto anterior de MariaDB.
+    & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB password in .env.' }
+}
+if ($Action -in 'start-db', 'start-all') {
+    $runningWeb = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --status running --quiet web
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($runningWeb) {
+        # Preserve the running web container, including VS Code's Dev Container configuration.
+        $composeArgs = $startArgs + @('db')
+        if ($Action -eq 'start-all') { $composeArgs += 'phpmyadmin' }
+    }
+}
+if ($Action.ToLowerInvariant() -eq 'start-angular') {
+    # A chave pública vai ao proxecto (docker/angular/chave.pub); os proxectos, a angular/.
+    $pub = Initialize-AngularKey
+    if ($pub -notmatch '^(ssh-ed25519) ([A-Za-z0-9+/=]+)(\s.*)?$') { throw 'Unexpected format of dwcc_angular.pub.' }
+    if ($ProjectPath.StartsWith('/')) {
+        # Tipo e chave como argumentos: unha canalización a wsl.exe pode engadir un BOM,
+        # e sshd non recoñece entón a liña de authorized_keys.
+        & wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'mkdir -p angular docker/angular && echo $1 $2 > docker/angular/chave.pub' sh $Matches[1] $Matches[2]
+        if ($LASTEXITCODE -ne 0) { throw 'Could not copy the public key to the project.' }
+    } else {
+        New-Item -ItemType Directory -Force -Path (Join-Path $ProjectPath 'angular'), (Join-Path $ProjectPath 'docker\angular') | Out-Null
+        [IO.File]::WriteAllText((Join-Path $ProjectPath 'docker\angular\chave.pub'), $pub + "`n", (New-Object Text.UTF8Encoding($false)))
+    }
+    # A redirección vai en sh: en PowerShell 5.1, redirixir stderr dun programa con Stop é un erro.
+    & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $angularImage
+    if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath $angularArchive)) {
+        Write-Output 'Loading the Angular image from the classroom package (only the first time)...'
+        $linuxArchive = ((& wsl.exe @wslArgs --exec wslpath -u $angularArchive) -join '').Trim()
+        & wsl.exe @wslArgs --exec docker load -i $linuxArchive
+        if ($LASTEXITCODE -ne 0) { throw 'Could not load the Angular image.' }
+    }
+}
+if ($Action.ToLowerInvariant() -eq 'start-doc') {
+    foreach ($image in $docImages.Keys) {
+        $archive = Join-Path $docArchiveDirectory $docImages[$image]
+        & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $image
+        if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath $archive)) {
+            Write-Output "Loading $image from the classroom package (only the first time)..."
+            $linuxArchive = ((& wsl.exe @wslArgs --exec wslpath -u $archive) -join '').Trim()
+            & wsl.exe @wslArgs --exec docker load -i $linuxArchive
+            if ($LASTEXITCODE -ne 0) { throw "Could not load $image." }
+        }
+    }
+}
+& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose @composeArgs
+$composeExitCode = $LASTEXITCODE
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') {
+    Write-Output 'Angular is running. In VS Code: F1 > Remote-SSH: Connect to Host... > dwcc-angular,'
+    Write-Output 'open /home/node/proxectos and run: ng serve --host 0.0.0.0  (http://localhost:4200)'
+}
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-doc') {
+    Write-Output 'PHP manual: http://localhost:8080/   DevDocs: http://localhost:5042/   Laravel: http://localhost:8088/'
+}
+if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all', 'start-angular', 'start-doc')) {
+    # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
+    Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList ($wslArgs + @(
+        '--cd', ('"' + $ProjectPath + '"'),
+        # Un proxecto sen actualizar desde que keep-alive.sh pasou de wsl/ a scripts/ só ten o vello.
+        '--exec', 'bash', '-c', '"f=scripts/keep-alive.sh; [ -f $f ] || f=wsl/keep-alive.sh; exec bash $f"'
+    )) | Out-Null
+}
+exit $composeExitCode

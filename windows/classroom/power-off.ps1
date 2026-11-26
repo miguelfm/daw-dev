@@ -9,9 +9,9 @@ Apaga de forma remota e segura os equipos da aula, excluíndo sempre o equipo do
    aplica automaticamente o apagado por rede mediante RPC/SMB directo (shutdown.exe /m) e PsExec sobre a súa IP.
 4. Realiza unha comprobación de rede final para confirmar o apagado completo.
 .EXAMPLE
-.\apagar-aula.ps1 -Aula 34
+.\power-off.ps1 -Aula 34
 .EXAMPLE
-.\apagar-aula.ps1 -Aula 34 -Numero (1..15)
+.\power-off.ps1 -Aula 34 -Numero (1..15)
 #>
 [CmdletBinding()]
 param(

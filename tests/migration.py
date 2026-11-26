@@ -37,7 +37,7 @@ p.write_text(json.dumps(s))
 '''
 with tempfile.TemporaryDirectory(prefix='daw-migration-') as tmp:
     base=pathlib.Path(tmp);source=base/'migration.sh'
-    env=dict(os.environ,DAW_TEST_MODULE=str(repo/'wsl/aula/daw-aula.psm1'),DAW_TEST_OUTPUT=str(source))
+    env=dict(os.environ,DAW_TEST_MODULE=str(repo/'windows/classroom/daw-aula.psm1'),DAW_TEST_OUTPUT=str(source))
     subprocess.run([pwsh,'-NoProfile','-Command',
       'Import-Module $env:DAW_TEST_MODULE -Force; [IO.File]::WriteAllText($env:DAW_TEST_OUTPUT,(Get-DawMigration),(New-Object Text.UTF8Encoding($false)))'],env=env,check=True)
     original=source.read_text()

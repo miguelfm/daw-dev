@@ -20,7 +20,7 @@ Abre PowerShell e executa desde a raíz do proxecto:
 
 ```powershell
 cd "$env:USERPROFILE\Projects\daw-dev"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\wsl\install-daw-commands.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\install-daw-commands.ps1
 ```
 
 O instalador crea os lanzadores `daw-*.cmd` en `%USERPROFILE%\.local\bin` e engade
@@ -29,8 +29,10 @@ unha instalación anterior, executa de novo o instalador: substitúe os lanzador
 os antigos lanzadores `dwcs*.cmd` ou `daw-dev-*.cmd` cando apuntan a esta copia do repositorio ou ao seu antigo
 cartafol `dwcs-php`. Véxase tamén a [guía de migración](renomeado-daw-dev.md).
 A opción `ExecutionPolicy Bypass` aplícase ao proceso que executa o script.
-Os lanzadores chaman a `wsl/daw.ps1` do repositorio. Se moves a copia, volve
+Os lanzadores chaman a `windows/daw.ps1` do repositorio. Se moves a copia, volve
 executar o instalador desde a nova raíz.
+Os lanzadores instalados antes do 26/11/2026 chaman a `wsl\daw.ps1`: ao usar calquera
+deles, reinstálanse coa ruta nova.
 
 Cada orde `daw-*` repón tamén os lanzadores que falten e o cartafol no PATH,
 sen substituír os existentes: despois dun `git pull` que engade unha orde nova,
@@ -50,7 +52,7 @@ wsl.exe -d Debian --exec true
 $source = '\\wsl.localhost\Debian' + ($project -replace '/', '\')
 $setup = Join-Path $env:TEMP ('daw-dev-setup-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $setup | Out-Null
-Copy-Item -LiteralPath "$source\wsl\install-daw-commands.ps1", "$source\wsl\daw.ps1" -Destination $setup
+Copy-Item -LiteralPath "$source\windows\install-daw-commands.ps1", "$source\windows\daw.ps1" -Destination $setup
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$setup\install-daw-commands.ps1" -Distribution Debian -LinuxProjectPath $project
 ```
 
@@ -299,13 +301,13 @@ Non despregues unha segunda copia de DAW Dev desde Portainer: os nomes dos conte
 Se o proxecto está en Debian, abre a súa raíz nun terminal de Debian e executa:
 
 ```bash
-bash scripts/comprobar.sh
+bash scripts/check.sh
 ```
 
 Se está en Windows, abre PowerShell na raíz do proxecto e executa:
 
 ```powershell
-wsl -d Debian --cd (Get-Location).Path -- bash scripts/comprobar.sh
+wsl -d Debian --cd (Get-Location).Path -- bash scripts/check.sh
 ```
 
 Comproba PHP, conexión coa BD, Composer, permisos de ficheiros, actualización dos
@@ -362,14 +364,14 @@ con `wsl -d Debian -- docker ps -a`. Substitúe Debian pola túa distribución e
 axusta a URL se configuraches outro porto. Unha conexión rexeitada xunto coa
 distribución parada é compatíbel con este fallo; non proba un problema de Apache.
 
-Os lanzadores actuais resólveno mediante `wsl/keep-alive.sh`, iniciado en segundo
-plano por `wsl/daw.ps1` tras un arranque correcto. O script mantén unha sesión
+Os lanzadores actuais resólveno mediante `scripts/keep-alive.sh`, iniciado en segundo
+plano por `windows/daw.ps1` tras un arranque correcto. O script mantén unha sesión
 activa mentres haxa servizos deste proxecto en marcha; un bloqueo con `flock`
 evita duplicala nos arranques sucesivos. Actualiza a copia do proxecto conservando
 os cambios locais e usa `daw-start`, `daw-start-db` ou `daw-start-all`.
 Se os lanzadores xa apuntan a esa copia, non cómpre reinstalalos.
 
-Esta protección só se aplica aos arranques feitos con `wsl/daw.ps1`. Os alias
+Esta protección só se aplica aos arranques feitos con `windows/daw.ps1`. Os alias
 que chaman directamente a `wsl ... docker compose up -d` non a inclúen. Se tes o
 proxecto dentro de Debian e segues a guía do alumnado, mantén aberta unha terminal
 de Debian mentres traballas. Non copies unha ruta de Windows a unha instalación

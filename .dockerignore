@@ -5,6 +5,7 @@ www/
 *.md
 docs/
 wsl/
+windows/
 scripts/
 .github/
 LICENSE

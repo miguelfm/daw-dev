@@ -84,8 +84,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Fallou git archive.' }
 $localPaths = @(
     '.gitignore', '.devcontainer', '.vscode', 'Dockerfile', 'README.md', 'compose.yaml',
     'docs',
-    'scripts/daw.sh', 'scripts/comprobar.sh', 'wsl/daw.ps1', 'wsl/keep-alive.sh', 'wsl/install-daw-commands.ps1',
-    'wsl/aula'
+    'scripts/daw.sh', 'scripts/check.sh', 'windows/daw.ps1', 'scripts/keep-alive.sh', 'windows/install-daw-commands.ps1',
+    'windows/classroom'
 )
 $localSources = @(& git.exe -C $repo ls-files -- @localPaths)
 if ($LASTEXITCODE -ne 0 -or -not $localSources) { throw 'Non se puido listar a configuración versionada do modelo.' }
@@ -98,8 +98,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Fallou a importación da base Debian.' }
 $linuxSources = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u $sources) -join ''
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido converter a ruta do paquete.' }
 $linuxSources = $linuxSources.Trim()
-Invoke-Model @('tar','-xf',$linuxSources,'-C','/tmp','wsl/aula/configurar-modelo.sh')
-Invoke-Model @('bash','/tmp/wsl/aula/configurar-modelo.sh','install',$linuxSources)
+Invoke-Model @('tar','-xf',$linuxSources,'-C','/tmp','windows/classroom/setup-model.sh')
+Invoke-Model @('bash','/tmp/windows/classroom/setup-model.sh','install',$linuxSources)
 $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 [ordered]@{
     Distribution = $Distribution; LinuxUser = 'ad'; InstallDirectory = $distroDir; SourceCommit = $sourceCommit
@@ -108,10 +108,10 @@ $sourceCommit = (& git.exe -C $repo rev-parse HEAD).Trim()
 } | ConvertTo-Json | Set-Content -LiteralPath $checkpointPath -Encoding UTF8
 }
 # O configurador e os lanzadores poden recibir correccións antes de selar o modelo.
-$linuxConfigurator = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u (Join-Path $PSScriptRoot 'configurar-modelo.sh')) -join ''
+$linuxConfigurator = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u (Join-Path $PSScriptRoot 'setup-model.sh')) -join ''
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o configurador.' }
-Invoke-Model @('cp',$linuxConfigurator.Trim(),'/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh')
-$imageArgs = @('bash','/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','images')
+Invoke-Model @('cp',$linuxConfigurator.Trim(),'/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh')
+$imageArgs = @('bash','/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh','images')
 if ($DockerImagesArchive) {
     $linuxImages = (& wsl.exe -d $Distribution -u root --exec wslpath -a -u ([IO.Path]::GetFullPath($DockerImagesArchive))) -join ''
     if ($LASTEXITCODE -ne 0) { throw 'Non se puido localizar o arquivo de imaxes Docker.' }
@@ -123,7 +123,7 @@ for ($attempt = 1; $attempt -le 3; $attempt++) {
     try { Invoke-Model $imageArgs; break }
     catch { if ($attempt -eq 3) { throw }; Write-Warning 'Repetindo a descarga das imaxes...'; Start-Sleep -Seconds 5 }
 }
-Invoke-Model @('bash','/home/ad/proxectos/daw-dev/wsl/aula/configurar-modelo.sh','seal')
+Invoke-Model @('bash','/home/ad/proxectos/daw-dev/windows/classroom/setup-model.sh','seal')
 & wsl.exe --terminate $Distribution
 if ($LASTEXITCODE -ne 0) { throw 'Non se puido parar o modelo.' }
 $image = Join-Path $output 'debian.tar.gz'

@@ -12,7 +12,7 @@ cada alumno coa súa conta, sen permisos de administrador: [wsl2-alumnado.md](ws
 | Quen | Que | Permisos | Cantas veces |
 |---|---|---|---|
 | Administración | Virtualización na BIOS/UEFI | Acceso á BIOS | Unha por equipo |
-| Administración | Activar WSL2 (script `wsl/instalar-wsl-admin.ps1`) e reiniciar | Administrador de Windows | Unha por equipo |
+| Administración | Activar WSL2 (script `windows/install-wsl.ps1`) e reiniciar | Administrador de Windows | Unha por equipo |
 | Alumnado | Instalar Debian, Docker Engine e a contorna DAW Dev | Ningún (só o seu contrasinal de Linux) | Unha por usuario |
 
 Non se usa **Docker Desktop**: Docker Engine instálase directamente dentro de Debian, que é máis lixeiro e non
@@ -67,7 +67,7 @@ Este procedemento segue a [documentación de Microsoft](https://learn.microsoft.
 
 ### Preparación dos equipos da aula
 
-O script [`wsl/instalar-wsl-admin.ps1`](../wsl/instalar-wsl-admin.ps1) fai o seguinte:
+O script [`windows/install-wsl.ps1`](../windows/install-wsl.ps1) fai o seguinte:
 
 1. Comproba a virtualización.
 2. Activa as características *Plataforma de máquina virtual* e *Subsistema de Windows para Linux*.
@@ -84,7 +84,7 @@ do script funciona igual en local e en remoto.
 
    ```powershell
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   .\instalar-wsl-admin.ps1
+   .\install-wsl.ps1
    ```
 
 3. Reinicia o equipo cando o script o indique. Se engades `-Reiniciar`, o script reinicia o equipo el só.
@@ -93,7 +93,7 @@ Se os equipos non teñen acceso a GitHub, descarga unha vez o `wsl.<versión>.x6
 [as versións de WSL](https://github.com/microsoft/WSL/releases) e indícao co parámetro `-MsiPath`:
 
 ```powershell
-.\instalar-wsl-admin.ps1 -MsiPath D:\wsl.3.0.1.0.x64.msi -Reiniciar
+.\install-wsl.ps1 -MsiPath D:\wsl.3.0.1.0.x64.msi -Reiniciar
 ```
 
 ### Opción B: desde o equipo do profesor, en todos os equipos á vez
@@ -115,7 +115,7 @@ $equipos = Get-Content .\equipos.txt
 $cred = Get-Credential          # conta de administrador dos equipos
 
 # Con Internet nos equipos: cada un descarga WSL de GitHub
-Invoke-Command -ComputerName $equipos -Credential $cred -FilePath .\wsl\instalar-wsl-admin.ps1
+Invoke-Command -ComputerName $equipos -Credential $cred -FilePath .\windows\install-wsl.ps1
 
 # Reiniciar todos e agardar a que volvan estar dispoñibles
 Restart-Computer -ComputerName $equipos -Credential $cred -Force -Wait -For PowerShell
@@ -131,7 +131,7 @@ foreach ($pc in $equipos) {
     Copy-Item $msi -Destination 'C:\Windows\Temp\' -ToSession $s
     Remove-PSSession $s
 }
-Invoke-Command -ComputerName $equipos -Credential $cred -FilePath .\wsl\instalar-wsl-admin.ps1 `
+Invoke-Command -ComputerName $equipos -Credential $cred -FilePath .\windows\install-wsl.ps1 `
     -ArgumentList 'C:\Windows\Temp\wsl.3.0.1.0.x64.msi'
 ```
 
@@ -199,7 +199,7 @@ O procedemento probouse en Windows 11 Pro 25H2 (compilación 26200) con WSL 3.0.
 
 Ademais, a instalación local con `wsl --install -d Debian --no-launch` e reinicio verificouse en Windows 11
 Pro Education (compilación 26200), Debian 13, Docker Engine 29.8.2 e Compose 5.6.0. A contorna Apache superou
-`scripts/comprobar.sh`, incluída a conexión de Xdebug. Portainer CE 2.45.1 conectouse ao socket Docker e
+`scripts/check.sh`, incluída a conexión de Xdebug. Portainer CE 2.45.1 conectouse ao socket Docker e
 permitiu consultar os contedores; PHP e Portainer responderon desde Windows.
 
 Non se probaron:

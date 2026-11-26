@@ -70,7 +70,7 @@ PROG_NAME="$(basename "$0")"
 ACTION=""
 
 case "$PROG_NAME" in
-    daw-start)          ACTION="start" ;;
+    daw-start|daw-star) ACTION="start" ;;
     daw-start-all)      ACTION="start-all" ;;
     daw-start-db)       ACTION="start-db" ;;
     daw-start-angular)  ACTION="start-angular" ;;
@@ -137,7 +137,7 @@ case "$ACTION" in
             'Laravel:       http://localhost:8088/'
         ;;
     start-angular)
-        "$SCRIPT_DIR/preparar-angular.sh"
+        "$SCRIPT_DIR/setup-angular.sh"
         docker compose "${COMPOSE_ARGS[@]}" --profile angular up -d --wait --wait-timeout 300 angular "$@"
         printf '%s\n' 'Angular dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
         ;;
@@ -200,7 +200,7 @@ PY
         docker compose "${COMPOSE_ARGS[@]}" exec -u ad web bash "$@"
         ;;
     check|comprobar)
-        "$PROJECT_DIR/scripts/comprobar.sh" "$@"
+        "$PROJECT_DIR/scripts/check.sh" "$@"
         ;;
     publicar)
         if command -v publicar-daw-dev >/dev/null 2>&1; then

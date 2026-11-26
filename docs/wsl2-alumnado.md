@@ -94,7 +94,7 @@ Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che d
 ### 1.3. Instalar Docker
 
 ```bash
-sudo bash ~/proxectos/daw-dev/wsl/instalar-docker.sh
+sudo bash ~/proxectos/daw-dev/scripts/install-docker.sh
 ```
 
 Cando remate:
@@ -127,7 +127,7 @@ A primeira vez descarga as imaxes e tarda uns minutos. Despois abre no navegador
 Para comprobar todo (servidor, base de datos, Composer, permisos e Xdebug):
 
 ```bash
-./scripts/comprobar.sh
+./scripts/check.sh
 ```
 
 Ao final ten que poñer `OK todo correcto`.
@@ -288,7 +288,7 @@ Os datos de Portainer persisten no volume `portainer_data`; inicia con Docker sa
 
 ## 3. Problemas habituais
 
-Executa primeiro `cd ~/proxectos/daw-dev && ./scripts/comprobar.sh`: indica que parte falla. Se non o sabes arranxar,
+Executa primeiro `cd ~/proxectos/daw-dev && ./scripts/check.sh`: indica que parte falla. Se non o sabes arranxar,
 pásalle a saída ao profesorado.
 
 | Síntoma | Solución |
@@ -316,6 +316,6 @@ Despois podes volver ao paso 1.1.
 ## 5. Instalación verificada
 
 Probado en Windows 11 Pro Education (compilación 26200), Debian 13 en WSL2, Docker Engine 29.8.2,
-Compose 5.6.0 e Portainer CE 2.45.1. A contorna Apache superou `scripts/comprobar.sh`: PHP 8.5,
+Compose 5.6.0 e Portainer CE 2.45.1. A contorna Apache superou `scripts/check.sh`: PHP 8.5,
 MariaDB, Composer, permisos, actualización dos ficheiros e conexión de Xdebug. Comprobáronse o acceso
 desde Windows a PHP e Portainer e a consulta dos catro contedores mediante a API de Portainer.

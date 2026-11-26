@@ -28,7 +28,7 @@ jobs:
           echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
 
       - name: Comprobar a contorna
-        run: ./scripts/comprobar.sh --build
+        run: ./scripts/check.sh --build
 
       - name: Comprobar as versións de PHP e Xdebug
         run: |

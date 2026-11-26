@@ -7,9 +7,9 @@ Envía o paquete máxico Wake-on-LAN (por difusión UDP e mediante a ferramenta 
 aos postos solicitados a partir do ficheiro de enderezos MAC rexistrados da aula.
 Permite tamén monitorizar o arranque ata que os equipos respondan ao ping.
 .EXAMPLE
-.\acender-aula.ps1 -Aula 31
+.\power-on.ps1 -Aula 31
 .EXAMPLE
-.\acender-aula.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
+.\power-on.ps1 -Aula 31 -Numero 1 -MonitorizarArranque
 #>
 [CmdletBinding()]
 param(

@@ -3,7 +3,7 @@
 .SYNOPSIS
 Comproba WinRM e Veyon sen modificar os equipos. Por defecto, aula 34, equipos 1-35.
 .EXAMPLE
-.\comprobar-remoto.ps1 -Aula 31 -Numero 1 | Format-Table -AutoSize
+.\check-remote.ps1 -Aula 31 -Numero 1 | Format-Table -AutoSize
 #>
 [CmdletBinding()]
 param(

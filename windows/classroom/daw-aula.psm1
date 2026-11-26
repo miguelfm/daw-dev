@@ -141,7 +141,7 @@ if [[ -L /home/alumno && $(readlink /home/alumno) == /home/ad ]]; then
 fi
 # O contrasinal de MariaDB é abc123.., o da MV. Ata o 24-11-2026 o modelo
 # copiaba no .env o por defecto anterior: só se cambia ese valor exacto. O do
-# volume cámbiao a comprobación de saúde de MariaDB (docker/mariadb/saude.sh).
+# volume cámbiao a comprobación de saúde de MariaDB (docker/mariadb/healthcheck.sh).
 env=/home/ad/proxectos/daw-dev/.env
 if [[ -f $env && ! -L $env ]] && grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env"; then
     cp -p "$env" "$env.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
@@ -330,7 +330,7 @@ function Assert-DawPackage {
     param([string]$Directory)
     $manifest=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
     if($manifest.Schema -ne 1 -or $manifest.Marker -ne 'daw-aula-v1' -or $manifest.Image -notin @('debian.tar','debian.tar.gz','debian-daw.tar','debian-daw.tar.gz') -or $manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $manifest.LinuxUser -notin @('alumno','ad')){throw 'Manifesto de modelo non recoñecido.'}
-    if(-not $manifest.PSObject.Properties['SetupRevision'] -or $manifest.SetupRevision -ne 2 -or -not $manifest.PSObject.Properties['ScriptSha256']){throw 'Paquete antigo: actualizar os scripts con actualizar-paquete.ps1, conservando a imaxe.'}
+    if(-not $manifest.PSObject.Properties['SetupRevision'] -or $manifest.SetupRevision -ne 2 -or -not $manifest.PSObject.Properties['ScriptSha256']){throw 'Paquete antigo: actualizar os scripts con update-package.ps1, conservando a imaxe.'}
     foreach($name in Get-DawSetupFiles){
         $property=$manifest.ScriptSha256.PSObject.Properties[$name]
         if(-not $property -or $property.Value -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath (Join-Path $Directory $name) -Algorithm SHA256).Hash -ne $property.Value){throw "SHA256 do script non coincide: $name"}
@@ -412,9 +412,9 @@ function Get-DawProjectRevision {
     try{([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-','')}finally{$sha.Dispose()}
 }
 function New-DawProjectStage {
-    # On the teacher's computer: copy wsl/aula/proxecto/ficheiros and the updater, with SHA256 manifest.
+    # On the teacher's computer: copy windows/classroom/overlay and the updater, with SHA256 manifest.
     param([string]$Source,[string]$Destination)
-    $files=Join-Path $Source 'proxecto\ficheiros'
+    $files=Join-Path $Source 'overlay'
     if(-not(Test-Path -LiteralPath $files -PathType Container)){throw "Falta $files"}
     if(Test-Path -LiteralPath $Destination){throw "O destino xa existe: $Destination"}
     New-Item -ItemType Directory -Path $Destination|Out-Null
@@ -430,8 +430,9 @@ function New-DawProjectStage {
     $sharedPaths=@(
         '.gitignore','.vscode/settings.json','.devcontainer/compose.devcontainer.yaml','Dockerfile','README.md',
         'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
-        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/comprobar.sh',
-        'docker/mariadb/saude.sh'
+        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh',
+        'scripts/keep-alive.sh','compose.yaml','docker/mariadb/healthcheck.sh',
+        'docker/angular/.dockerignore','docker/angular/Dockerfile','docker/angular/entrypoint.sh'
     )
     foreach($relative in $sharedPaths){
         $file=Get-Item -LiteralPath (Join-Path $repo $relative) -Force
@@ -609,7 +610,7 @@ if grep -Fxq "$web_image" <<< "$images"; then
             docker image load --input "$archive" >&2 || fail 'Non se puido cargar a imaxe de PHP.'
         else
             docker image pull "$web_image" >&2 \
-                || fail 'Falta a imaxe de PHP 8.6 coa conta ad. Engádea ao paquete da aula con engadir-imaxe.ps1.'
+                || fail 'Falta a imaxe de PHP 8.6 coa conta ad. Engádea ao paquete da aula con add-package-image.ps1.'
         fi
         docker image inspect "$web_image" >/dev/null || fail "Falta a etiqueta $web_image na imaxe cargada."
     fi
@@ -626,7 +627,7 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
             replacement="s/\"Debian\"/\"$distro\"/g"
             sha=$(sed "$replacement" "$src/$rel" | sha256sum | cut -d' ' -f1)
             ;;
-        scripts/daw.sh|scripts/comprobar.sh) permissions=0755 ;;
+        scripts/daw.sh|scripts/check.sh) permissions=0755 ;;
     esac
     action=creado
     if [[ -f $dest ]]; then

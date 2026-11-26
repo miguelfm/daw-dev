@@ -6,7 +6,7 @@ Engade ao paquete da aula unha imaxe Docker gardada con docker save, co seu SHA2
 CopiarModelo leva despois o ficheiro aos equipos, e daw.ps1 cárgao en cada conta
 a primeira vez que o necesita, sen Internet.
 .EXAMPLE
-.\engadir-imaxe.ps1 -PackageDirectory C:\DAW-Paquete-2026 -Archive C:\tmp\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+.\add-package-image.ps1 -PackageDirectory C:\DAW-Paquete-2026 -Archive C:\tmp\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
