@@ -536,8 +536,8 @@ exit 0
             $env:ProgramFiles='/pf';${env:ProgramFiles(x86)}=$null
             & $script:M {
                 function script:Get-CimInstance {param($ClassName) [pscustomobject]@{LocalPath='/users/a';Special=$false},[pscustomobject]@{LocalPath='/users/b';Special=$false},[pscustomobject]@{LocalPath='/sys';Special=$true}}
-                function script:Test-Path {param($LiteralPath,$PathType) $LiteralPath -match '^/(pf|users/b)/'}
-                function script:Get-DawCodeCommit {param($Code) if($Code -match '^/pf/'){'a'*40}else{'b'*40}}
+                function script:Test-Path {param($LiteralPath,$PathType) $LiteralPath -match '^[\/](pf|users[\/]b)[\/]'}
+                function script:Get-DawCodeCommit {param($Code) if($Code -match '^[\/]pf[\/]'){'a'*40}else{'b'*40}}
             }
             $commits=@(Get-DawInstalledCodeCommits)
             Assert (($commits -join ',') -eq (('a'*40)+','+('b'*40))) ($commits -join ',')
