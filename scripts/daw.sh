@@ -151,7 +151,7 @@ remove_old_services() {
     done
 }
 
-# Ata o 27-11-2026 as imaxes eran dwcs-php:8.6-ad e dwcc-angular:22. Sen Internet, como na aula,
+# Ata o 27-11-2026 as imaxes eran dwcs-php:8.6-ad e dwcc-angular:22. Sen Internet (nun exame),
 # a anterior que xa estea no equipo pasa a levar o nome actual; despois retírase o nome
 # anterior (docker image rm non borra unha imaxe que use un contedor).
 OLD_IMAGES='ghcr.io/miguelfm/dwcs-php:8.6-ad=ghcr.io/miguelfm/daw-php:8.6 ghcr.io/miguelfm/dwcc-angular:22=ghcr.io/miguelfm/daw-angular:22'
