@@ -76,7 +76,7 @@ try{
         }
         'daw-*'
     }
-    $running=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','--profile','doc','--profile','angular','ps','--status','running','--services')|Where-Object {$_.Trim()})
+    $running=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','--profile','doc','--profile','frontend','ps','--status','running','--services')|Where-Object {$_.Trim()})
     $wasRunning=$running.Count -gt 0
     Test-DawStep 'Web e MariaDB' {
         Invoke-DawLauncher 'start-db'

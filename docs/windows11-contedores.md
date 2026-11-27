@@ -156,14 +156,14 @@ Abrir un cartafol desde o Explorador non altera a montaxe que usa Docker.
 
 | Comando | Resultado |
 |---|---|
-| `daw-start` | Arranca só `daw-web`, sen arrancar dependencias; agarda ata que estea preparado. |
-| `daw-start-db` | Arranca MariaDB e o web xuntos; agarda ata que estean preparados. |
-| `daw-start-all` | Arranca o web, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
+| `daw-start` | Arranca só `backend-c`, sen arrancar dependencias; agarda ata que estea preparado. |
+| `daw-start-db` | Arranca MariaDB e o backend xuntos; agarda ata que estean preparados. |
+| `daw-start-all` | Arranca o backend, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
 | `daw-stop` | Para os contedores DAW Dev. Conserva contedores e datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos, tamén dos contedores parados. |
 | `daw-web-root [-Open]` | Amosa as rutas de Windows e Debian. Con `-Open` tamén abre o cartafol no Explorador. |
 | `daw-code [-Local]` | Abre o proxecto en VS Code. Para unha copia en Debian, conecta coa extensión WSL. Con `-Local` abre o editor en Windows. |
-| `daw-web-shell` | Abre Bash no contedor de Apache e PHP como `ad`. `daw-shell` segue funcionando como alias. |
+| `daw-shell` | Abre Bash no backend (Apache e PHP) como `ad`. `daw-web-shell` segue funcionando como alias. |
 | `daw-wsl-shell` | Abre Debian no cartafol do proxecto, tamén con Docker parado. |
 | `daw-logs` | Mostra as últimas 100 liñas por servizo e segue os novos logs. `Ctrl+C` sae da consulta. |
 | `daw-help` | Mostra a axuda. |
@@ -177,7 +177,7 @@ daw-start
 ```
 
 Sen MariaDB, o código que precise a BD fallará e a páxina de comprobación mostrará
-un erro na conexión á BD. Para arrancar a BD e o web, executa `daw-start-db`.
+un erro na conexión á BD. Para arrancar a BD e o backend, executa `daw-start-db`.
 Para volver á contorna completa, executa `daw-start-all`.
 
 WSL arranca Debian automaticamente ao executar estes comandos. Docker debe estar
@@ -196,32 +196,32 @@ o lanzador e pare tamén os contedores. Non se abre ningunha xanela adicional.
 Tras `daw-stop`, a sesión remata nun máximo de 20 segundos. Un peche explícito
 con `wsl --shutdown` segue parando o contorno.
 
-## Consola do contedor web
+## Consola do backend
 
 Desde PowerShell ou CMD, escolle a terminal segundo onde queiras traballar:
 
 ```powershell
 daw-wsl-shell
-daw-web-shell
+daw-shell
 ```
 
 `daw-wsl-shell` abre a distribución Debian e usa a súa conta Linux. Alí podes
-consultar `curl --manual` ou usar Docker e Git. `daw-web-shell` entra como `ad`
+consultar `curl --manual` ou usar Docker e Git. `daw-shell` entra como `ad`
 no contedor que executa Apache e PHP. Alí podes usar `php -v` ou `composer -V`.
 Se o contedor está parado, arráncao antes con `daw-start`.
 
 Se precisas unha consola como root no contedor:
 
 ```powershell
-wsl -d Debian -- docker exec -it -u root daw-web bash
+wsl -d Debian -- docker exec -it -u root backend-c bash
 ```
 
 Escribe `exit` para volver á terminal anterior. Substitúe `Debian` se usas
 outra distribución de WSL.
 
 Se tes Docker dispoñible directamente en Windows, podes executar
-`docker exec -it -u ad daw-web bash` sen o prefixo `wsl -d Debian --`.
-O [README](../README.md#consola-do-contedor-web) explica tamén a alternativa con Docker Compose
+`docker exec -it -u ad backend-c bash` sen o prefixo `wsl -d Debian --`.
+O [README](../README.md#consola-do-backend) explica tamén a alternativa con Docker Compose
 e o acceso desde outro equipo por SSH ao anfitrión.
 
 ## Integración con VS Code en Windows 11
@@ -230,7 +230,7 @@ Hai dúas formas de integrar o editor cos contedores Docker que se executan en W
 
 ### Opción A: Executar todo dentro do contedor (Dev Containers - Recomendada)
 
-Esta opción executa VS Code e todas as súas ferramentas directamente **dentro do contedor `daw-web`**, sen precisar Docker Desktop nin instalar PHP en Windows:
+Esta opción executa VS Code e todas as súas ferramentas directamente **dentro do contedor `backend-c`**, sen precisar Docker Desktop nin instalar PHP en Windows:
 
 1. **Requisitos:**
    - Extensión **Dev Containers** (`ms-vscode-remote.remote-containers`) en VS Code.
@@ -248,7 +248,7 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
    - O espazo de traballo abrirase en `~/daw` (`/home/ad/daw`) dentro do contedor.
-   - Se `daw-web` o creara antes `daw-start`, retírase e créase de novo coa configuración do
+   - Se `backend-c` o creara antes `daw-start`, retírase e créase de novo coa configuración do
      Dev Container. Co Dev Container aberto, `daw-start-db` e `daw-start-all` arrancan só a base de
      datos e phpMyAdmin, sen pechar VS Code. Consulta
      [alternar entre `daw-start` e o Dev Container](../README.md#alternar-entre-daw-start-e-o-dev-container).
@@ -263,13 +263,13 @@ Se prefires manter a interface e extensións de VS Code executándose localmente
   "terminal.integrated.profiles.windows": {
       "Contedor DAW Dev": {
           "path": "wsl.exe",
-          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "ad", "daw-web", "bash"],
+          "args": ["-d", "Debian", "--", "docker", "exec", "-it", "-u", "ad", "backend-c", "bash"],
           "icon": "server-process"
       }
   },
   "terminal.integrated.defaultProfile.windows": "Contedor DAW Dev"
   ```
-- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `ad` no contedor `daw-web`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
+- Cada vez que abras un novo terminal en VS Code (`Ctrl+` ` ou menú *Terminal → New Terminal*), entrará directamente como usuario `ad` no contedor `backend-c`. Se o contedor non estivese iniciado, arráncao antes con `daw-start`.
 
 ## Acceso aos servizos
 
@@ -337,7 +337,7 @@ do sistema que indique a administración. Dev Containers descarga o servidor
 no equipo local e despois cópiao ao contedor. [Requisitos de rede de Dev Containers](https://code.visualstudio.com/docs/devcontainers/faq#_what-are-the-connectivity-requirements-for-the-vs-code-server-when-it-is-running-in-a-container).
 
 Para seguir editando os ficheiros da copia activa mentres se resolve a descarga,
-usa `daw-code -Local` desde Windows e `daw-web-shell` para executar PHP ou
+usa `daw-code -Local` desde Windows e `daw-shell` para executar PHP ou
 Composer. Para retomar a depuración no contedor, conecta con `daw-code` e escolle
 **Dev Containers: Reopen in Container** cando a descarga volva funcionar.
 

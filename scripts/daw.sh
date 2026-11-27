@@ -36,9 +36,9 @@ migrar_env() {
     echo "O contrasinal de MariaDB do .env é agora abc123.. (copia do anterior en $copia)."
 }
 
-# O contedor web ten dúas definicións: a de Compose (daw-start) e a de Dev Containers, que
-# engade o proxecto en ~/daw, Xdebug cara a localhost e a súa propia entrada. Dev Containers reutiliza
-# sen recrealo calquera contedor web que xa exista, e Compose recrea o de Dev Containers.
+# O contedor backend ten dúas definicións: a de Compose (daw-start) e a de Dev Containers, que
+# engade o proxecto en ~/daw, Xdebug cara a localhost e a súa propia entrada. Dev Containers
+# reutiliza sen recrealo calquera contedor backend que xa exista, e Compose recrea o de Dev Containers.
 # web_state escribe «id modo estado motivo»: modo compose ou devcontainer, estado running ou
 # stopped, e motivo «-» ou por que o contedor xa non corresponde aos ficheiros do proxecto.
 # Sen contedor escribe «- none - -».
@@ -59,7 +59,7 @@ def nanoseconds(stamp):
     seconds = datetime.fromisoformat(whole).replace(tzinfo=timezone.utc).timestamp()
     return int(seconds) * 10**9 + int((fraction + "000000000")[:9])
 
-ids = [i for i in docker(*compose, "ps", "--all", "--quiet", "web").split() if i]
+ids = [i for i in docker(*compose, "ps", "--all", "--quiet", "backend").split() if i]
 if not ids:
     print("- none - -")
     sys.exit()
@@ -79,7 +79,7 @@ if mode == "devcontainer":
             break
     if not reason:
         # Dev Containers constrúe a súa imaxe sobre a do proxecto: debe conter as súas capas.
-        image = json.loads(docker(*compose, "config", "--format", "json"))["services"]["web"].get("image")
+        image = json.loads(docker(*compose, "config", "--format", "json"))["services"]["backend"].get("image")
         if image:
             try:
                 base = json.loads(docker("image", "inspect", image))[0]["RootFS"]["Layers"]
@@ -114,6 +114,32 @@ web_in_devcontainer() {
     [[ $WEB_MODE == devcontainer && $WEB_STATUS == running ]]
 }
 
+# Ata o 27-11-2026 os servizos eran web, phpmyadmin, angular e doc-devdocs, cos contedores
+# daw-*. Compose recoñece os contedores polo servizo: os anteriores quedarían órfos, quizais en
+# marcha e cos portos ocupados. Retíranse; os datos están en volumes e no proxecto, non neles.
+# OLD_RUNNING garda os servizos anteriores que estaban en marcha.
+# Pares anterior:actual, sen táboas asociativas: o Bash 3.2 de macOS non as ten.
+OLD_SERVICES='web:backend phpmyadmin:db-admin angular:frontend doc-devdocs:doc-web'
+remove_old_services() {
+    local project pair service ids
+    OLD_RUNNING=
+    project=$(docker compose "${COMPOSE_ARGS[@]}" config 2>/dev/null | sed -n 's/^name: //p' | head -n 1) || true
+    [[ -n $project ]] || return 0
+    for pair in $OLD_SERVICES; do
+        service=${pair%%:*}
+        ids=$(docker ps -aq --filter "label=com.docker.compose.project=$project" \
+            --filter "label=com.docker.compose.service=$service" 2>/dev/null) || return 0
+        [[ -n $ids ]] || continue
+        if [[ -n $(docker ps -q --filter "label=com.docker.compose.project=$project" \
+            --filter "label=com.docker.compose.service=$service" 2>/dev/null) ]]; then
+            OLD_RUNNING+=" $service"
+        fi
+        echo "Retírase o contedor do servizo anterior $service: agora é ${pair#*:}."
+        # shellcheck disable=SC2086
+        docker rm -f $ids >/dev/null
+    done
+}
+
 wait_docker() {
     local i
     for ((i = 0; i < 30; i++)); do
@@ -125,31 +151,35 @@ wait_docker() {
 
 show_help() {
     cat << 'EOF'
-Uso: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc
-     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-web-shell | daw-web-root | daw-help
+Uso: daw-start | daw-start-all | daw-start-db | daw-start-frontend | daw-start-doc
+     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-web-root | daw-help
 
 Comandos dispoñibles:
-  daw-start      Arranca só daw-web: PHP 8.6, Apache, Xdebug e acceso con daw-shell.
+  daw-start      Arranca só o backend: PHP 8.6, Apache, Xdebug e acceso con daw-shell.
                  Os demais servizos arráncanse cos seus comandos específicos.
-  daw-start-all  Arranca a contorna completa (web, db e phpmyadmin).
-  daw-start-db   Arranca a base de datos MariaDB e o servizo web xuntos.
-  daw-start-angular  Arranca Angular e prepara o acceso SSH dwcc-angular.
-  daw-start-doc  Arranca a documentación sen conexión: manual de PHP (8080),
-                 referencia de MDN (5042) e Laravel (8088).
+  daw-start-all  Arranca backend, db (MariaDB) e db-admin (phpMyAdmin).
+  daw-start-db   Arranca a base de datos MariaDB e o backend xuntos.
+  daw-start-frontend  Arranca o frontend (Angular) e prepara o acceso SSH dwcc-angular.
+  daw-start-angular   Alias de daw-start-frontend.
+  daw-start-doc  Arranca a documentación sen conexión: PHP (8080), web: HTML, HTTP e CSS (5042)
+                 e Laravel (8088).
   daw-code       Abre o proxecto no perfil DWCS - PHP de VS Code.
   daw-web-root   Amosa a ruta da raíz web de Apache no sistema anfitrión.
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
-  daw-stop-all   Para todos os contedores: desenvolvemento, documentación e Angular.
+  daw-stop-all   Para todos os contedores: backend, db, db-admin, frontend e documentación.
   daw-stop-doc   Para só os contedores da documentación sen conexión.
   daw-status     Mostra o estado e portos dos contedores da contorna.
   daw-logs       Mostra e segue as últimas liñas de logs dos contedores (Ctrl+C para saír).
-  daw-web-shell  Abre Bash no contedor de Apache e PHP co usuario ad.
-  daw-shell      Alias de daw-web-shell.
+  daw-shell      Abre Bash no backend (Apache e PHP) co usuario ad.
+  daw-web-shell  Alias de daw-shell.
   daw-publicar   Sincroniza o código e as solucións de DWCS cara a daw-dev/www/dwcs.
   daw-help       Mostra esta axuda.
 
 Tamén podes invocar:
-  daw <start|start-all|start-db|start-angular|start-doc|code|web-root|stop|stop-all|stop-doc|status|logs|web-shell|check|publicar|help> [argumentos...]
+  daw <start|start-all|start-db|start-frontend|start-doc|code|web-root|stop|stop-all|stop-doc|status|logs|shell|check|publicar|help> [argumentos...]
+
+Os contedores levan o nome do servizo con -c: backend-c, db-c, db-admin-c, frontend-c,
+doc-php-c, doc-web-c e doc-laravel-c (docker exec -it backend-c bash).
 EOF
 }
 
@@ -160,7 +190,7 @@ case "$PROG_NAME" in
     daw-start|daw-star) ACTION="start" ;;
     daw-start-all)      ACTION="start-all" ;;
     daw-start-db)       ACTION="start-db" ;;
-    daw-start-angular)  ACTION="start-angular" ;;
+    daw-start-frontend|daw-start-angular) ACTION="start-frontend" ;;
     daw-start-doc)      ACTION="start-doc" ;;
     daw-code)           ACTION="code" ;;
     daw-web-root)       ACTION="web-root" ;;
@@ -181,28 +211,32 @@ case "$PROG_NAME" in
         shift || true
         ;;
 esac
+[[ $ACTION != start-angular ]] || ACTION=start-frontend
 
 case "$ACTION" in
-    start|start-all|start-db|start-doc|start-angular|migrar-env) migrar_env ;;
+    start|start-all|start-db|start-doc|start-frontend|migrar-env) migrar_env ;;
+esac
+case "$ACTION" in
+    start|start-all|start-db|start-doc|start-frontend|remove-old-services) remove_old_services ;;
 esac
 
 case "$ACTION" in
     start|start-db|start-all)
         if ! read_web_state; then
-            echo 'Aviso: non se puido comprobar o contedor web (precisa Python 3); arráncase con Compose.' >&2
+            echo 'Aviso: non se puido comprobar o backend (precisa Python 3); arráncase con Compose.' >&2
         fi
         if web_in_devcontainer; then
             # Apache segue servindo no Dev Container; Compose recrearíao e pecharía VS Code.
-            echo 'daw-web está aberto en Dev Containers: segue en marcha así. Para usar a definición de daw-start, pecha antes a xanela de VS Code do contedor.'
+            echo 'backend-c está aberto en Dev Containers: segue en marcha así. Para usar a definición de daw-start, pecha antes a xanela de VS Code do contedor.'
         elif [[ $WEB_STATUS == running && $WEB_STALE != - ]]; then
-            echo "Recréase daw-web: $WEB_STALE."
-            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps --force-recreate web
+            echo "Recréase backend-c: $WEB_STALE."
+            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps --force-recreate backend
         fi
         services=()
         case $ACTION in
-            start) web_in_devcontainer || services=(--no-deps web) ;;
-            start-db) if web_in_devcontainer; then services=(db); else services=(db web); fi ;;
-            start-all) if web_in_devcontainer; then services=(db phpmyadmin); fi ;;
+            start) web_in_devcontainer || services=(--no-deps backend) ;;
+            start-db) if web_in_devcontainer; then services=(db); else services=(db backend); fi ;;
+            start-all) if web_in_devcontainer; then services=(db db-admin); fi ;;
         esac
         if ((${#services[@]})); then
             docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "${services[@]}" "$@"
@@ -212,14 +246,15 @@ case "$ACTION" in
         ;;
     prepare-devcontainer)
         # initializeCommand de .devcontainer/devcontainer.json e daw-code -Container: Dev Containers
-        # usa o contedor web que atope, así que se retira o que non teña a súa definición actual.
+        # usa o contedor backend que atope, así que se retira o que non teña a súa definición actual.
         # www, a base de datos e os volumes non están no contedor: non se perde traballo.
         if ! wait_docker; then
-            echo 'Aviso: Docker non responde; Dev Containers usará o contedor web que atope.' >&2
+            echo 'Aviso: Docker non responde; Dev Containers usará o contedor backend que atope.' >&2
             exit 0
         fi
+        remove_old_services
         if ! read_web_state; then
-            echo 'Aviso: non se puido comprobar o contedor web (precisa Python 3).' >&2
+            echo 'Aviso: non se puido comprobar o backend (precisa Python 3).' >&2
             exit 0
         fi
         reason=
@@ -229,35 +264,47 @@ case "$ACTION" in
             reason=$WEB_STALE
         fi
         if [[ -n $reason ]]; then
-            echo "Retírase daw-web para que Dev Containers o cree de novo: $reason."
+            echo "Retírase backend-c para que Dev Containers o cree de novo: $reason."
             docker rm -f "$WEB_ID" >/dev/null
         fi
         ;;
-    migrar-env)
+    restart-backend)
+        # A activación da aula, despois de copiar os ficheiros do proxecto: recrea backend se
+        # estaba en marcha (ou o web anterior), aínda que só cambiase un ficheiro montado.
+        wait_docker || { echo 'Docker non responde.' >&2; exit 1; }
+        remove_old_services
+        if docker compose "${COMPOSE_ARGS[@]}" ps --status running --services | grep -Fxq backend \
+            || [[ " $OLD_RUNNING " == *" web "* ]]; then
+            docker compose "${COMPOSE_ARGS[@]}" up -d --no-deps --force-recreate --wait --wait-timeout 300 backend >&2
+            echo restarted
+        fi
+        ;;
+    migrar-env|remove-old-services)
         # Para daw.ps1, que arranca os contedores desde Windows
         ;;
     stop|stop-all)
-        docker compose "${COMPOSE_ARGS[@]}" --profile angular --profile doc stop "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile frontend --profile doc stop "$@"
         ;;
     stop-doc)
-        docker compose "${COMPOSE_ARGS[@]}" --profile doc stop doc-php doc-devdocs doc-laravel "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile doc stop doc-php doc-web doc-laravel "$@"
         ;;
     status)
         docker compose "${COMPOSE_ARGS[@]}" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" "$@"
         ;;
     logs)
-        docker compose "${COMPOSE_ARGS[@]}" --profile angular --profile doc logs --tail 100 -f "$@"
+        docker compose "${COMPOSE_ARGS[@]}" --profile frontend --profile doc logs --tail 100 -f "$@"
         ;;
     start-doc)
         docker compose "${COMPOSE_ARGS[@]}" --profile doc up -d --wait --wait-timeout 300 \
-            doc-php doc-devdocs doc-laravel "$@"
-        printf '%s\n' 'Manual de PHP: http://localhost:8080/' 'MDN:           http://localhost:5042/' \
-            'Laravel:       http://localhost:8088/'
+            doc-php doc-web doc-laravel "$@"
+        printf '%s\n' 'PHP:     http://localhost:8080/' 'Web:     http://localhost:5042/ (HTML, HTTP e CSS)' \
+            'Laravel: http://localhost:8088/'
         ;;
-    start-angular)
-        "$SCRIPT_DIR/setup-angular.sh"
-        docker compose "${COMPOSE_ARGS[@]}" --profile angular up -d --wait --wait-timeout 300 angular "$@"
-        printf '%s\n' 'Angular dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
+    start-frontend)
+        # daw.ps1 prepara a chave da conta de Windows e pasa DAW_SKIP_SSH_SETUP=1.
+        [[ ${DAW_SKIP_SSH_SETUP:-} == 1 ]] || "$SCRIPT_DIR/setup-angular.sh"
+        docker compose "${COMPOSE_ARGS[@]}" --profile frontend up -d --wait --wait-timeout 300 frontend "$@"
+        printf '%s\n' 'Frontend (Angular) dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
         ;;
     code)
         code --new-window --profile 'DWCS - PHP' "$PROJECT_DIR" "$@"
@@ -290,7 +337,7 @@ def native_path(source):
 
 
 try:
-    containers = docker(*compose, "ps", "--all", "--quiet", "web").split()
+    containers = docker(*compose, "ps", "--all", "--quiet", "backend").split()
     mounts = []
     if containers:
         # As instancias de docker compose run poden ter montaxes propias.
@@ -302,8 +349,8 @@ try:
         sources = (mount["Source"] for container in mounts for mount in container
                    if mount["Type"] == "bind" and mount["Destination"] in web_roots)
     else:
-        config = json.loads(docker(*compose, "config", "--format", "json", "web"))
-        sources = (mount["source"] for mount in config["services"]["web"].get("volumes", [])
+        config = json.loads(docker(*compose, "config", "--format", "json", "backend"))
+        sources = (mount["source"] for mount in config["services"]["backend"].get("volumes", [])
                    if mount["type"] == "bind" and mount["target"] in web_roots)
 except subprocess.CalledProcessError as error:
     sys.exit(error.returncode)
@@ -315,7 +362,7 @@ print(*paths, sep="\n")
 PY
         ;;
     web-shell|shell|bash)
-        docker compose "${COMPOSE_ARGS[@]}" exec -u ad web bash "$@"
+        docker compose "${COMPOSE_ARGS[@]}" exec -u ad backend bash "$@"
         ;;
     check|comprobar)
         "$PROJECT_DIR/scripts/check.sh" "$@"

@@ -1,6 +1,6 @@
 # Angular con DAW Dev (DWCC)
 
-O contedor `angular` de DAW Dev trae Node.js 26, npm e Angular CLI 22.
+O contedor `frontend` de DAW Dev trae Node.js 26, npm e Angular CLI 22.
 Funciona dentro de `Debian`, sen Docker Desktop, e entras nel desde
 Visual Studio Code por SSH, coa conexión `dwcc-angular`. Os proxectos
 gárdanse na túa conta deste computador e vense tamén desde o Explorador de
@@ -10,7 +10,7 @@ Windows.
 
 1. Activa DAW Dev na túa conta: no menú Inicio, **DAW Dev → Activar DAW
    Dev**. Se xa o activaras antes do 19/11/2026, actívao outra vez: así
-   chegan a orde `daw-start-angular` e os ficheiros do contedor. Repetir a
+   chegan a orde `daw-start-frontend` e os ficheiros do contedor. Repetir a
    activación conserva os teus ficheiros e as bases de datos.
 2. Comproba que VS Code ten a extensión **Remote - SSH**
    (`ms-vscode-remote.remote-ssh`). Se non a tes, instálaa desde o panel de
@@ -21,7 +21,7 @@ Windows.
 Nun terminal de PowerShell:
 
 ```powershell
-daw-start-angular
+daw-start-frontend
 ```
 
 A primeira vez, a orde prepara o acceso e carga a imaxe do contedor, e
@@ -80,16 +80,16 @@ contedor, e o navegador de Windows non chega á aplicación.
 3. En PowerShell, `daw-stop` para todos os contedores de DAW Dev, tamén o
    de Angular. Os proxectos consérvanse.
 
-Outro día: `daw-start-angular`, conecta VS Code a `dwcc-angular`, abre
+Outro día: `daw-start-frontend`, conecta VS Code a `dwcc-angular`, abre
 `/home/node/proxectos/primeira-app` e executa `ng serve --host 0.0.0.0`.
-`daw-status` amosa se o contedor `daw-angular` está en marcha.
+`daw-status` amosa se o contedor `frontend-c` está en marcha.
 
 ## Problemas habituais
 
-- **Windows non recoñece `daw-start-angular`.** Volve executar **Activar
+- **Windows non recoñece `daw-start-frontend`.** Volve executar **Activar
   DAW Dev** e abre un terminal novo.
 - **VS Code non conecta con `dwcc-angular`.** Comproba con `daw-status`
-  que `daw-angular` está `Up`; se non, executa `daw-start-angular`.
+  que `frontend-c` está `Up`; se non, executa `daw-start-frontend`.
 - **O navegador non abre `http://localhost:4200/`.** `ng serve` ten que
   estar en marcha no terminal do contedor, con `--host 0.0.0.0`.
 - **O porto 2222 ou o 4200 xa está ocupado.** Se tamén usas o contedor

@@ -34,6 +34,8 @@ docker version --format 'Docker Engine {{.Server.Version}}' 2>/dev/null || { fal
 docker compose version
 
 seccion "Arranque"
+# Os contedores dos servizos anteriores ao 27-11-2026 ocuparían os portos.
+bash scripts/daw.sh remove-old-services
 inicio=$SECONDS
 if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 > /tmp/daw-dev-comprobar.log 2>&1; then
     ok "docker compose up${BUILD[*]:+ ${BUILD[*]}} en $((SECONDS - inicio)) s"
@@ -45,9 +47,9 @@ docker compose ps --format '{{.Service}}: {{.Status}}'
 
 # Portos e cartafol reais (respectan o .env)
 porto() { docker compose port "$1" "$2" 2>/dev/null | sed 's/.*://'; }
-WEB="http://localhost:$(porto web 80)"
-PMA="http://localhost:$(porto phpmyadmin 80)"
-CONTEDOR=$(docker compose ps -q web)
+WEB="http://localhost:$(porto backend 80)"
+PMA="http://localhost:$(porto db-admin 80)"
+CONTEDOR=$(docker compose ps -q backend)
 WWW=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/www/html"}}{{.Source}}{{end}}{{end}}' "$CONTEDOR")
 IMAXE=$(docker inspect -f '{{.Config.Image}}' "$CONTEDOR")
 PROBA=".comprobar-$$"
@@ -66,17 +68,17 @@ if [ "$(grep -c '✔' <<< "$E")" -ge 10 ] && ! grep -q '✘' <<< "$E"; then ok "
 SERVIDOR=$(grep -o 'Servidor web.*' <<< "$E" | awk -F'\t' '{print $2}' | sed 's/^ *//')
 
 seccion "Ferramentas no contedor"
-if docker compose exec -T -u ad web sh -ec 'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && ! getent group dev && test ! -e /home/dev && test ! -L /home/dev'; then
+if docker compose exec -T -u ad backend sh -ec 'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && ! getent group dev && test ! -e /home/dev && test ! -L /home/dev'; then
     ok "conta ad e directorio /home/ad"
 else
     fallo "a imaxe web non ten a conta ad limpa"
 fi
-if docker compose exec -T -u ad web sh -c 'MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -e "SELECT nome FROM alumnado"' 2>/dev/null | grep -q 'Uxía'; then
+if docker compose exec -T -u ad backend sh -c 'MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -e "SELECT nome FROM alumnado"' 2>/dev/null | grep -q 'Uxía'; then
     ok "cliente mysql e acentos (utf8mb4)"
 else
     fallo "cliente mysql (credenciais cambiadas no .env? BD sen os datos de exemplo?)"
 fi
-if docker compose exec -T -u ad web bash -c 'd=$(mktemp -d) && cd "$d" && composer require -q psr/log >/dev/null 2>&1 && test -f vendor/autoload.php; r=$?; rm -rf "$d"; exit $r'; then
+if docker compose exec -T -u ad backend bash -c 'd=$(mktemp -d) && cd "$d" && composer require -q psr/log >/dev/null 2>&1 && test -f vendor/autoload.php; r=$?; rm -rf "$d"; exit $r'; then
     ok "composer require"
 else
     fallo "composer require (sen acceso a packagist.org?)"

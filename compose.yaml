@@ -1,14 +1,15 @@
-# Contorna de desenvolvemento DAW Dev: PHP + Apache + MariaDB + phpMyAdmin
+# Contorna de desenvolvemento DAW Dev: backend (PHP + Apache), MariaDB, phpMyAdmin,
+# frontend (Angular) e documentación sen conexión
 # Todas as variables ${...} teñen valor por defecto; pódense cambiar no ficheiro .env
 name: daw-dev
 
 services:
-  web:
-    # Nomes fixos (sen o sufixo -1 de Compose): daw-web, daw-db...
-    container_name: daw-web
-    # Hostname: a tecnoloxía de cada contedor. O prompt é ad@php, non o ID do contedor,
-    # e distínguese do da distribución, que leva o nome do computador.
-    hostname: php
+  # Nomes polo papel de cada contedor: o servizo e o hostname (o prompt, ad@backend) son o
+  # mesmo nome, e o contedor engade -c (backend-c), para non coincidir con imaxes, ordes nin
+  # contedores doutros proxectos. A distribución de WSL leva o nome do computador.
+  backend:
+    container_name: backend-c
+    hostname: backend
     build:
       context: .
       args:
@@ -38,8 +39,8 @@ services:
         condition: service_healthy
 
   db:
-    container_name: daw-db
-    hostname: mariadb
+    container_name: db-c
+    hostname: db
     image: mariadb:${MARIADB_VERSION:-lts}
     ports:
       # Para conectar desde o anfitrión (DBeaver, HeidiSQL, extensión de VS Code...)
@@ -66,9 +67,9 @@ services:
       retries: 30
       start_period: 20s
 
-  phpmyadmin:
-    container_name: daw-phpmyadmin
-    hostname: phpmyadmin
+  db-admin:
+    container_name: db-admin-c
+    hostname: db-admin
     image: phpmyadmin:latest
     ports:
       - "${PMA_PORT:-8081}:80"
@@ -80,11 +81,11 @@ services:
         condition: service_healthy
 
   # DWCC: Node.js e Angular CLI, con SSH para VS Code (Remote-SSH a dwcc-angular).
-  # O perfil fai que só arranque con daw-start-angular, nunca con daw-start ou daw-start-all.
-  angular:
-    profiles: ["angular"]
-    container_name: daw-angular
-    hostname: node
+  # O perfil fai que só arranque con daw-start-frontend, nunca con daw-start ou daw-start-all.
+  frontend:
+    profiles: ["frontend"]
+    container_name: frontend-c
+    hostname: frontend
     build:
       context: ./docker/angular
     image: ${ANGULAR_IMAGE:-ghcr.io/miguelfm/dwcc-angular}:${ANGULAR_TAG:-22}
@@ -97,7 +98,7 @@ services:
       - angular_claves:/claves-host
       # Os proxectos, visibles desde Windows como www
       - ./angular:/home/node/proxectos
-      # Chave pública do usuario de Windows; daw-start-angular créaa
+      # Chave pública do usuario de Windows; daw-start-frontend créaa
       - type: bind
         source: ./docker/angular/ssh-key.pub
         # Ruta da imaxe dwcc-angular (entrypoint.sh)
@@ -110,24 +111,26 @@ services:
   # de HTML, HTTP e CSS de MDN e Laravel. O perfil fai que só arranquen con daw-start-doc.
   doc-php:
     profiles: ["doc"]
-    container_name: daw-doc-php
-    hostname: php-doc
+    container_name: doc-php-c
+    hostname: doc-php
     image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-php:en
     ports:
       - "${DOC_PHP_PORT:-127.0.0.1:8080}:80"
 
-  doc-devdocs:
+  # A referencia web (agora HTML, HTTP e CSS de MDN, con DevDocs): o nome non depende da fonte.
+  doc-web:
     profiles: ["doc"]
-    container_name: daw-doc-devdocs
-    hostname: web-doc
+    container_name: doc-web-c
+    hostname: doc-web
     image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-devdocs:latest
     ports:
-      - "${DOC_DEVDOCS_PORT:-127.0.0.1:5042}:9292"
+      # DOC_DEVDOCS_PORT é o nome anterior da variable.
+      - "${DOC_WEB_PORT:-${DOC_DEVDOCS_PORT:-127.0.0.1:5042}}:9292"
 
   doc-laravel:
     profiles: ["doc"]
-    container_name: daw-doc-laravel
-    hostname: laravel-doc
+    container_name: doc-laravel-c
+    hostname: doc-laravel
     image: ${DAW_DOC_IMAGE:-ghcr.io/miguelfm/daw-doc}-laravel:13.x
     ports:
       - "${DOC_LARAVEL_PORT:-127.0.0.1:8088}:80"

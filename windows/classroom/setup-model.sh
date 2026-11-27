@@ -55,7 +55,7 @@ images)
     else
         runuser -u ad -- docker compose pull
     fi
-    runuser -u ad -- docker compose config --images web | grep -Fxq "$web_image"
+    runuser -u ad -- docker compose config --images backend | grep -Fxq "$web_image"
     docker run --rm --pull never --network none --user ad --entrypoint sh "$web_image" -ec \
         'test "$HOME" = /home/ad && ! id dev >/dev/null 2>&1 && test ! -e /home/dev && test ! -L /home/dev'
     # Sen contedores persistentes nin volumes: cada alumno inicializa a súa propia BD.

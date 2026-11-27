@@ -3,8 +3,8 @@
     // Reutiliza compose.yaml e engade os axustes de compose.devcontainer.yaml.
     "name": "DAW Dev PHP",
     "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
-    "service": "web",
-    "runServices": ["web"],
+    "service": "backend",
+    "runServices": ["backend"],
     // Antes de buscar o contedor: Dev Containers usaría sen recrealo o que creou daw-start
     // ou un anterior a un cambio do proxecto. Sen bash nin Docker, non impide abrilo.
     "initializeCommand": "bash \"${localWorkspaceFolder}/scripts/daw.sh\" prepare-devcontainer || exit 0",

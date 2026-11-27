@@ -77,7 +77,7 @@ Véxase [actualizar os ficheiros dos proxectos xa importados](../../docs/aula-wi
 
 O código web serve desde `/var/www/html`, como nas instalacións persoais. `daw-start` le
 `compose.override.yaml` porque está ao lado de `compose.yaml`. Os cambios aplícanse ao recrear
-o contedor web: no seguinte `daw-start`, co `-Restart` da acción, na activación se a copia
+o backend: no seguinte `daw-start`, co `-Restart` da acción, na activación se a copia
 cambiou a definición do contedor, ou ao abrir de novo o Dev Container, porque o
 `initializeCommand` (`scripts/daw.sh prepare-devcontainer`) retira o contedor anterior a eses
 ficheiros.

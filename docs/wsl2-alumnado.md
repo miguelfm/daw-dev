@@ -20,7 +20,7 @@ daw-stop        # Conserva os teus ficheiros e a BD
 daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
 daw-web-root -Open   # Abre a raíz web no Explorador de ficheiros
 daw-wsl-shell   # Abre a distribución linux no proxecto
-daw-web-shell   # Abre o contedor de Apache e PHP
+daw-shell   # Abre o contedor de Apache e PHP
 ```
 
 No Explorador, o proxecto da aula está en `\\wsl.localhost\linux\home\ad\daw`, co código web en
@@ -187,18 +187,18 @@ de mantemento dos lanzadores de Windows.
 
 Os demais comandos (shell no contedor, MariaDB, Composer, logs...) están no [README](../README.md#comandos-do-día-a-día).
 
-### Consola do contedor web
+### Consola do backend
 
 Co contedor en marcha, executa **dentro de Debian**, desde calquera cartafol:
 
 ```bash
-docker exec -it -u ad daw-web bash
+docker exec -it -u ad backend-c bash
 ```
 
 Entrarás como `ad` en `/var/www/html`. Escribe `exit` para saír; o contedor segue funcionando.
-Consulta o [README](../README.md#consola-do-contedor-web) para o acceso como root, a alternativa con
+Consulta o [README](../README.md#consola-do-backend) para o acceso como root, a alternativa con
 Docker Compose e o acceso remoto por SSH ao equipo anfitrión. Para entrar directamente desde
-PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola-do-contedor-web).
+PowerShell ou CMD, consulta a [guía de Windows](windows11-contedores.md#consola-do-backend).
 
 ### Atallos opcionais para a terminal
 
@@ -281,7 +281,7 @@ Completa a configuración nos primeiros cinco minutos. Se caduca, executa `docke
 consulta de novo os logs e recarga. Véxase a [guía oficial do token](https://docs.portainer.io/faqs/installing/setup-token).
 
 Selecciona o contorno local (ou engádeo como Docker Standalone mediante Socket, usando
-`/var/run/docker.sock`). En **Containers** deben aparecer `daw-web`, `daw-db` e `daw-phpmyadmin`.
+`/var/run/docker.sock`). En **Containers** deben aparecer `backend-c`, `db-c` e `db-admin-c`.
 Portainer ten acceso administrativo ao motor Docker a través dese socket.
 
 O proxecto DAW Dev segue xestionándose co seu `compose.yaml` e `docker compose up -d` desde o terminal.

@@ -38,7 +38,7 @@ try {
     $report.ComposeVersion = ((& wsl.exe -d $Distribution -u ad --exec docker compose version) -join '').Trim()
     Daw 'daw-start'
     $running = @(& wsl.exe -d $Distribution -u ad --cd $project --exec docker compose ps --status running --services | Where-Object { $_.Trim() })
-    if ($running.Count -ne 1 -or $running[0].Trim() -ne 'web') { throw 'daw-start non deixou só o web na conta de proba.' }
+    if ($running.Count -ne 1 -or $running[0].Trim() -ne 'backend') { throw 'daw-start non deixou só o backend na conta de proba.' }
     $report.WebOnly = $true
     Daw 'daw-stop'
     Daw 'daw-star'

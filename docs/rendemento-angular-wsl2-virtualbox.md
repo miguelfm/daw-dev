@@ -32,8 +32,8 @@ Desde a raíz de `daw-dev`, en Debian, co contedor arrancado:
 
 ```bash
 findmnt -T "$(realpath angular)" -o TARGET,SOURCE,FSTYPE
-docker inspect daw-angular --format '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}'
-docker inspect daw-angular --format 'imaxe={{.Image}} cpu={{.HostConfig.NanoCpus}} memoria={{.HostConfig.Memory}}'
+docker inspect frontend-c --format '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}'
+docker inspect frontend-c --format 'imaxe={{.Image}} cpu={{.HostConfig.NanoCpus}} memoria={{.HostConfig.Memory}}'
 ```
 
 Comproba a orixe da montaxe `/home/node/proxectos` e calquera montaxe específica
@@ -50,7 +50,7 @@ compartidas poden ter un impacto importante. [Sistemas de ficheiros en WSL](http
 
 ### Arranque e conexión
 
-En PowerShell, `Measure-Command { daw-start-angular | Out-Host }` mide o tempo
+En PowerShell, `Measure-Command { daw-start-frontend | Out-Host }` mide o tempo
 que percibe o usuario. A primeira execución pode arrincar WSL, agardar por Docker,
 preparar as chaves SSH e cargar desde o paquete da aula ou descargar a imaxe. Cronometra
 por separado o tempo desde que seleccionas `dwcc-angular` en VS Code ata que abre
@@ -64,18 +64,18 @@ imaxe xa dispoñible nos dous e, se mediches a carga co paquete da aula, apunta 
 separado da descarga por rede.
 
 ```bash
-docker compose --profile angular stop angular
-time docker compose --profile angular up -d --wait --wait-timeout 300 --no-build --pull never angular
+docker compose --profile frontend stop frontend
+time docker compose --profile frontend up -d --wait --wait-timeout 300 --no-build --pull never frontend
 ```
 
 Mide a creación do contedor nunha copia de proba que aínda non o teña e o rearranque
 dun contedor existente noutra serie. Se tamén queres medir a obtención da imaxe,
 cronometra `docker load -i /ruta/dwcc-angular.tar.gz` ou
-`docker compose --profile angular pull angular` antes do arranque. Anota se xa había
+`docker compose --profile frontend pull frontend` antes do arranque. Anota se xa había
 capas da imaxe no equipo.
 `--wait` indica que o servizo está en marcha. Comproba o SSH ou o HTTP por separado
 para medir cando responden. Se distribúes a aplicación compilada mediante o servizo
-Apache `web`, mide ese arranque á parte. O Compose base fai que `web` agarde por
+Apache `backend`, mide ese arranque á parte. O Compose base fai que `backend` agarde por
 MariaDB cando se arranca con dependencias. [Referencia de `docker compose up`](https://docs.docker.com/reference/cli/docker/compose/up/)
 
 ### Instalación e compilación
@@ -105,7 +105,7 @@ Se o proxecto ten o seu propio `Dockerfile` que instala dependencias e compila
 Angular, executa `docker compose --progress plain build SERVIZO` desde ese proxecto,
 substituíndo `SERVIZO` polo nome do servizo,
 e compara os tempos de transferencia do contexto, de `npm ci` e da compilación.
-O `Dockerfile` de `daw-dev` para `angular` prepara Node, a CLI e SSH. A aplicación
+O `Dockerfile` de `daw-dev` para `frontend` prepara Node, a CLI e SSH. A aplicación
 compílase sobre a montaxe dos proxectos. [Caché de compilación de Docker](https://docs.docker.com/build/cache/optimize/)
 
 ## Interpretar e rexistrar o resultado
@@ -114,7 +114,7 @@ compílase sobre a montaxe dos proxectos. [Caché de compilación de Docker](htt
 | --- | --- |
 | `npm ci` e a recompilación melloran ao pasar de `/mnt/c` a `/home` | Revisa as montaxes do código, `node_modules` e a caché de Angular. Para recompilacións, comproba tamén se está activo `--poll`. |
 | Só tarda a primeira instalación ou a carga da imaxe | Separa `docker load` de `docker pull` e compara `npm ci` con caché baleira e quente. Revisa o rexistro npm, DNS ou proxy se o atraso aparece nas descargas. |
-| A compilación segue lenta en disco Linux e coa caché quente | Durante a compilación, comproba `docker stats daw-angular` e `vmstat 1` no Debian correspondente. Compara CPU, RAM, actividade de *swap* e espera de disco. |
+| A compilación segue lenta en disco Linux e coa caché quente | Durante a compilación, comproba `docker stats frontend-c` e `vmstat 1` no Debian correspondente. Compara CPU, RAM, actividade de *swap* e espera de disco. |
 | O contedor arranca axiña, pero tarda VS Code ou o navegador | Separa a instalación remota de VS Code do tempo de `ng serve`. Compara o acceso HTTP desde Debian co acceso desde Windows. Se usas Apache, mide tamén a espera de MariaDB. |
 
 Rexistra os tempos en segundos por fase. Usa unha fila por fase e estado da caché,

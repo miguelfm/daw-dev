@@ -2,7 +2,7 @@
 # tarefas fóra da raíz web. daw-start le este ficheiro porque está ao lado de compose.yaml;
 # Dev Containers, porque o nomea .devcontainer/devcontainer.json.
 services:
-  web:
+  backend:
     environment:
       # Apache executa PHP como www-data, como en Debian
       APACHE_RUN_USER: www-data

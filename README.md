@@ -7,11 +7,11 @@ Actualmente inclúe PHP e as ferramentas usadas no módulo **Desenvolvemento Web
 depurador e ferramentas, igual en Linux e en Windows 11 (WSL2). Fóra de Docker non hai que instalar PHP,
 servidores nin bases de datos no equipo.
 
-| Servizo      | Que é                                                  | URL / acceso                     |
-|--------------|--------------------------------------------------------|----------------------------------|
-| `web`        | PHP 8.6 + Apache, Xdebug 3.6.0alpha1, Composer, cliente MariaDB, git | <http://localhost> |
-| `db`         | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
-| `phpmyadmin` | Xestión web da base de datos                           | <http://localhost:8081>          |
+| Servizo    | Que é                                                  | URL / acceso                     |
+|------------|--------------------------------------------------------|----------------------------------|
+| `backend`  | PHP 8.6 + Apache, Xdebug 3.6.0alpha1, Composer, cliente MariaDB, git | <http://localhost> |
+| `db`       | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
+| `db-admin` | phpMyAdmin: xestión web da base de datos               | <http://localhost:8081>          |
 
 ## Requisitos
 
@@ -59,17 +59,17 @@ Para comprobar a contorna completa (servidor, base de datos, Composer, permisos,
 ### Actualizar a PHP 8.6 e á conta `ad`
 
 Se no teu `.env` figura `PHP_VERSION=8.5`, comenta a liña para seguir a versión do
-proxecto. Desde a raíz, descarga a imaxe pública e actualiza o contedor web:
+proxecto. Desde a raíz, descarga a imaxe pública e actualiza o backend:
 
 ```bash
-docker compose pull web
-docker compose up -d --no-deps web
-docker compose exec -u ad web php -v
+docker compose pull backend
+docker compose up -d --no-deps backend
+docker compose exec -u ad backend php -v
 ```
 
 A etiqueta `8.6-ad` identifica a imaxe coa conta `ad`. Se traballas cos cambios locais
-ou tes un UID/GID personalizado, constrúe a imaxe con `docker compose build web`.
-Ao recrear `web`, consérvanse `www/` e o volume de MariaDB. Se gardaches traballo
+ou tes un UID/GID personalizado, constrúe a imaxe con `docker compose build backend`.
+Ao recrear `backend`, consérvanse `www/` e o volume de MariaDB. Se gardaches traballo
 dentro do contedor fóra de `www/` ou de `~/daw`, cópiao ao proxecto antes de recrealo. Para os equipos da aula, segue o
 [procedemento de actualización e carga sen Internet](docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula).
 
@@ -82,9 +82,9 @@ En Apache, un `.htaccess` pode sobrescribir este comportamento.
 
 A configuración do servidor móntase desde `docker/apache/daw-dev.conf`. Para aplicar esta actualización
 a un contedor existente, executa `daw-start` en Windows ou
-`docker compose up -d --no-deps web` en Debian. Non precisa reconstruír a imaxe.
-Tras editar só este ficheiro de configuración, reinicia o web con
-`docker compose restart web`.
+`docker compose up -d --no-deps backend` en Debian. Non precisa reconstruír a imaxe.
+Tras editar só este ficheiro de configuración, reinicia o backend con
+`docker compose restart backend`.
 
 En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para executar
 `daw-start` (só servidor web), `daw-start-db` (BD e web),
@@ -92,64 +92,78 @@ En **Windows 11**, podes instalar os comandos `daw-*` no PATH do usuario para ex
 `daw-status`, `daw-logs` e `daw-code` (apertura directa en VS Code con soporte Dev Containers) desde PowerShell ou CMD.
 `daw-web-root` amosa as rutas de Windows e Debian da raíz web de Apache.
 `daw-web-root -Open` abre o cartafol no Explorador de ficheiros.
-`daw-web-shell` entra no contedor web e `daw-wsl-shell` abre Debian no cartafol do proxecto.
+`daw-shell` entra no backend e `daw-wsl-shell` abre Debian no cartafol do proxecto.
 Consulta a [guía de xestión de contedores en Windows 11](docs/windows11-contedores.md) e a
 [comparación das rutas do cartafol web en Windows e Debian](docs/windows11-contedores.md#abrir-a-raíz-web-no-explorador-de-ficheiros).
 
 | Para…                                   | Comando                                         |
 |-----------------------------------------|-------------------------------------------------|
-| Arrancar só PHP + Apache                | `docker compose up -d --no-deps web`             |
+| Arrancar só PHP + Apache                | `docker compose up -d --no-deps backend`             |
 | Arrancar a contorna completa / parar    | `docker compose up -d` / `docker compose stop`  |
 | Ver estado, incluídos os parados        | `docker compose ps --all`                        |
-| Ver erros de PHP e do servidor web      | `docker compose logs -f web`                    |
-| Abrir unha shell no contedor            | `docker compose exec -u ad web bash`           |
-| Consola de MariaDB                      | `docker compose exec -u ad web mysql -u dwcs -p dwcs` |
+| Ver erros de PHP e do servidor backend      | `docker compose logs -f backend`                    |
+| Abrir unha shell no contedor            | `docker compose exec -u ad backend bash`           |
+| Consola de MariaDB                      | `docker compose exec -u ad backend mysql -u dwcs -p dwcs` |
 | Consola de MariaDB como root            | `docker compose exec db mariadb -u root -p`     |
-| Composer                                | `docker compose exec -u ad web composer require monolog/monolog` |
-| Executar un script PHP por consola      | `docker compose exec -u ad web php script.php` |
+| Composer                                | `docker compose exec -u ad backend composer require monolog/monolog` |
+| Executar un script PHP por consola      | `docker compose exec -u ad backend php script.php` |
 | Reconstruír tras cambiar Dockerfile/ini | `docker compose up -d --build`                  |
-| Actualizar o servidor web               | `docker compose pull web && docker compose up -d --no-deps web` |
+| Actualizar o servidor backend               | `docker compose pull backend && docker compose up -d --no-deps backend` |
 | Comprobar que todo funciona             | `./scripts/check.sh`                        |
 | Borrar contedores e volumes xestionados, **incluída a BD** | `docker compose down -v`             |
 
-### Consola do contedor web
+### Consola do backend
 
-O contedor `daw-web` debe estar en marcha e o teu usuario debe poder executar Docker.
+O contedor `backend-c` debe estar en marcha e o teu usuario debe poder executar Docker.
 Se está parado, arráncao con `daw-start` se tes os atallos configurados, ou con
-`docker compose up -d --no-deps web` desde o cartafol do proxecto.
+`docker compose up -d --no-deps backend` desde o cartafol do proxecto.
 
 Desde ese cartafol, abre unha consola co usuario `ad`:
 
 ```bash
-docker compose exec -u ad web bash
+docker compose exec -u ad backend bash
 ```
 
 Tamén podes entrar **desde calquera cartafol**, usando o nome fixo do contedor:
 
 ```bash
-docker exec -it -u ad daw-web bash
+docker exec -it -u ad backend-c bash
 ```
 
 [`docker exec`](https://docs.docker.com/reference/cli/docker/container/exec/) usa `-it` para abrir
 unha consola interactiva. [`docker compose exec`](https://docs.docker.com/reference/cli/docker/compose/exec/)
-xa activa ese modo por defecto e usa o nome do servizo (`web`).
+xa activa ese modo por defecto e usa o nome do servizo (`backend`).
 
 Dentro da shell estás en `/var/www/html`, o cartafol local definido por `WWW_DIR` (`www/` por defecto),
 co usuario `ad`, que non ten contrasinal: `sudo` non o pide. Tes `php`, `composer` e `mysql` dispoñibles,
 ademais de `nano`, `vi` e `vis` para editar ficheiros.
 
-O prompt indica onde estás: `ad@php:/var/www/html$` no contedor web. Cada contedor leva como
-nome de equipo a súa tecnoloxía: `php`, `mariadb`, `phpmyadmin`, `node` (Angular) e, para a documentación, `php-doc`,
-`web-doc` (HTML, HTTP e CSS, agora de MDN) e `laravel-doc`. Para `docker exec` e `docker ps` seguen os nomes `daw-web`, `daw-db`…
+O prompt indica onde estás: `ad@backend:/var/www/html$`. Os nomes seguen o papel de cada
+contedor; o servizo de Compose e o hostname (o prompt) son o mesmo nome, e o contedor engade
+`-c`, para non coincidir con imaxes, ordes nin contedores doutros proxectos:
+
+| Servizo e hostname | Contedor | Que é |
+|---|---|---|
+| `backend` | `backend-c` | PHP 8.6 e Apache (DWCS) |
+| `db` | `db-c` | MariaDB |
+| `db-admin` | `db-admin-c` | phpMyAdmin |
+| `frontend` | `frontend-c` | Node.js e Angular (DWCC) |
+| `doc-php` | `doc-php-c` | Manual de PHP |
+| `doc-web` | `doc-web-c` | Referencia web: HTML, HTTP e CSS (agora de MDN) |
+| `doc-laravel` | `doc-laravel-c` | Documentación de Laravel |
+
+`docker compose exec backend bash` usa o servizo; `docker exec -it backend-c bash`, o contedor.
 Na distribución de WSL da aula, o prompt leva o nome do computador, por exemplo `ad@A31EQ28:~/daw$`.
+Ata o 27-11-2026 os servizos eran `web`, `phpmyadmin`, `angular` e `doc-devdocs`, e os contedores
+`daw-web`, `daw-db`…: `daw-start` retira os contedores anteriores ao arrancar.
 
 Para abrir a consola **como root**:
 
 ```bash
-docker exec -it -u root daw-web bash
+docker exec -it -u root backend-c bash
 ```
 
-Desde o proxecto tamén podes usar `docker compose exec -u root web bash`.
+Desde o proxecto tamén podes usar `docker compose exec -u root backend bash`.
 Escribe `exit` para pechar a consola; o contedor segue funcionando.
 
 #### Acceso desde outro equipo por SSH
@@ -159,7 +173,7 @@ conta pode executar Docker, conéctate a ese equipo e abre a consola do contedor
 
 ```bash
 ssh usuario@equipo
-docker exec -it -u ad daw-web bash
+docker exec -it -u ad backend-c bash
 ```
 
 Substitúe `usuario@equipo` polo usuario e o nome ou IP do anfitrión. O segundo comando execútase
@@ -167,7 +181,7 @@ na sesión remota, sobre o Docker dese equipo. Un `exit` volve á consola do anf
 outro `exit` pecha a sesión SSH.
 
 En Windows con Docker dentro de WSL2, executa os comandos Docker na terminal de Debian ou usa
-o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-contedor-web).
+o [acceso desde PowerShell ou CMD](docs/windows11-contedores.md#consola-do-backend).
 
 ### Atallos daw para a terminal
 
@@ -178,9 +192,9 @@ En Linux e macOS podes instalar os lanzadores para Bash, Zsh e Fish desde a raí
 bash scripts/install-daw-commands.sh
 ```
 
-Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o contedor web;
-`daw-web-shell` abre a súa terminal e `daw-web-root` amosa a ruta nativa da raíz web.
-`daw-start-angular` prepara a chave SSH persoal
+Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o backend;
+`daw-shell` abre a súa terminal e `daw-web-root` amosa a ruta nativa da raíz web.
+`daw-start-frontend` prepara a chave SSH persoal
 e a conexión `dwcc-angular`, e inicia só Angular. `daw-stop` para tamén Angular.
 `daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code; para traballar dentro
 do contedor, usa **Dev Containers: Reopen in Container**.
@@ -195,22 +209,22 @@ terminal para cargar os nomes actualizados.
 
 | Atallo | Que fai |
 |--------|---------|
-| `daw-start` | Arranca só `daw-web` (servizo `web`), sen iniciar a base de datos nin phpMyAdmin. |
-| `daw-start-all` | Arranca `web`, `db` e `phpmyadmin`, como `docker compose up -d`. |
-| `daw-start-db` | Arranca a base de datos e o web. |
+| `daw-start` | Arranca só o backend (`backend-c`), sen iniciar a base de datos nin phpMyAdmin. |
+| `daw-start-all` | Arranca `backend`, `db` e `db-admin`, como `docker compose up -d`. |
+| `daw-start-db` | Arranca a base de datos e o backend. |
 | `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, a referencia de HTML, HTTP e CSS de MDN en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
 | `daw-stop-all` | Para todos os contedores: desenvolvemento, documentación sen conexión e Angular. |
 | `daw-stop-doc` | Para só os servizos da documentación sen conexión (`daw-doc`). |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
-| `daw-web-shell` | Abre Bash no contedor web como `ad`. `daw-shell` segue funcionando como alias. |
+| `daw-shell` | Abre Bash no backend como `ad`. `daw-web-shell` segue funcionando como alias. |
 | `daw-wsl-shell` | Desde Windows, abre Debian no cartafol do proxecto. En Linux ou macOS xa estás no sistema anfitrión ao abrir o terminal. |
 | `daw-web-root` | Amosa a ruta nativa en Linux e macOS. En Windows con WSL amosa a ruta do Explorador seguida da de Debian. |
 | `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
 | `daw-help` | Mostra os comandos dispoñibles. |
 
-`daw-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `web` ten
+`daw-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `backend` ten
 unha dependencia de `db`. Úsao cando traballes con PHP sen base de datos; para os exercicios con BD
 ou para que a comprobación completa saia en verde, usa `daw-start-all`. Se xa hai outros contedores
 en marcha, `daw-start` déixaos funcionando.
@@ -224,16 +238,16 @@ aínda non se crearon ou xa se eliminaron.
 Engade este bloque a `~/.config/fish/conf.d/my_aliases.fish` (crea o cartafol e o ficheiro se non existen):
 
 ```fish
-alias daw-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-start 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps backend'
 alias daw-start-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
-alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-start-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
-alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
-alias daw-stop-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
-alias daw-stop-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-devdocs doc-laravel'
+alias daw-start-db 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db backend'
+alias daw-start-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-web doc-laravel'
+alias daw-stop 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend stop'
+alias daw-stop-all 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend stop'
+alias daw-stop-doc 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-web doc-laravel'
 alias daw-status 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
-alias daw-shell 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" exec -u ad web bash'
+alias daw-logs 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend logs --tail 100 -f'
+alias daw-shell 'docker compose -f "$HOME/Projects/daw-dev/compose.yaml" exec -u ad backend bash'
 alias daw-help 'printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-shell daw-help'
 ```
 
@@ -246,16 +260,16 @@ terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_pr
 **Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/daw`.**
 
 ```bash
-alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
+alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps backend'
 alias daw-start-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d'
-alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db web'
-alias daw-start-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-devdocs doc-laravel'
-alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
-alias daw-stop-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular stop'
-alias daw-stop-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-devdocs doc-laravel'
+alias daw-start-db='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d db backend'
+alias daw-start-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc up -d doc-php doc-web doc-laravel'
+alias daw-stop='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend stop'
+alias daw-stop-all='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend stop'
+alias daw-stop-doc='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc stop doc-php doc-web doc-laravel'
 alias daw-status='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" ps --all --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"'
-alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile angular logs --tail 100 -f'
-alias daw-shell='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" exec -u ad web bash'
+alias daw-logs='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" --profile doc --profile frontend logs --tail 100 -f'
+alias daw-shell='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" exec -u ad backend bash'
 alias daw-help='printf "%s\n" daw-start daw-start-all daw-start-db daw-start-doc daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-shell daw-help'
 ```
 
@@ -271,16 +285,16 @@ Para usar `daw-web-root` ou `daw-wsl-shell`, instala [os lanzadores de Windows](
 
 ```powershell
 $script:DawCompose = '/home/uxia/daw/compose.yaml'
-function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
-function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
+function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps backend @args }
+function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db backend @args }
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
-function daw-start-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
-function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
-function daw-stop-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
-function daw-stop-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc stop doc-php doc-devdocs doc-laravel @args }
+function daw-start-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc up -d doc-php doc-web doc-laravel @args }
+function daw-stop { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile frontend stop @args }
+function daw-stop-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile frontend stop @args }
+function daw-stop-doc { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc stop doc-php doc-web doc-laravel @args }
 function daw-status { wsl.exe -d Debian -- docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
-function daw-shell { wsl.exe -d Debian -- docker compose -f $script:DawCompose exec -u ad web bash @args }
+function daw-logs { wsl.exe -d Debian -- docker compose -f $script:DawCompose --profile doc --profile frontend logs --tail 100 -f @args }
+function daw-shell { wsl.exe -d Debian -- docker compose -f $script:DawCompose exec -u ad backend bash @args }
 function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-stop-all', 'daw-stop-doc', 'daw-status', 'daw-logs', 'daw-shell', 'daw-help' }
 ```
 
@@ -304,16 +318,16 @@ Axusta a ruta se o proxecto está noutro cartafol:
 
 ```powershell
 $script:DawCompose = Join-Path $HOME 'Projects/daw-dev/compose.yaml'
-function daw-start { docker compose -f $script:DawCompose up -d --no-deps web @args }
-function daw-start-db { docker compose -f $script:DawCompose up -d db web @args }
+function daw-start { docker compose -f $script:DawCompose up -d --no-deps backend @args }
+function daw-start-db { docker compose -f $script:DawCompose up -d db backend @args }
 function daw-start-all { docker compose -f $script:DawCompose up -d @args }
-function daw-start-doc { docker compose -f $script:DawCompose --profile doc up -d doc-php doc-devdocs doc-laravel @args }
-function daw-stop { docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
-function daw-stop-all { docker compose -f $script:DawCompose --profile doc --profile angular stop @args }
-function daw-stop-doc { docker compose -f $script:DawCompose --profile doc stop doc-php doc-devdocs doc-laravel @args }
+function daw-start-doc { docker compose -f $script:DawCompose --profile doc up -d doc-php doc-web doc-laravel @args }
+function daw-stop { docker compose -f $script:DawCompose --profile doc --profile frontend stop @args }
+function daw-stop-all { docker compose -f $script:DawCompose --profile doc --profile frontend stop @args }
+function daw-stop-doc { docker compose -f $script:DawCompose --profile doc stop doc-php doc-web doc-laravel @args }
 function daw-status { docker compose -f $script:DawCompose ps --all --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' @args }
-function daw-logs { docker compose -f $script:DawCompose --profile doc --profile angular logs --tail 100 -f @args }
-function daw-shell { docker compose -f $script:DawCompose exec -u ad web bash @args }
+function daw-logs { docker compose -f $script:DawCompose --profile doc --profile frontend logs --tail 100 -f @args }
+function daw-shell { docker compose -f $script:DawCompose exec -u ad backend bash @args }
 function daw-help { Write-Output 'daw-start', 'daw-start-all', 'daw-start-db', 'daw-start-doc', 'daw-stop', 'daw-stop-all', 'daw-stop-doc', 'daw-status', 'daw-logs', 'daw-shell', 'daw-help' }
 ```
 
@@ -398,25 +412,25 @@ Para alternar entre Programación con Java e DWCS con PHP, consulta a
 [guía de perfís separados de VS Code](docs/vscode-perfis.md).
 
 Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
-VS Code execútase dentro do contedor `web` co usuario `ad`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
+VS Code execútase dentro do contedor `backend` co usuario `ad`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
 A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6-ad` de GHCR.
 
 ### Alternar entre `daw-start` e o Dev Container
 
-O contedor `daw-web` ten dúas definicións. A de `daw-start` serve o web e deixa que Xdebug
+O contedor `backend-c` ten dúas definicións. A de `daw-start` serve a web e deixa que Xdebug
 conecte co VS Code do anfitrión. A do Dev Container engade o proxecto en `~/daw`, Xdebug cara a `localhost`
-e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `web` que xa
+e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `backend` que xa
 exista, e Compose recrea o dun Dev Container. Sen máis, abrirías o contedor de `daw-start`, sen
 o proxecto en `~/daw`, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
 
 | Situación | Que pasa |
 |---|---|
-| Abres o Dev Container e `daw-web` é de `daw-start` | Retírase e Dev Containers créao coa súa definición |
+| Abres o Dev Container e `backend-c` é de `daw-start` | Retírase e Dev Containers créao coa súa definición |
 | Abres o Dev Container e o seu contedor é anterior a un cambio do proxecto (`compose*.yaml`, `.env`, `.devcontainer/`) ou da imaxe web | Retírase e créase de novo |
-| `daw-start`, `daw-start-db` ou `daw-start-all` co Dev Container aberto | O contedor web non se toca; arrancan só a base de datos e phpMyAdmin |
-| `daw-start` despois de pechar a xanela do Dev Container | Recrea `daw-web` coa definición de `daw-start` |
-| `daw-start` con `daw-web` en marcha e un ficheiro montado substituído (por exemplo `docker/apache/daw-dev.conf` tras un `git pull`) | Recrea `daw-web`: Docker monta o ficheiro polo seu inodo e seguiría co anterior |
+| `daw-start`, `daw-start-db` ou `daw-start-all` co Dev Container aberto | O backend non se toca; arrancan só a base de datos e phpMyAdmin |
+| `daw-start` despois de pechar a xanela do Dev Container | Recrea `backend-c` coa definición de `daw-start` |
+| `daw-start` con `backend-c` en marcha e un ficheiro montado substituído (por exemplo `docker/apache/daw-dev.conf` tras un `git pull`) | Recrea `backend-c`: Docker monta o ficheiro polo seu inodo e seguiría co anterior |
 
 Ao abrir o Dev Container, a comprobación faina o `initializeCommand` de
 `.devcontainer/devcontainer.json` con `scripts/daw.sh prepare-devcontainer`, que precisa Bash,
@@ -433,7 +447,7 @@ o que gardases dentro do contedor fóra de `www/` e `~/daw`.
 - **En Windows 11 con WSL2 (sen Docker Desktop):**
   - O proxecto vén preconfigurado en `.vscode/settings.json` para delegar as accións de Dev Containers na distribución Debian de WSL (`executeInWSL: true`).
   - No despregamento de aula, as extensións de VS Code (`ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl`) instálanse automaticamente e disponse da orde `daw-code` para abrir o proxecto directamente e facer clic en *«Reopen in Container»*.
-  - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `daw-web`.
+  - Se se traballa con VS Code directamente en Windows sen Dev Containers, o perfil predeterminado de terminal de Windows abre tamén a shell do contedor `backend-c`.
   - Consulta a [guía de integración con VS Code en Windows 11](docs/windows11-contedores.md#integración-con-vs-code-en-windows-11) e a [guía de aula Windows 11](docs/aula-windows11.md).
 
 
@@ -459,7 +473,7 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 
 ```
 .
-├── compose.yaml              # servizos: web, db, phpmyadmin
+├── compose.yaml              # servizos: backend, db, db-admin, frontend e doc-*
 ├── Dockerfile                # imaxe daw-dev (Apache)
 ├── .env.example              # variables configurables (portos, versións, credenciais, Xdebug)
 ├── docker/

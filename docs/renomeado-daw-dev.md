@@ -1,5 +1,8 @@
 # Migrar de dwcs-php a daw-dev
 
+> Desde o 27-11-2026 os contedores chámanse polo seu papel: `backend-c`, `db-c`, `db-admin-c`…
+> (véxase o [README](../README.md#consola-do-backend)). `daw-start` retira os `daw-*` anteriores.
+
 O proxecto e o repositorio pasan a usar o nome `daw-dev`. Os contedores e os comandos usan
 o prefixo `daw-`, por exemplo `daw-web`, `daw-start` e `daw-stop`.
 O código de `www/` e os datos de MariaDB consérvanse. A base de datos e o usuario de exemplo

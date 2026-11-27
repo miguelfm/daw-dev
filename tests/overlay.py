@@ -199,7 +199,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         r, calls = run(root, overlay, project, path=os.environ['PATH'])
         assert r.returncode == 0, r.stderr
         config = subprocess.run([docker, 'compose', 'config', '--format', 'json'], cwd=project, capture_output=True, text=True, check=True)
-        web = json.loads(config.stdout)['services']['web']
+        web = json.loads(config.stdout)['services']['backend']
         assert web['image'] == 'example.invalid/dwcs-php:8.6-ad' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/data' in targets and '/var/www/html' in targets and '/home/ad/html' not in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets

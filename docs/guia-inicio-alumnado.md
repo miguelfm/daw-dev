@@ -2,10 +2,10 @@
 
 DAW Dev é un contorno de desenvolvemento PHP que funciona na túa conta de
 Windows sen permisos de administración. Está formado por unha distribución
-Linux de WSL2, `linux`, con Docker, e tres contedores: `web` (Apache e
-PHP 8.6 con Xdebug 3.6), `db` (MariaDB) e `phpmyadmin`.
+Linux de WSL2, `linux`, con Docker, e tres contedores: `backend` (Apache e
+PHP 8.6 con Xdebug 3.6), `db` (MariaDB) e `db-admin` (phpMyAdmin).
 
-No contedor `web`, Apache executa PHP como `www-data`, como nun servidor
+No contedor `backend`, Apache executa PHP como `www-data`, como nun servidor
 Debian, e serve o código desde `/var/www/html`.
 
 O contorno instálase en cada conta e en cada computador. Noutro computador da
@@ -61,10 +61,10 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 
 | Orde | Que fai |
 |---|---|
-| `daw-start` | Arranca só o contedor `web` |
-| `daw-start-db` | Arranca `web` e MariaDB |
-| `daw-start-all` | Arranca `web`, MariaDB e phpMyAdmin |
-| `daw-start-angular` | Arranca o contedor de Angular (DWCC) |
+| `daw-start` | Arranca só o contedor `backend` |
+| `daw-start-db` | Arranca o backend e MariaDB |
+| `daw-start-all` | Arranca o backend, MariaDB e phpMyAdmin |
+| `daw-start-frontend` | Arranca o contedor de Angular (DWCC) |
 | `daw-start-doc` | Arranca a documentación sen conexión |
 | `daw-status` | Amosa os contedores, o seu estado e os portos |
 | `daw-logs` | Segue os rexistros dos contedores; `Ctrl+C` remata |
@@ -72,7 +72,7 @@ Escríbense nun terminal de PowerShell ou CMD de Windows:
 | `daw-code -Container` | Abre directamente o proxecto no Dev Container de PHP |
 | `daw-web-root -Open` | Abre a raíz web no Explorador |
 | `daw-wsl-shell` | Abre a distribución `linux` no cartafol do proxecto |
-| `daw-web-shell` | Abre a terminal do contedor de Apache e PHP |
+| `daw-shell` | Abre a terminal do contedor de Apache e PHP |
 | `daw-stop` | Para todos os contedores; ficheiros e datos quedan |
 | `daw-help` | Lista as ordes |
 
@@ -115,13 +115,13 @@ Desde PowerShell ou CMD, estas ordes abren terminais en sitios distintos:
 
 ```powershell
 daw-wsl-shell
-daw-web-shell
+daw-shell
 ```
 
 `daw-wsl-shell` abre a distribución `linux` no proxecto (`~/daw`). Aquí podes
 usar Docker e Git ou consultar `curl --manual`. Funciona tamén con Docker parado.
 
-`daw-web-shell` entra no contedor web como `ad`, en `/var/www/html`. Aquí
+`daw-shell` entra no backend como `ad`, en `/var/www/html`. Aquí
 tes PHP e Composer, e os datos das tarefas en `/home/ad/data`. Arranca o
 contedor con `daw-start` antes de entrar. Escribe `exit` para volver á terminal anterior.
 
@@ -131,7 +131,7 @@ Ningunha das contas de Linux de DAW Dev ten contrasinal:
 
 | Onde | Conta | Contrasinal |
 |---|---|---|
-| Contedor `web` | `ad` | Ningún: `sudo` non o pide |
+| Contedor `backend` | `ad` | Ningún: `sudo` non o pide |
 | Distribución `linux` de WSL | `ad` | Ningún, e a conta non ten `sudo` |
 | MariaDB | `dwcs` e `root` | `abc123..` |
 
@@ -142,7 +142,7 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 
 Executa `daw-code -Container` para abrir o proxecto no contedor de PHP.
 O proxecto está en `~/daw` e o código en `~/daw/www`, como na distribución. O terminal
-integrado (`Ctrl+ñ`) abre no contedor como `ad`: o prompt é `ad@php:~/daw$`.
+integrado (`Ctrl+ñ`) abre no contedor como `ad`: o prompt é `ad@backend:~/daw$`.
 Na distribución, en cambio, leva o nome do computador (`ad@A31EQ28:~/daw$`).
 
 Se xa tes o proxecto aberto en WSL, podes premer `F1` e escoller
@@ -154,7 +154,7 @@ phpMyAdmin, executa `daw-start-all`. Podes facelo coa xanela de VS Code
 aberta no contedor: o servidor web segue como está e non se pecha a xanela.
 
 Se antes usaches `daw-start`, ao abrir o Dev Container verás que se retira
-`daw-web` e se crea de novo. É normal: o Dev Container precisa a súa propia
+`backend-c` e se crea de novo. É normal: o Dev Container precisa a súa propia
 configuración. Os teus ficheiros de `www` e as bases de datos consérvanse.
 Ao pechar a xanela do contedor, o seguinte `daw-start` faino ao revés.
 
@@ -169,7 +169,7 @@ Para depurar, abre VS Code dentro do contedor.
 
 ## Problemas habituais
 
-- **`http://localhost/` non responde.** Mira `daw-status`: se `daw-web`
+- **`http://localhost/` non responde.** Mira `daw-status`: se `backend-c`
   non está `Up`, executa `daw-start`.
 - **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
 - **Windows non recoñece `daw-start`.** Abre un terminal novo. Se persiste,
@@ -179,7 +179,7 @@ Para depurar, abre VS Code dentro do contedor.
 - **VS Code queda en «Retrying to download VS Code Server».** O servidor
   vén no paquete da aula, pero só para a versión de VS Code dos postos: se
   `daw-code` avisa de que falta, avisa ao docente. Mentres, usa
-  `daw-code -Local` para seguir editando e `daw-web-shell` para usar PHP ou
+  `daw-code -Local` para seguir editando e `daw-shell` para usar PHP ou
   Composer.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
@@ -187,5 +187,5 @@ Para depurar, abre VS Code dentro do contedor.
   `~/daw`, devólvello a `ad` con esta orde.
 
   ```bash
-  docker compose exec web chown ad:ad /var/www/html/u3/t1/f.php
+  docker compose exec backend chown ad:ad /var/www/html/u3/t1/f.php
   ```

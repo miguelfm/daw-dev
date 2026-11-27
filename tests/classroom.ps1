@@ -558,7 +558,7 @@ exit 0
         Assert ($diff.Count -eq 1)
         Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
         $config = ($overlay | Where-Object { $_ -notmatch '^\s*//' }) -join [char]10 | ConvertFrom-Json
-        Assert (($config.runServices -join ',') -eq 'web') 'A rebuilt Dev Container should start only the web service.'
+        Assert (($config.runServices -join ',') -eq 'backend') 'A rebuilt Dev Container should start only the backend.'
     }
     Test 'extra Docker images in the package are registered, verified and copied' {
         $dest=Join-Path $script:Temp 'package-images'
@@ -789,26 +789,48 @@ foreach(`$n in `$Number){
         Assert ($install.IndexOf('Initialize-DawCodeServer') -lt $install.IndexOf('Install-DawPackageCodeExtensions $Distribution $server.Commit')) 'Extensions need the VS Code Server first'
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/verify-user.ps1')).Contains("Test-DawStep 'Extensións de PHP'"))
     }
-    Test 'Angular is a profiled service started, stopped and logged by the launcher' {
+    Test 'the frontend (Angular) is a profiled service started, stopped and logged through daw.sh' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
-        Assert ($compose.Contains('profiles: ["angular"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
+        Assert ($compose.Contains('profiles: ["frontend"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
+        $sh=[IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/daw.sh'))
+        foreach($s in '--profile frontend --profile doc stop','--profile frontend up -d --wait --wait-timeout 300 frontend','--profile frontend --profile doc logs','daw-start-frontend|daw-start-angular) ACTION="start-frontend"'){Assert ($sh.Contains($s)) "Missing in daw.sh: $s"}
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1'))
-        foreach($s in "'stop' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }","'start-angular' { `$composeArgs = @('--profile', 'angular')","'logs' { `$composeArgs = @('--profile', 'angular', '--profile', 'doc'"){Assert ($daw.Contains($s)) "Missing: $s"}
-        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/install-daw-commands.ps1')).Contains("'daw-start-angular' = 'start-angular'"))
+        Assert ($daw.Contains("{ `$_ -in 'start-frontend', 'start-angular' } { `$dawAction = 'start-frontend' }") -and $daw.Contains('--exec env DAW_SKIP_SSH_SETUP=1 bash scripts/daw.sh $dawAction'))
+        # daw.ps1 names no service: it works with a project of another version. Only the
+        # fallback for a project from before 27-11-2026 names the previous angular service.
+        $compose=@([regex]::Matches($daw,'--exec docker compose[^\r\n]*'))
+        Assert ($compose.Count -eq 1 -and $compose[0].Value -match '--profile angular up .* angular$') (($compose|ForEach-Object Value) -join ' | ')
+        $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/install-daw-commands.ps1'))
+        Assert ($install.Contains("'daw-start-frontend' = 'start-frontend'") -and $install.Contains("'daw-start-angular' = 'start-frontend'"))
     }
     Test 'the MariaDB health check changes the previous default password and reaches the classroom' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('./docker/mariadb/healthcheck.sh:/usr/local/bin/daw-healthcheck.sh:ro') -and $compose.Contains('test: ["CMD", "sh", "/usr/local/bin/daw-healthcheck.sh"]')) 'Missing health check'
         Assert (-not $compose.Contains('abc123.}')) 'Previous default password'
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/daw-classroom.psm1')).Contains("'docker/mariadb/healthcheck.sh'"))
-        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1')).Contains('scripts/daw.sh migrar-env'))
+        # daw.ps1 starts everything through daw.sh, which migrates .env first.
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/daw.sh')).Contains('start|start-all|start-db|start-doc|start-frontend|migrar-env) migrar_env ;;'))
     }
-    Test 'offline docs are a profiled service loaded from the package and started by the launcher' {
+    Test 'offline docs are a profiled service loaded from the package and started through daw.sh' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
-        foreach($s in 'profiles: ["doc"]','127.0.0.1:8080}:80','127.0.0.1:5042}:9292','127.0.0.1:8088}:80'){Assert ($compose.Contains($s)) "Missing: $s"}
+        foreach($s in 'profiles: ["doc"]','127.0.0.1:8080}:80','127.0.0.1:5042}}:9292','127.0.0.1:8088}:80'){Assert ($compose.Contains($s)) "Missing: $s"}
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/daw.sh')).Contains('doc-php doc-web doc-laravel'))
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1'))
-        foreach($s in "'start-doc' { `$composeArgs = @('--profile', 'doc')","'daw-doc-php.tar.gz'","'daw-doc-devdocs.tar.gz'","'daw-doc-laravel.tar.gz'","'start-angular', 'start-doc')"){Assert ($daw.Contains($s)) "Missing: $s"}
+        foreach($s in "'daw-doc-php.tar.gz'","'daw-doc-devdocs.tar.gz'","'daw-doc-laravel.tar.gz'","if (`$dawAction -eq 'start-doc')","'start-frontend', 'start-doc')"){Assert ($daw.Contains($s)) "Missing: $s"}
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/install-daw-commands.ps1')).Contains("'daw-start-doc' = 'start-doc'"))
+    }
+    Test 'containers are named by role: service = hostname, container with -c' {
+        $config=(& docker compose -f (Join-Path $script:Repo 'compose.yaml') --profile frontend --profile doc config --format json 2>$null) -join "`n"
+        if(-not $config){return}
+        $services=($config|ConvertFrom-Json).services
+        $names=@($services.PSObject.Properties.Name|Sort-Object)
+        Assert (($names -join ',') -eq 'backend,db,db-admin,doc-laravel,doc-php,doc-web,frontend') ($names -join ',')
+        foreach($n in $names){$s=$services.$n;Assert ($s.hostname -ceq $n -and $s.container_name -ceq "$n-c") "${n}: $($s.hostname) $($s.container_name)"}
+        $sh=[IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/daw.sh'))
+        Assert ($sh.Contains("OLD_SERVICES='web:backend phpmyadmin:db-admin angular:frontend doc-devdocs:doc-web'"))
+        Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/check.sh')).Contains('bash scripts/daw.sh remove-old-services')) 'check.sh starts Compose itself'
+        $restart=[IO.File]::ReadAllText($script:ModulePath)
+        Assert ($restart.Contains("'--exec','bash','scripts/daw.sh','restart-backend'")) 'The activation restarts through daw.sh'
     }
     Test 'manual activation installs, then applies the staged project, and reports failures' {
         $exe=(Get-Process -Id $PID).Path

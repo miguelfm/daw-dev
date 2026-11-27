@@ -1266,16 +1266,13 @@ function Invoke-DawProjectOverlay {
     [pscustomobject]$result
 }
 function Restart-DawProjectWeb {
-    # Recreates web only when it is already running; Dev Containers sessions must be reopened.
+    # Recrea o backend se está en marcha, aínda que só cambiase un ficheiro montado (docker/*):
+    # Docker monta os ficheiros polo seu inodo. Unha sesión de Dev Containers hai que reabrila.
+    # scripts/daw.sh, xa copiado na nova versión, retira tamén os contedores dos servizos
+    # anteriores ao 27-11-2026 e recrea o backend se estaba en marcha o web anterior.
     param([string]$Distribution)
-    $base=@('-d',$Distribution,'-u','ad','--cd',(Get-DawLinuxProjectPath),'--exec')
-    Invoke-DawNative 'wsl.exe' ($base+@('bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'))|Out-Null
-    $running=@(Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','ps','--status','running','--services'))|ForEach-Object {$_.Trim()})
-    if('web' -notin $running){return $false}
-    # Forzado: se só cambiou un ficheiro montado (docker/*), Compose non ve cambios e o contedor
-    # seguiría co ficheiro substituído, porque Docker o montou polo seu inodo.
-    Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','up','-d','--no-deps','--force-recreate','--wait','--wait-timeout','300','web'))|Out-Null
-    return $true
+    $lines=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',(Get-DawLinuxProjectPath),'--exec','bash','scripts/daw.sh','restart-backend'))
+    return (@($lines|ForEach-Object {([string]$_).Trim()}) -contains 'restarted')
 }
 
 Export-ModuleMember -Function *-Daw*

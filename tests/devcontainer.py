@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Alternate daw-start and Dev Containers on one web container, with real Docker.
+"""Alternate daw-start and Dev Containers on one backend container, with real Docker.
 
-Dev Containers reuses whatever web container exists, and Compose recreates a Dev Container's.
+Dev Containers reuses whatever backend container exists, and Compose recreates a Dev Container's.
 The test runs on a copy of the repository with its own project name, container names and ports,
-so it leaves the user's daw-* containers alone. It needs Docker, the web image and the
+so it leaves the user's daw-* containers alone. It needs Docker, the backend image and the
 Dev Containers CLI (DEVCONTAINER_BIN, `devcontainer` by default).
 """
 import json, os, pathlib, shutil, subprocess, tempfile, time
@@ -12,14 +12,14 @@ repo = pathlib.Path(__file__).resolve().parents[1]
 devcontainer = os.environ.get('DEVCONTAINER_BIN', 'devcontainer')
 project_name = 'daw-dev-test-devcontainer'
 OVERRIDE = '''services:
-  web:
-    container_name: daw-test-web
+  backend:
+    container_name: daw-test-backend-c
     ports: !override ["127.0.0.1:18180:80"]
   db:
-    container_name: daw-test-db
+    container_name: daw-test-db-c
     ports: !override ["127.0.0.1:13406:3306"]
-  phpmyadmin:
-    container_name: daw-test-phpmyadmin
+  db-admin:
+    container_name: daw-test-db-admin-c
     ports: !override ["127.0.0.1:18181:80"]
 '''
 
@@ -32,7 +32,7 @@ def run(*args, cwd=None, check=True):
 
 
 def web(project):
-    ids = run('docker', 'compose', '-p', project_name, 'ps', '--all', '--quiet', 'web', cwd=project).split()
+    ids = run('docker', 'compose', '-p', project_name, 'ps', '--all', '--quiet', 'backend', cwd=project).split()
     assert len(ids) == 1, ids
     info = json.loads(run('docker', 'inspect', ids[0]))[0]
     labels = info['Config'].get('Labels') or {}
@@ -81,7 +81,14 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
                                   f'USER_UID={os.getuid()}\nUSER_GID={os.getgid()}\n')
     images = set()
     try:
+        # Before 27-11-2026 the service was web: its container, still running, holds the port.
+        image = run('docker', 'compose', 'config', '--images', 'backend', cwd=project).split()[0]
+        run('docker', 'run', '-d', '--name', 'daw-test-old-web', '--label', f'com.docker.compose.project={project_name}',
+            '--label', 'com.docker.compose.service=web', '-p', '127.0.0.1:18180:80', image)
         out = daw(project, 'start')
+        gone = run('docker', 'ps', '-aq', '--filter', 'name=^daw-test-old-web$').strip()
+        check('daw-start removes the container of the previous service and takes its port',
+              not gone and 'servizo anterior web' in out and web(project)['running'], out)
         state = web(project)
         check('daw-start creates the Compose definition', state['running'] and not state['devcontainer'] and '/home/ad/daw' not in state['mounts'], state)
 
@@ -90,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         images.add(state['image'])
         check('Dev Containers replaces the container daw-start created',
               state['devcontainer'] and '/home/ad/daw' in state['mounts'] and state['env'].get('XDEBUG_CONFIG') == 'client_host=localhost'
-              and state['hostname'] == 'php', state)
+              and state['hostname'] == 'backend', state)
         opened = state['id']
 
         out = daw(project, 'start')
@@ -98,17 +105,17 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         check('daw-start keeps an open Dev Container', state['id'] == opened and state['running'] and 'Dev Containers' in out, out)
         out = daw(project, 'start-db')
         state = web(project)
-        db = run('docker', 'inspect', '-f', '{{.State.Health.Status}}', 'daw-test-db').strip()
+        db = run('docker', 'inspect', '-f', '{{.State.Health.Status}}', 'daw-test-db-c').strip()
         check('daw-start-db starts MariaDB and keeps the Dev Container', state['id'] == opened and db == 'healthy', (out, db))
         out = daw(project, 'start-all')
-        pma = run('docker', 'inspect', '-f', '{{.State.Running}}', 'daw-test-phpmyadmin').strip()
+        pma = run('docker', 'inspect', '-f', '{{.State.Running}}', 'daw-test-db-admin-c').strip()
         check('daw-start-all keeps the Dev Container', web(project)['id'] == opened and pma == 'true', out)
 
         up(project)
         check('Dev Containers reuses its own current container', web(project)['id'] == opened)
 
         time.sleep(0.05)
-        web_block = '    container_name: daw-test-web\n'
+        web_block = '    container_name: daw-test-backend-c\n'
         (project / 'compose.override.yaml').write_text(
             OVERRIDE.replace(web_block, web_block + '    environment:\n      DAW_TEST: "1"\n'))
         out = up(project)
@@ -132,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         replacement.replace(conf)
         before = state['id']
         out = daw(project, 'start')
-        seen = run('docker', 'exec', 'daw-test-web', 'cat', '/etc/apache2/conf-available/daw-dev.conf')
+        seen = run('docker', 'exec', 'daw-test-backend-c', 'cat', '/etc/apache2/conf-available/daw-dev.conf')
         check('daw-start recreates web when a mounted file was replaced',
               web(project)['id'] != before and 'daw-test-marker' in seen and 'Recréase' in out, out)
         out = daw(project, 'start')
@@ -140,9 +147,10 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
 
         run('bash', 'scripts/daw.sh', 'prepare-devcontainer', cwd=project)
         check('prepare-devcontainer removes the Compose container',
-              not run('docker', 'compose', '-p', project_name, 'ps', '--all', '--quiet', 'web', cwd=project).strip())
+              not run('docker', 'compose', '-p', project_name, 'ps', '--all', '--quiet', 'backend', cwd=project).strip())
     finally:
-        run('docker', 'compose', '-p', project_name, '--profile', 'angular', '--profile', 'doc', 'down', '-v', '--remove-orphans', cwd=project, check=False)
+        run('docker', 'rm', '-f', 'daw-test-old-web', check=False)
+        run('docker', 'compose', '-p', project_name, '--profile', 'frontend', '--profile', 'doc', 'down', '-v', '--remove-orphans', cwd=project, check=False)
         # Only the images Dev Containers built on top of the project's (vsc-*), never the base one.
         for image in images:
             tags = run('docker', 'image', 'inspect', '-f', '{{json .RepoTags}}', image, check=False)

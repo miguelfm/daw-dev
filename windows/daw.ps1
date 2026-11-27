@@ -19,7 +19,6 @@ $classroomPackage = if ($env:DAW_PACKAGE_DIR) { $env:DAW_PACKAGE_DIR } else { 'C
 if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
 $wslArgs = @('-d', $Distribution)
 if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
-$startArgs = @('up', '-d', '--wait', '--wait-timeout', '300')
 # Angular (DWCC): imaxe publicada e, na aula, copia no paquete para cargala sen Internet.
 $angularImage = 'ghcr.io/miguelfm/dwcc-angular:22'
 $angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } else { "$classroomPackage\dwcc-angular.tar.gz" }
@@ -115,25 +114,26 @@ if ($env:USERPROFILE -and -not $env:DAW_SKIP_LAUNCHER_REPAIR -and (Test-Path -Li
 
 switch ($Action.ToLowerInvariant()) {
     { $_ -in 'help', '--help' } {
-        Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc'
+        Write-Output 'Usage: daw-start | daw-start-all | daw-start-db | daw-start-frontend | daw-start-doc'
         Write-Output '       daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-code'
-        Write-Output '       daw-web-shell | daw-wsl-shell | daw-web-root [-Open] | daw-activate | daw-help'
+        Write-Output '       daw-shell | daw-wsl-shell | daw-web-root [-Open] | daw-activate | daw-help'
         Write-Output '  daw-activate: install or update the classroom setup from its deployed package.'
         Write-Output '                -Reinstall replaces a distribution from another package and deletes all its files.'
-        Write-Output '  daw-start: start only the web service without starting dependencies.'
+        Write-Output '  daw-start: start only the backend (PHP and Apache) without starting dependencies.'
         Write-Output '  daw-star: alias for daw-start.'
-        Write-Output '  daw-start-all: start web, MariaDB and phpMyAdmin.'
-        Write-Output '  daw-start-db: start MariaDB and the web service together.'
-        Write-Output '  daw-start-angular: start the Angular container; connect VS Code by SSH to dwcc-angular.'
-        Write-Output '  daw-start-doc: start the offline PHP manual (8080), MDN reference for HTML, HTTP and CSS (5042) and Laravel docs (8088).'
+        Write-Output '  daw-start-all: start backend, db (MariaDB) and db-admin (phpMyAdmin).'
+        Write-Output '  daw-start-db: start MariaDB and the backend together.'
+        Write-Output '  daw-start-frontend: start the frontend (Angular); connect VS Code by SSH to dwcc-angular.'
+        Write-Output '  daw-start-angular: alias for daw-start-frontend.'
+        Write-Output '  daw-start-doc: start the offline docs: PHP (8080), web: HTML, HTTP and CSS (5042) and Laravel (8088).'
         Write-Output '  Other running containers are left running.'
-        Write-Output '  daw-stop: stop DAW Dev containers, Angular and the docs included, without deleting data.'
-        Write-Output '  daw-stop-all: stop all containers: development, documentation and Angular.'
+        Write-Output '  daw-stop: stop DAW Dev containers, frontend and docs included, without deleting data.'
+        Write-Output '  daw-stop-all: stop all containers: backend, db, db-admin, frontend and docs.'
         Write-Output '  daw-stop-doc: stop only the offline documentation containers.'
         Write-Output '  daw-status: show names, status and ports, including stopped containers.'
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
-        Write-Output '  daw-web-shell: open Bash in the Apache/PHP web container as user ad.'
-        Write-Output '  daw-shell: alias for daw-web-shell.'
+        Write-Output '  daw-shell: open Bash in the backend (Apache and PHP) as user ad.'
+        Write-Output '  daw-web-shell: alias for daw-shell.'
         Write-Output '  daw-wsl-shell: open the WSL distribution at the project directory without starting Docker.'
         Write-Output '  daw-code: open the project directly in VS Code.'
         Write-Output '  daw-code -Container: open the project directly in its PHP Dev Container.'
@@ -141,6 +141,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-web-root: show the Windows and WSL paths to the Apache web root.'
         Write-Output '                Add -Open to open the Windows path in File Explorer.'
         Write-Output '  daw-www: show only the Windows path (also accepts -Open).'
+        Write-Output '  Containers: backend-c, db-c, db-admin-c, frontend-c, doc-php-c, doc-web-c and doc-laravel-c.'
         exit 0
     }
     'activate' {
@@ -193,18 +194,11 @@ switch ($Action.ToLowerInvariant()) {
         & wsl.exe @wslArgs --cd $ProjectPath
         exit $LASTEXITCODE
     }
-    'start' { $composeArgs = $startArgs + @('--no-deps', 'web') }
-    'start-all' { $composeArgs = $startArgs }
-    'start-db' { $composeArgs = $startArgs + @('db', 'web') }
-    'start-angular' { $composeArgs = @('--profile', 'angular') + $startArgs + @('angular') }
-    'start-doc' { $composeArgs = @('--profile', 'doc') + $startArgs + @('doc-php', 'doc-devdocs', 'doc-laravel') }
-    # Compose só para os servizos dun perfil se se lle indica o perfil.
-    'stop' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }
-    'stop-all' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'stop') }
-    'stop-doc' { $composeArgs = @('--profile', 'doc', 'stop', 'doc-php', 'doc-devdocs', 'doc-laravel') }
-    'status' { $composeArgs = @('ps', '--all', '--format', 'table {{.Name}}\t{{.Status}}\t{{.Ports}}') }
-    'logs' { $composeArgs = @('--profile', 'angular', '--profile', 'doc', 'logs', '--tail', '100', '-f') }
-    'shell' { $composeArgs = @('exec', '-u', 'ad', 'web', 'bash') }
+    # Compose vai sempre por scripts/daw.sh do proxecto. Este script non nomea servizos, así que
+    # vale tamén cun proxecto doutra versión, por exemplo antes ou despois dun UpdateProject.
+    { $_ -in 'start', 'start-all', 'start-db', 'start-doc', 'stop', 'stop-all', 'stop-doc', 'status', 'logs' } { $dawAction = $_ }
+    { $_ -in 'start-frontend', 'start-angular' } { $dawAction = 'start-frontend' }
+    'shell' { $dawAction = 'web-shell' }
     { $_ -in 'web-root', 'www' } { }
     default { Write-Error "Unknown command: $Action. Use: daw-help"; exit 2 }
 }
@@ -222,29 +216,10 @@ if ($Action -in 'web-root', 'www') {
     $previousEncoding = [Console]::OutputEncoding
     try {
         [Console]::OutputEncoding = [Text.Encoding]::UTF8
-        $webRoots = @('/var/www/html')
-        $containers = @(& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --all --quiet web)
+        # As rutas en Linux, de scripts/daw.sh: le as montaxes do backend ou, sen contedor, Compose.
+        $sources = @(& wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh web-root | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-        # Excluír contedores temporais de `docker compose run`.
-        $mountJson = if ($containers.Count) {
-            $mountFormat = '{{if ne (index .Config.Labels `com.docker.compose.oneoff`) `True`}}{{json .Mounts}}{{end}}'
-            $inspect = & wsl.exe @wslArgs --exec docker inspect --type container --format $mountFormat @containers
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $inspect | Where-Object { $_ }
-        }
-        $sources = if ($mountJson) {
-            foreach ($entry in $mountJson) {
-                $mounts = ConvertFrom-Json -InputObject $entry
-                $mounts | Where-Object { $_.Type -eq 'bind' -and $_.Destination -cin $webRoots } | ForEach-Object { $_.Source }
-            }
-        } else {
-            $config = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose config --format json web
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            ($config -join "`n" | ConvertFrom-Json).services.web.volumes |
-                Where-Object { $_.type -eq 'bind' -and $_.target -cin $webRoots } | ForEach-Object { $_.source }
-        }
-        if (-not $sources) { throw 'The web service has no host directory mounted at /var/www/html.' }
+        if (-not $sources) { throw 'The backend has no host directory mounted at /var/www/html.' }
         $paths = foreach ($source in ($sources | Select-Object -Unique)) {
             $windowsPath = & wsl.exe @wslArgs --exec wslpath -w $source
             if ($LASTEXITCODE -ne 0 -or -not $windowsPath) { throw "Could not translate the web directory to a Windows path: $source" }
@@ -260,18 +235,7 @@ if ($Action -in 'web-root', 'www') {
     }
     exit 0
 }
-if ($Action.ToLowerInvariant().StartsWith('start')) {
-    # Un .env anterior ao 24-11-2026 leva o contrasinal por defecto anterior de MariaDB.
-    & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env
-    if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB password in .env.' }
-}
-$composeCommand = @('docker', 'compose') + $composeArgs
-if ($Action -in 'start', 'start-db', 'start-all') {
-    # scripts/daw.sh decide como arrancar web: non recrea un Dev Container aberto e recrea o que
-    # siga cun ficheiro montado que se substituíu. A mesma lóxica en Linux e en Windows.
-    $composeCommand = @('bash', 'scripts/daw.sh', $Action.ToLowerInvariant())
-}
-if ($Action.ToLowerInvariant() -eq 'start-angular') {
+if ($dawAction -eq 'start-frontend') {
     # A chave pública vai ao proxecto (docker/angular/ssh-key.pub); os proxectos, a angular/.
     $pub = Initialize-AngularKey
     if ($pub -notmatch '^(ssh-ed25519) ([A-Za-z0-9+/=]+)(\s.*)?$') { throw 'Unexpected format of dwcc_angular.pub.' }
@@ -293,7 +257,7 @@ if ($Action.ToLowerInvariant() -eq 'start-angular') {
         if ($LASTEXITCODE -ne 0) { throw 'Could not load the Angular image.' }
     }
 }
-if ($Action.ToLowerInvariant() -eq 'start-doc') {
+if ($dawAction -eq 'start-doc') {
     foreach ($image in $docImages.Keys) {
         $archive = Join-Path $docArchiveDirectory $docImages[$image]
         & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $image
@@ -305,16 +269,17 @@ if ($Action.ToLowerInvariant() -eq 'start-doc') {
         }
     }
 }
-& wsl.exe @wslArgs --cd $ProjectPath --exec @composeCommand
+# scripts/daw.sh decide como arrancar cada servizo (por exemplo, non recrea un Dev Container
+# aberto) e migra a .env e os servizos anteriores: a mesma lóxica en Linux e en Windows.
+# DAW_SKIP_SSH_SETUP: a chave de Angular é a da conta de Windows, que xa se copiou.
+& wsl.exe @wslArgs --cd $ProjectPath --exec env DAW_SKIP_SSH_SETUP=1 bash scripts/daw.sh $dawAction
 $composeExitCode = $LASTEXITCODE
-if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') {
-    Write-Output 'Angular is running. In VS Code: F1 > Remote-SSH: Connect to Host... > dwcc-angular,'
-    Write-Output 'open /home/node/proxectos and run: ng serve --host 0.0.0.0  (http://localhost:4200)'
+if ($composeExitCode -eq 2 -and $dawAction -eq 'start-frontend') {
+    # Un proxecto anterior ao 27-11-2026, sen UpdateProject: o servizo chamábase angular.
+    & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose --profile angular up -d --wait --wait-timeout 300 angular
+    $composeExitCode = $LASTEXITCODE
 }
-if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-doc') {
-    Write-Output 'PHP manual: http://localhost:8080/   MDN: http://localhost:5042/   Laravel: http://localhost:8088/'
-}
-if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -in @('start', 'start-db', 'start-all', 'start-angular', 'start-doc')) {
+if ($composeExitCode -eq 0 -and $dawAction -in @('start', 'start-db', 'start-all', 'start-frontend', 'start-doc')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.
     Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -ArgumentList ($wslArgs + @(
         '--cd', ('"' + $ProjectPath + '"'),

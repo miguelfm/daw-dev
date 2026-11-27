@@ -294,7 +294,7 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
   a distribución `linux`, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Number`.
 - O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopyPackage`.
 - Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start` ou ao abrir de novo
-  o Dev Container. `-Restart` recrea o contedor web se está en marcha, aínda que só cambiase un
+  o Dev Container. `-Restart` recrea o backend se está en marcha, aínda que só cambiase un
   ficheiro montado como `docker/classroom/zz-classroom.ini`; pecha unha sesión aberta de Dev
   Containers e as sesións de PHP. A activación fai o mesmo se a copia cambiou `compose*.yaml`,
   `docker/` ou `.devcontainer/`.
@@ -305,6 +305,21 @@ Para distribuír cambios nos lanzadores de Windows ou no acceso directo do Escri
 actualiza o paquete con `update-package.ps1`, cópiao aos postos e volve executar
 **Activar DAW Dev** na conta do alumno. `UpdateProject` aplica os ficheiros da
 distribución. A activación instala os lanzadores e actualiza o acceso directo.
+
+### Nomes polo papel de cada contedor (27-11-2026)
+
+Os servizos levan o nome do seu papel, que é tamén o hostname do contedor (o prompt), e o
+contedor engade `-c`: `backend` (`backend-c`, PHP e Apache), `db` (`db-c`), `db-admin`
+(`db-admin-c`, phpMyAdmin), `frontend` (`frontend-c`, Angular) e `doc-php`, `doc-web` e
+`doc-laravel`. Antes eran `web`, `phpmyadmin`, `angular` e `doc-devdocs`, cos contedores `daw-*`.
+
+- Compose recoñece os contedores polo servizo: os dos servizos anteriores quedarían órfos e
+  ocupando os portos. `scripts/daw.sh` retíraos antes de cada arranque, ao abrir o Dev Container
+  e na activación (`restart-backend`). Os datos están en volumes e no proxecto, non nos contedores.
+- `daw.ps1` xa non nomea servizos: todas as ordes de Compose pasan por `scripts/daw.sh` do
+  proxecto, así que o lanzador vale cun proxecto doutra versión.
+- `daw-start-frontend` substitúe a `daw-start-angular`, e `daw-shell` a `daw-web-shell`; os
+  nomes anteriores seguen como alias. `DB_HOST` segue sendo `db`.
 
 ### Proxecto en `~/daw` (27-11-2026)
 
@@ -421,7 +436,7 @@ despois da activación.
 
 ### Imaxes Docker adicionais: Angular (DWCC)
 
-O servizo `angular` de `compose.yaml` (perfil `angular`) é o contedor DWCC-Angular: Node.js
+O servizo `frontend` de `compose.yaml` (perfil `frontend`, contedor `frontend-c`) é o de DWCC-Angular: Node.js
 26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
 `~/daw/angular`. O seu uso está na
 [guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
@@ -434,8 +449,8 @@ sen Internet:
 ```
 
 O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e
-`CopyPackage` cópiaa. `daw-start-angular` cárgaa con `docker load` a primeira vez en cada
-conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `angular`: sen el,
+`CopyPackage` cópiaa. `daw-start-frontend` cárgaa con `docker load` a primeira vez en cada
+conta, se aínda non a ten. `daw-stop` e `daw-logs` inclúen o perfil `frontend`: sen el,
 Compose non para os servizos dun perfil.
 
 ### VS Code Server sen Internet
@@ -501,17 +516,17 @@ usen o contedor, sexa cal sexa a imaxe.
 
 #### `daw-start` e o Dev Container no mesmo contedor
 
-Dev Containers busca o contedor `web` do proxecto polas etiquetas de Compose e úsao tal como
+Dev Containers busca o contedor `backend` do proxecto polas etiquetas de Compose e úsao tal como
 estea: se está en marcha non pasa por Compose, e se está parado arráncao sen recrealo. En
 A31EQ28, `daw-code -Container` abriu así un contedor creado antes, sen o `post_start`. Ao
 revés, `daw-start` recrearía o contedor dun Dev Container aberto e pecharía a xanela de VS Code.
 
-- Antes de abrir o Dev Container, `scripts/daw.sh prepare-devcontainer` retira `daw-web` se o
+- Antes de abrir o Dev Container, `scripts/daw.sh prepare-devcontainer` retira `backend-c` se o
   creou `daw-start` ou se é anterior aos ficheiros que o definen ou á imaxe web. Lánzao
   `daw-code -Container` en WSL e tamén o `initializeCommand` de `.devcontainer/devcontainer.json`,
   así que vale igual para **Reopen in Container**.
 - `daw-start`, `daw-start-db` e `daw-start-all` non tocan un Dev Container en marcha: arrancan só
-  MariaDB e phpMyAdmin. Recrean `daw-web` se segue cun ficheiro montado que se substituíu.
+  MariaDB e phpMyAdmin. Recrean `backend-c` se segue cun ficheiro montado que se substituíu.
 - `daw.ps1` delega estes tres arranques en `scripts/daw.sh`, a mesma lóxica que en Linux.
 
 `tests/devcontainer.py` próbao con Docker e a CLI de Dev Containers reais, nunha copia do
@@ -562,7 +577,7 @@ imaxes locais cando xa están cargadas.
   portada e a busca do manual de PHP e de Laravel están en inglés.
 - [x] Atopar un xeito reproducible de gardar en caché as páxinas das referencias de HTTP e HTML
   en DevDocs e deixalas dispoñibles no despregamento da aula. Desde o 26/11/2026 a imaxe
-  `daw-doc-devdocs` é un sitio estático co contido de MDN en inglés que prepara DevDocs, sen a
+  `doc-web-c` é un sitio estático co contido de MDN en inglés que prepara DevDocs, sen a
   súa aplicación, que só funciona desde devdocs.io. Leva as páxinas de HTML, HTTP e CSS e a
   busca Pagefind, e comprobouse cun navegador sen acceso a Internet. Para engadir outras referencias,
   `DEVDOCS_LANGS` en daw-doc.
@@ -586,7 +601,7 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |
 | `daw-web-root -Open` | Abre a raíz web no Explorador. `daw-web-root` amosa as rutas de Windows e de WSL. |
 | `daw-wsl-shell` | Abre a distribución `linux` no proxecto, tamén con Docker parado |
-| `daw-web-shell` | Abre a terminal do contedor de Apache e PHP |
+| `daw-shell` | Abre a terminal do contedor de Apache e PHP |
 | `daw-help` | Axuda dos comandos Windows |
 
 Accede a `http://localhost`, `http://localhost/index.php` e `http://localhost:8081`.
