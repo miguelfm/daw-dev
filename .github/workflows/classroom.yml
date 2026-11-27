@@ -32,3 +32,13 @@ jobs:
         run: python3 tests/webroot.py
       - name: Actual VS Code Server install in isolated fixtures
         run: python3 tests/codeserver.py
+      - name: Dev Containers CLI
+        run: |
+          node --version
+          npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/devcontainers" @devcontainers/cli@0.91.0
+          echo "DEVCONTAINER_BIN=$RUNNER_TEMP/devcontainers/node_modules/.bin/devcontainer" >> "$GITHUB_ENV"
+      - name: daw-start and Dev Containers on one web container, with real Docker
+        run: |
+          "$DEVCONTAINER_BIN" --version
+          docker compose version
+          python3 tests/devcontainer.py
