@@ -195,7 +195,8 @@ Comandos dispoñibles:
   daw-start-angular   Alias de daw-start-frontend.
   daw-start-doc  Arranca a documentación sen conexión: PHP (8080), web: HTML, HTTP e CSS (5042)
                  e Laravel (8088).
-  daw-code       Abre o proxecto no perfil DWCS - PHP de VS Code.
+  daw-code       Abre no perfil DWCS - PHP de VS Code a raíz web, se ten .devcontainer
+                 (na aula, ~/html), ou o proxecto.
   daw-web-root   Amosa a ruta da raíz web de Apache no sistema anfitrión.
   daw-stop       Para os contedores da contorna DAW Dev sen borrar datos.
   daw-stop-all   Para todos os contedores: backend, db, db-admin, frontend e documentación.
@@ -292,7 +293,7 @@ case "$ACTION" in
         fi
         reason=
         if [[ $WEB_MODE == compose ]]; then
-            reason='creouno daw-start, sen o proxecto en ~/daw nin a configuración do Dev Container'
+            reason='creouno daw-start, sen a configuración do Dev Container'
         elif [[ $WEB_MODE == devcontainer && $WEB_STALE != - ]]; then
             reason=$WEB_STALE
         fi
@@ -344,10 +345,12 @@ case "$ACTION" in
         printf '%s\n' 'Frontend (Angular) dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
         ;;
     code)
-        # Na aula, a contorna está en ~/.daw e o espazo de traballo de VS Code é o código web, ~/html.
+        # Se a raíz web ten o seu propio .devcontainer, é o espazo de traballo: na aula, ~/html (a
+        # contorna está en ~/.daw), ou unha instalación local con WWW_DIR fóra do proxecto.
         workspace=$PROJECT_DIR
-        if [[ ${PROJECT_DIR##*/} == .daw && -d $PROJECT_DIR/../html/.devcontainer ]]; then
-            workspace=$(cd "$PROJECT_DIR/../html" && pwd)
+        web=$("$SCRIPT_DIR/daw.sh" web-root 2>/dev/null | head -n 1) || web=
+        if [[ -n $web && -f $web/.devcontainer/devcontainer.json ]]; then
+            workspace=$web
         fi
         code --new-window --profile 'DWCS - PHP' "$workspace" "$@"
         ;;

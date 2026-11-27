@@ -198,7 +198,8 @@ Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o backend;
 `daw-shell` abre a súa terminal e `daw-web-root` amosa a ruta nativa da raíz web.
 `daw-start-frontend` prepara a chave SSH persoal
 e a conexión `dwcc-angular`, e inicia só Angular. `daw-stop` para tamén Angular.
-`daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code; para traballar dentro
+`daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code ou, se a raíz web ten o seu
+propio `.devcontainer` (na aula, `~/html`; ou cun `WWW_DIR` fóra do proxecto), a raíz web; para traballar dentro
 do contedor, usa **Dev Containers: Reopen in Container**.
 Se xa tes un publicador persoal `daw-publicar`, o instalador consérvao.
 
