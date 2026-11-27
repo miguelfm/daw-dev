@@ -286,8 +286,8 @@ O código PHP está en `www/`; os cambios vense ao recargar o navegador.
 Ao abrir <http://localhost> ou un subdirectorio, móstrase a listaxe de ficheiros,
 mesmo se existe `index.php` ou `index.html`. Para executar a páxina de comprobación,
 abre <http://localhost/index.php>. Para outros exercicios ou demostracións (por exemplo
-subcarpetas como `www/dwcs/`), abre o ficheiro ou subdirectorio concreto.
-As subcarpetas de demostración locais como `www/dwcs/` están excluídas no `.gitignore`
+`www/u3/t4/` ou, no equipo do docente, `www/U3/A4/code/`), abre o ficheiro ou subdirectorio concreto.
+Todo o que se garda en `www/`, agás `index.php` e `info.php`, está excluído no `.gitignore`
 para evitar versionar material privado ou solucións no repositorio público.
 Este comportamento vén configurado por defecto en Apache.
 As credenciais de exemplo da BD son usuario `dwcs`, contrasinal `abc123..` e base

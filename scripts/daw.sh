@@ -200,7 +200,7 @@ Comandos dispoñibles:
   daw-logs       Mostra e segue as últimas liñas de logs dos contedores (Ctrl+C para saír).
   daw-shell      Abre Bash no backend (Apache e PHP) co usuario ad.
   daw-web-shell  Alias de daw-shell.
-  daw-publicar   Sincroniza o código e as solucións de DWCS cara a daw-dev/www/dwcs.
+  daw-publicar   Publica o código e as solucións de DWCS na raíz web (www/U3/A4/code...).
   daw-help       Mostra esta axuda.
 
 Tamén podes invocar:
