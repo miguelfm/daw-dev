@@ -63,7 +63,9 @@ try {
     Daw 'daw-stop'
     $running = @(& wsl.exe -d $Distribution -u ad --cd $project --exec docker compose ps --status running --services | Where-Object { $_.Trim() })
     if ($running.Count -ne 0) { throw 'daw-stop deixou servizos en marcha.' }
-    $report.StopPreservedContainers = @(& wsl.exe -d $Distribution -u ad --cd $project --exec docker compose ps --all --services | Where-Object { $_.Trim() }).Count -eq 3
+    $stopped = @(& wsl.exe -d $Distribution -u ad --cd $project --exec docker compose ps --all --services backend db db-admin |
+        ForEach-Object { $_.Trim() } | Where-Object { $_ } | Sort-Object)
+    $report.StopPreservedContainers = ($LASTEXITCODE -eq 0) -and (($stopped -join ' ') -eq 'backend db db-admin')
     if (-not $report.StopPreservedContainers) { throw 'daw-stop non conservou os tres contedores.' }
     $report.Success = $true
 } catch { $report.Error = $_.Exception.Message; throw }

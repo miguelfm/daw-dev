@@ -60,6 +60,24 @@ function Initialize-AngularKey {
     ([IO.File]::ReadAllText("$key.pub")).Trim()
 }
 
+function Get-DawWslDevContainerUri([string]$HostPath, [string]$LinuxWorkspacePath, [string]$ContainerWorkspaceFolder) {
+    $cleanWorkspace = $LinuxWorkspacePath.TrimEnd('/')
+    $cleanContainer = if ($ContainerWorkspaceFolder) { $ContainerWorkspaceFolder.TrimEnd('/') } else { $cleanWorkspace }
+    $workspace = [ordered]@{
+        hostPath = $HostPath
+        localDocker = $false
+        configFile = [ordered]@{
+            '$mid' = 1
+            path = "$cleanWorkspace/.devcontainer/devcontainer.json"
+            scheme = 'vscode-fileHost'
+        }
+    }
+    $json = ConvertTo-Json -InputObject $workspace -Depth 4 -Compress
+    $authority = [BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($json)).Replace('-', '').ToLowerInvariant()
+    $path = ($cleanContainer -split '/' | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+    "vscode-remote://dev-container+$authority$path"
+}
+
 function Get-DawDevContainerCommand([string]$CodeExe, [string]$CodeCommand) {
     $extensions = Join-Path $env:USERPROFILE '.vscode\extensions'
     $extension = Get-ChildItem -LiteralPath $extensions -Directory -Filter 'ms-vscode-remote.remote-containers-*' -ErrorAction SilentlyContinue |
@@ -181,10 +199,37 @@ switch ($Action.ToLowerInvariant()) {
                 & wsl.exe @wslArgs --exec test -d "$html/.devcontainer"
                 if ($LASTEXITCODE -eq 0) { $workspacePath = $html }
             }
+            if ($workspacePath.Length -gt 1) { $workspacePath = $workspacePath.TrimEnd('/') }
             $targetPath = "\\wsl.localhost\$Distribution" + ($workspacePath -replace '/', '\')
         }
         if ($useWslRemote) { Initialize-DawCodeCache $codeExe -ForContainer:$Container }
         if ($Container) {
+            if ($useWslRemote) {
+                $extensions = Join-Path $env:USERPROFILE '.vscode\extensions'
+                $extension = Get-ChildItem -LiteralPath $extensions -Directory -Filter 'ms-vscode-remote.remote-containers-*' -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+                if (-not $extension) { throw 'The Dev Containers extension is required for daw-code -Container.' }
+                # Tamén o fai initializeCommand, pero desde Windows pode non chegar a WSL: retira o
+                # contedor web que non teña a definición actual do Dev Container, que o reutilizaría.
+                & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh prepare-devcontainer
+                if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the web container before opening the Dev Container.' }
+                $rawConfig = & wsl.exe @wslArgs --exec cat "$workspacePath/.devcontainer/devcontainer.json"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "devcontainer.json was not found in ${Distribution}:$workspacePath/.devcontainer"
+                }
+                $containerFolder = $workspacePath
+                try {
+                    $configJson = ($rawConfig | Where-Object { $_ -notmatch '^\s*//' }) -join "`n" | ConvertFrom-Json
+                    if ($configJson.workspaceFolder -and $configJson.workspaceFolder.StartsWith('/')) {
+                        $containerFolder = $configJson.workspaceFolder.TrimEnd('/')
+                    }
+                } catch { }
+                # En WSL, a CLI de Dev Containers falla en VS Code >= 1.122 con rutas \\wsl.localhost
+                # (ERR_UNC_HOST_NOT_ALLOWED) e non pasa localDocker=false nin configFile: ábrese co URI directo.
+                $uri = Get-DawWslDevContainerUri -HostPath $targetPath -LinuxWorkspacePath $workspacePath -ContainerWorkspaceFolder $containerFolder
+                Start-Process -FilePath $codeExe -ArgumentList @('--folder-uri', $uri) -WorkingDirectory $env:USERPROFILE
+                exit 0
+            }
             $devContainer = Get-DawDevContainerCommand $codeExe $codeCmd
             # Tamén o fai initializeCommand, pero desde Windows pode non chegar a WSL: retira o
             # contedor web que non teña a definición actual do Dev Container, que o reutilizaría.

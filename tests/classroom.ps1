@@ -258,15 +258,26 @@ exit 0
         Throws {Set-DawAutoStart} 'allea'
     }
     Test 'the previous autostart entry is removed only when it runs the previous installer' {
+        $directory=Join-Path $script:Temp 'previous-package'
+        New-Item -ItemType Directory -Path $directory|Out-Null
+        $oldFile=Join-Path $directory 'old-package-file.txt'
+        [IO.File]::WriteAllText($oldFile,'previous package')
         & $script:M {
+            param($directory)
             $script:Run=@{};$script:Actions=@()
+            $script:Legacy=Get-DawLegacyInstall
+            $script:Legacy.PackageDirectory=$directory
+            function script:Get-DawLegacyInstall {$script:Legacy}
+            function script:Set-DawProtectedAcl {param($Directory)}
             function script:Get-ItemProperty {param($LiteralPath,$Name,$ErrorAction) if($script:Run.ContainsKey($Name)){[pscustomobject]@{$Name=$script:Run[$Name]}}}
             function script:Remove-ItemProperty {param($LiteralPath,$Name,$ErrorAction) $script:Run.Remove($Name);$script:Actions+="removed $Name"}
             function script:Encode([string]$Command){'powershell.exe -NoProfile -EncodedCommand '+[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))}
             $script:Run['DAWAula']=Encode "& 'C:\ProgramData\DAW-Aula\iniciar-usuario.ps1'"
-        }
+        } $directory
         $removed=@(Remove-DawLegacyPackage)
         Assert ($removed -contains 'Run:DAWAula' -and (& $script:M {$script:Actions}) -contains 'removed DAWAula')
+        Assert ($removed -contains $directory -and -not (Test-Path -LiteralPath $oldFile))
+        Assert ((@(Get-ChildItem -LiteralPath $directory -Name) -join ',') -ceq 'activar-dawdev.ps1')
         & $script:M {$script:Run['DAWAula']=Encode "& 'C:\outro\programa.ps1'"}
         Throws {Remove-DawLegacyPackage} 'outro programa'
     }
@@ -826,8 +837,8 @@ foreach(`$n in `$Number){
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/install-daw-commands.ps1')).Contains("'daw-start-doc' = 'start-doc'"))
     }
     Test 'containers are named by role: service = hostname, container with -c' {
-        $config=(& docker compose -f (Join-Path $script:Repo 'compose.yaml') --profile frontend --profile doc config --format json 2>$null) -join "`n"
-        if(-not $config){return}
+        $config=try{(& docker compose -f (Join-Path $script:Repo 'compose.yaml') --profile frontend --profile doc config --format json 2>$null) -join "`n"}catch{$null}
+        if(-not $config -or $LASTEXITCODE -ne 0){$global:LASTEXITCODE=0;return}
         $services=($config|ConvertFrom-Json).services
         $names=@($services.PSObject.Properties.Name|Sort-Object)
         Assert (($names -join ',') -eq 'backend,db,db-admin,doc-laravel,doc-php,doc-web,frontend') ($names -join ',')
@@ -1012,6 +1023,24 @@ foreach(`$n in `$Number){
         Assert ($daw.Contains("'--exec', 'bash', 'scripts/keep-alive.sh'") -and -not $daw.Contains('wsl/keep-alive.sh'))
         $shim=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
         Assert ($shim.Contains("'install-daw-commands.ps1') -Distribution `$Distribution") -and $shim.Contains("'daw.ps1') @PSBoundParameters"))
+    }
+    Test 'daw-code -Container builds a WSL Dev Container URI for any distribution and workspace' {
+        $dawPath=Join-Path $script:Repo 'windows/daw.ps1'
+        $ast=[Management.Automation.Language.Parser]::ParseFile($dawPath,[ref]$null,[ref]$null)
+        $fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DawWslDevContainerUri'},$false)
+        Assert ($null -ne $fn) 'Missing Get-DawWslDevContainerUri'
+        . ([scriptblock]::Create($fn.Extent.Text))
+        $uri=Get-DawWslDevContainerUri '\\wsl.localhost\linux\home\ad\html' '/home/ad/html/' '/home/ad/html/'
+        Assert ($uri -match '^vscode-remote://dev-container\+([0-9a-f]+)(/home/ad/html)$') "Unexpected URI: $uri"
+        $hex=$Matches[1]
+        $bytes=for($i=0;$i -lt $hex.Length;$i+=2){[Convert]::ToByte($hex.Substring($i,2),16)}
+        $payload=[Text.Encoding]::UTF8.GetString($bytes)|ConvertFrom-Json
+        Assert ($payload.hostPath -ceq '\\wsl.localhost\linux\home\ad\html' -and $payload.localDocker -eq $false) ($payload|ConvertTo-Json -Compress)
+        Assert ($payload.configFile.'$mid' -eq 1 -and $payload.configFile.path -ceq '/home/ad/html/.devcontainer/devcontainer.json' -and $payload.configFile.scheme -ceq 'vscode-fileHost') ($payload|ConvertTo-Json -Compress)
+        $custom=Get-DawWslDevContainerUri '\\wsl.localhost\Debian\home\ad\proxectos\daw-dev' '/home/ad/proxectos/daw-dev' '/home/ad/daw'
+        Assert ($custom -match '^vscode-remote://dev-container\+[0-9a-f]+/home/ad/daw$') "Unexpected custom URI: $custom"
+        $daw=[IO.File]::ReadAllText($dawPath)
+        Assert (-not $daw.Contains("'DAW-Dev'") -and $daw.Contains('Get-DawWslDevContainerUri'))
     }
     Test 'Xdebug maps the Apache web root to the workspace, in the repository and in the classroom' {
         $repo=[IO.File]::ReadAllText((Join-Path $script:Repo '.vscode/launch.json'))
