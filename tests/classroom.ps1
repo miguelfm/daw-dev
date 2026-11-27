@@ -429,6 +429,86 @@ exit 0
         $bad=Join-Path $script:Temp 'bad.vsix';$zip=[IO.Compression.ZipFile]::Open($bad,'Create');$zip.Dispose()
         Throws {Get-DawVsixInfo $bad} 'Non é un .vsix'
     }
+    Test 'versions compare numerically, and unreadable ones are not newer' {
+        Assert (Test-DawNewerVersion '1.2.10' '1.2.9') ; Assert (-not(Test-DawNewerVersion '1.2.9' '1.2.10'))
+        Assert (-not(Test-DawNewerVersion '1.2.9' '1.2.9')) ; Assert (-not(Test-DawNewerVersion '1.2.9' $null))
+        Assert (-not(Test-DawNewerVersion 'x' '1.0.0'))
+    }
+    Test 'an older Windows extension is updated from the package, never downgraded' {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $pkg=Join-Path $script:Temp 'pkg-windows-update';New-Item -ItemType Directory -Path $pkg|Out-Null
+        $versions=@{'ms-vscode-remote.remote-containers'='0.440.0';'ms-vscode-remote.remote-wsl'='0.90.0'}
+        $entries=foreach($id in Get-DawWindowsCodeExtensionIds){
+            $file=Get-DawCodeExtensionFile $id;$path=Join-Path $pkg $file
+            $publisher,$name=$id.Split('.',2)
+            $zip=[IO.Compression.ZipFile]::Open($path,'Create')
+            try{$w=New-Object IO.StreamWriter(($zip.CreateEntry('extension/package.json')).Open());try{$w.Write("{""name"":""$name"",""publisher"":""$publisher"",""version"":""$($versions[$id])""}")}finally{$w.Dispose()}}finally{$zip.Dispose()}
+            [pscustomobject]@{Id=$id;File=$file;Sha256=(Get-FileHash $path -Algorithm SHA256).Hash}
+        }
+        Write-DawState (Join-Path $pkg 'manifest.json') @{CodeExtensions=@($entries)}
+        & $script:M {
+            function script:Find-DawCode {'/fake/Code.exe'}
+            function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}
+            # remote-containers is older than the package; remote-wsl, newer.
+            $script:Installed=@('ms-vscode-remote.remote-containers@0.430.0','ms-vscode-remote.remote-wsl@0.99.0');$script:Calls=@()
+            function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds)
+                $script:Calls+=,@($Arguments)
+                if($Arguments -contains '--list-extensions'){return $script:Installed}
+                if($env:DAW_TEST_REJECT_VSIX){throw 'not compatible'}
+            }
+        }
+        try{
+            Assert ((@(Install-DawCodeExtensions $pkg) -join ',') -eq ((Get-DawWindowsCodeExtensionIds) -join ','))
+            $calls=@(& $script:M {$script:Calls})
+            Assert (@($calls|Where-Object {$_ -contains '--list-extensions'})[0] -contains '--show-versions') 'The installed versions are needed'
+            $installs=@($calls|Where-Object {$_ -contains '--install-extension'})
+            Assert ($installs.Count -eq 1 -and $installs[0][-1] -like '*vscode-extension-ms-vscode-remote.remote-containers.vsix' -and $installs[0] -notcontains '--force') ($installs|ForEach-Object {$_ -join ' '}|Out-String)
+            # VS Code rejects the package file: the installed version stays and the activation goes on.
+            $env:DAW_TEST_REJECT_VSIX='1'
+            $warnings=@(Install-DawCodeExtensions $pkg 3>&1|Where-Object {$_ -is [Management.Automation.WarningRecord]})
+            Assert (@($warnings).Count -eq 1 -and "$($warnings[0])" -match 'remote-containers 0\.430\.0 á 0\.440\.0') ($warnings|Out-String)
+        }finally{Remove-Item env:DAW_TEST_REJECT_VSIX -ErrorAction SilentlyContinue}
+    }
+    Test 'add-vscode-extensions.ps1 downloads only a newer compatible version' {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $dir=Join-Path $script:Temp 'add-extensions';New-Item -ItemType Directory -Path $dir|Out-Null
+        foreach($f in 'add-vscode-extensions.ps1','daw-classroom.psm1'){Copy-Item (Join-Path $script:Repo "windows/classroom/$f") $dir}
+        $pkg=Join-Path $dir 'package';New-Item -ItemType Directory -Path $pkg|Out-Null
+        foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $pkg $name),('payload '+$name))}
+        $image=Join-Path $pkg 'linux.tar.gz';[IO.File]::WriteAllText($image,'model')
+        $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $pkg $name) -Algorithm SHA256).Hash}
+        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/workspace';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        $global:DawTestVsix={param($path,$version)
+            $zip=[IO.Compression.ZipFile]::Open($path,'Create')
+            try{$w=New-Object IO.StreamWriter(($zip.CreateEntry('extension/package.json')).Open());try{$w.Write("{""name"":""remote-containers"",""publisher"":""ms-vscode-remote"",""version"":""$version"",""engines"":{""vscode"":""^1.100.0""}}")}finally{$w.Dispose()}}finally{$zip.Dispose()}
+        }
+        $first=Join-Path $dir 'first.vsix';& $global:DawTestVsix $first '0.440.0'
+        $null=Add-DawPackageCodeExtension $pkg $first 'ms-vscode-remote.remote-containers'
+        # The Marketplace: 0.440.0 needs VS Code 1.100; 0.450.0, VS Code 1.130.
+        function global:Invoke-RestMethod {
+            $v=@(@{version='0.450.0';targetPlatform=$null;properties=@(@{key='Microsoft.VisualStudio.Code.Engine';value='^1.130.0'})},
+                 @{version='0.440.0';targetPlatform=$null;properties=@(@{key='Microsoft.VisualStudio.Code.Engine';value='^1.100.0'})})
+            [pscustomobject]@{results=@([pscustomobject]@{extensions=@([pscustomobject]@{versions=@($v|ForEach-Object {[pscustomobject]$_})})})}
+        }
+        $global:DawTestDownloads=@()
+        function global:curl.exe {
+            $out=$args[[array]::IndexOf($args,'--output')+1];$url=$args[-1]
+            $global:DawTestDownloads+=$url
+            & $global:DawTestVsix $out ([regex]::Match($url,'/(\d+\.\d+\.\d+)/vspackage').Groups[1].Value)
+            $global:LASTEXITCODE=0
+        }
+        try{
+            $out=& (Join-Path $dir 'add-vscode-extensions.ps1') -PackageDirectory $pkg -Id 'ms-vscode-remote.remote-containers' -CodeVersion 1.122.0 6>&1|Out-String
+            Assert ($global:DawTestDownloads.Count -eq 0 -and $out -match 'xa está no paquete') "Same version must not be downloaded: $out"
+            $null=& (Join-Path $dir 'add-vscode-extensions.ps1') -PackageDirectory $pkg -Id 'ms-vscode-remote.remote-containers' -CodeVersion 1.130.0 6>&1
+            $file=Join-Path $pkg (Get-DawCodeExtensionFile 'ms-vscode-remote.remote-containers')
+            Assert ($global:DawTestDownloads.Count -eq 1 -and $global:DawTestDownloads[0] -like '*/0.450.0/vspackage' -and (Get-DawVsixInfo $file).Version -eq '0.450.0') ($global:DawTestDownloads -join ' ')
+            Assert ($null -ne (Assert-DawPackage $pkg)) 'The package must stay valid'
+            # One bad extension does not stop the others, and the error names it.
+            $global:DawTestDownloads=@()
+            Throws {& (Join-Path $dir 'add-vscode-extensions.ps1') -PackageDirectory $pkg -Id 'Not.Valid','ms-vscode-remote.remote-containers' 6>$null} 'Non se engadiron: Not\.Valid'
+        }finally{Remove-Item function:global:Invoke-RestMethod,function:global:curl.exe,variable:global:DawTestVsix,variable:global:DawTestDownloads -ErrorAction SilentlyContinue}
+    }
     Test 'bounded jobs really stay below the requested concurrency' {
         $worker={param($item) $s=[datetime]::UtcNow.Ticks;Start-Sleep -Milliseconds 400;[pscustomobject]@{Item=$item;Start=$s;End=[datetime]::UtcNow.Ticks}}
         $result=@(Invoke-DawBoundedJobs @(1,2,3,4,5,6) 2 $worker)

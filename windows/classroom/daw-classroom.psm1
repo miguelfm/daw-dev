@@ -318,15 +318,29 @@ function Find-DawCodeCli {
     if(Test-Path -LiteralPath $cli -PathType Leaf){return $cli}
     throw 'Falta a CLI de VS Code.'
 }
-function Get-DawInstalledCodeExtensionIds {
-    # As extensións do VS Code de Windows desta conta, coa CLI de VS Code.
+function Get-DawInstalledCodeExtensions {
+    # As extensións do VS Code de Windows desta conta e as súas versións (id@versión), coa CLI de VS Code.
     $code=Find-DawCode
     $cli=Find-DawCodeCli $code
     $old=$env:ELECTRON_RUN_AS_NODE
     try{
         $env:ELECTRON_RUN_AS_NODE='1'
-        @(Invoke-DawNative $code @($cli,'--list-extensions')|ForEach-Object {([string]$_).Trim()}|Where-Object {$_})
+        $lines=@(Invoke-DawNative $code @($cli,'--list-extensions','--show-versions')|ForEach-Object {([string]$_).Trim()}|Where-Object {$_})
     }finally{$env:ELECTRON_RUN_AS_NODE=$old}
+    $result=[ordered]@{}
+    foreach($line in $lines){
+        $parts=$line.Split([char]'@',2)
+        $result[$parts[0].ToLowerInvariant()]=if($parts.Count -eq 2){$parts[1]}else{$null}
+    }
+    $result
+}
+function Get-DawInstalledCodeExtensionIds {@((Get-DawInstalledCodeExtensions).Keys)}
+function Test-DawNewerVersion {
+    # Se Candidate (1.2.10) é posterior a Current (1.2.9). Sen dúas versións recoñecibles, non.
+    param([string]$Candidate,[string]$Current)
+    $a=$null;$b=$null
+    if(-not [version]::TryParse($Candidate,[ref]$a) -or -not [version]::TryParse($Current,[ref]$b)){return $false}
+    return $a -gt $b
 }
 function Install-DawCodeExtensions {
     # Dev Containers e WSL no VS Code de Windows. Primeiro o .vsix do paquete, sen Internet; se o
@@ -342,7 +356,8 @@ function Install-DawCodeExtensions {
         foreach($entry in @(Get-DawPackageCodeExtensions $manifest)){$files[[string]$entry.Id]=Join-Path $PackageDirectory $entry.File}
     }
     $required=Get-DawWindowsCodeExtensionIds
-    $installed=@(Get-DawInstalledCodeExtensionIds)
+    $versions=Get-DawInstalledCodeExtensions
+    $installed=@($versions.Keys)
     $errors=@()
     $old=$env:ELECTRON_RUN_AS_NODE
     try{
@@ -355,6 +370,14 @@ function Install-DawCodeExtensions {
                 try{Invoke-DawNative $code @($cli,'--install-extension',$source)|Out-Null;break}
                 catch{$errors+="${id}: $($_.Exception.Message.Trim())"}
             }
+        }
+        # Unha versión anterior á do paquete actualízase desde el, sen Internet: sen o paquete,
+        # VS Code só a actualizaría con conexión. Se VS Code rexeita o .vsix, segue a instalada.
+        foreach($id in @($required|Where-Object {$_ -in $installed -and $files.ContainsKey($_)})){
+            try{$version=(Get-DawVsixInfo $files[$id]).Version}catch{continue}
+            if(-not(Test-DawNewerVersion $version $versions[$id])){continue}
+            try{Invoke-DawNative $code @($cli,'--install-extension',$files[$id])|Out-Null}
+            catch{Write-Warning "Non se actualizou $id $($versions[$id]) á $version do paquete: $($_.Exception.Message.Trim())"}
         }
     }finally{$env:ELECTRON_RUN_AS_NODE=$old}
     $installed=@(Get-DawInstalledCodeExtensionIds)

@@ -230,6 +230,7 @@ if ($prepare) {
     try { $codeVersions += @(Get-DawInstalledCodeVersions) } catch { Write-Warning "Non se leu a versión de VS Code deste equipo: $($_.Exception.Message)" }
     $oldestCode = @($codeVersions | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_ }) | Select-Object -First 1
     $packageExtensions = @(Get-DawPackageCodeExtensions (Assert-DawPackage $PackageDirectory))
+    # As que faltan ou non acepta ese VS Code: sen elas, os postos quedarían sen extensión.
     $neededExtensions = @(foreach ($id in Get-DawPackageCodeExtensionIds) {
         $entry = $packageExtensions | Where-Object { $_.Id -eq $id } | Select-Object -First 1
         if (-not $entry) { $id; continue }
@@ -238,13 +239,16 @@ if ($prepare) {
             if (-not (Test-DawCodeEngine $engine $oldestCode)) { $id }
         }
     })
-    if ($neededExtensions.Count) {
-        $addArgs = @{ PackageDirectory = $PackageDirectory; Id = $neededExtensions }
-        $forCode = ''
-        if ($oldestCode) { $addArgs.CodeVersion = $oldestCode; $forCode = " para VS Code $oldestCode" }
-        Write-Host "   Extensións de VS Code${forCode}: descargando $($neededExtensions -join ', ')..."
-        try { & (Join-Path $PSScriptRoot 'add-vscode-extensions.ps1') @addArgs | Out-Null }
-        catch { Write-Warning "Non se engadiron as extensións de VS Code: $($_.Exception.Message)" }
+    # Todas en cada despregamento: add-vscode-extensions.ps1 descarga só as que teñan unha versión
+    # compatible máis nova que a do paquete, e a activación actualiza desde el as das contas.
+    $addArgs = @{ PackageDirectory = $PackageDirectory; Id = @(Get-DawPackageCodeExtensionIds) }
+    $forCode = ''
+    if ($oldestCode) { $addArgs.CodeVersion = $oldestCode; $forCode = " para VS Code $oldestCode" }
+    Write-Host "   Extensións de VS Code${forCode}: comprobando a última versión compatible..."
+    try { & (Join-Path $PSScriptRoot 'add-vscode-extensions.ps1') @addArgs | Out-Null }
+    catch {
+        if ($neededExtensions.Count) { Write-Warning "Non se engadiron as extensións de VS Code ($($neededExtensions -join ', ')): $($_.Exception.Message)" }
+        else { Write-Warning "Non se comprobou se hai versións novas das extensións de VS Code; consérvanse as do paquete: $($_.Exception.Message)" }
     }
     if ($reachable.Count) {
         $servers = @(Get-DawPackageCodeServers (Assert-DawPackage $PackageDirectory) | ForEach-Object Commit)

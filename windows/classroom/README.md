@@ -9,7 +9,7 @@ O procedemento completo está na [guía de despregamento](../../docs/aula-window
 | `update-package.ps1` | Actualiza os scripts dun paquete sen reconstruír a imaxe |
 | `add-package-image.ps1` | Engade ao paquete unha imaxe Docker gardada con `docker save` |
 | `add-doc-images.ps1` | Descarga da última release de daw-doc as imaxes da documentación e rexístraas no paquete |
-| `add-vscode-extensions.ps1` | Engade ao paquete os `.vsix` das extensións de PHP do Dev Container e de Dev Containers e WSL para VS Code, compatibles co VS Code dos postos (`-CodeVersion`); a activación instálaas sen Internet |
+| `add-vscode-extensions.ps1` | Engade ao paquete os `.vsix` das extensións de PHP do Dev Container e de Dev Containers e WSL para VS Code, na última versión estable compatible co VS Code dos postos (`-CodeVersion`). Non descarga a que o paquete xa ten; a activación instálaas ou actualízaas sen Internet |
 | `add-vscode-server.ps1` | Engade ao paquete o VS Code Server dun commit de VS Code, para non descargalo nos postos |
 | `deploy.ps1` | Constrúe e completa o paquete (VS Code Server dos postos, documentación e Angular), prepara Windows con `-PrepareWindows` (WinRM, WSL e reinicios), instálao en todos os equipos dunha aula e, con `-Verify`, comproba as contas conectadas; garda un informe CSV |
 | `install-package.ps1` | Instala o paquete no propio equipo, como administrador e sen WinRM (por exemplo, no do profesor) |

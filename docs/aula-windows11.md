@@ -177,7 +177,8 @@ administradores poden cambiar ese directorio. O profesor precisa Internet, WSL2 
      WinRM (`add-vscode-server.ps1`);
    - as extensións de VS Code (`add-vscode-extensions.ps1`): as de PHP do Dev Container e Dev
      Containers e WSL para o VS Code de Windows, na última versión estable que acepte o VS Code
-     máis vello dos postos e do profesor. Descarga de novo as do paquete que precisen un máis novo;
+     máis vello dos postos e do profesor. Compróbao en cada despregamento: descarga só as que
+     teñan unha versión compatible máis nova que a do paquete;
    - as imaxes da documentación, da última release de daw-doc (`add-doc-images.ps1`);
    - a imaxe de Angular, descargada de ghcr.io co Docker da distribución modelo do paquete.
 
@@ -458,7 +459,10 @@ Dev Containers e WSL, no VS Code de Windows, instálaas a activación desde os `
 Se o paquete non as ten ou VS Code os rexeita, desde o Marketplace. Se tampouco hai Marketplace
 (en A31EQ01 deu `ETIMEDOUT` antes de abrir os portos), a activación avisa e remata igual,
 co VS Code Server, as extensións de PHP e o acceso directo. `-Verify` sinala as que faltan, e
-repetir `daw-activate` con conexión complétaas.
+repetir `daw-activate` con conexión complétaas. Se a conta xa ten unha delas nunha versión
+anterior á do paquete, a activación actualízaa desde el, sen Internet; nunca instala unha máis
+vella. Se VS Code rexeita o `.vsix`, avisa e segue a instalada. As de PHP instálanse sempre
+desde o paquete, e VS Code conserva unha máis nova se xa a ten.
 
 As extensións do Dev Container (`xdebug.php-debug` e Intelephense) descárganse do Marketplace
 ao abrir o contedor e, sen máis, pérdense cando o contedor se volve crear. Na aula:
