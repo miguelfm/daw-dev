@@ -155,7 +155,7 @@ contedor; o servizo de Compose e o hostname (o prompt) son o mesmo nome, e o con
 | `doc-laravel` | `doc-laravel-c` | Documentación de Laravel |
 
 `docker compose exec backend bash` usa o servizo; `docker exec -it backend-c bash`, o contedor.
-Na distribución de WSL da aula, o prompt leva o nome do computador, por exemplo `ad@A31EQ28:~/daw$`.
+Na distribución de WSL da aula, o prompt leva o nome do computador, por exemplo `ad@A31EQ28:~/html$`.
 Ata o 27-11-2026 os servizos eran `web`, `phpmyadmin`, `angular` e `doc-devdocs`, e os contedores
 `daw-web`, `daw-db`…: `daw-start` retira os contedores anteriores ao arrancar.
 
@@ -421,15 +421,15 @@ A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web lo
 ### Alternar entre `daw-start` e o Dev Container
 
 O contedor `backend-c` ten dúas definicións. A de `daw-start` serve a web e deixa que Xdebug
-conecte co VS Code do anfitrión. A do Dev Container engade o proxecto en `~/daw`, Xdebug cara a `localhost`
-e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `backend` que xa
+conecte co VS Code do anfitrión. A do Dev Container engade o espazo de traballo (o proxecto en `~/daw` ou, na aula, o código
+web en `~/html`), Xdebug cara a `localhost` e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `backend` que xa
 exista, e Compose recrea o dun Dev Container. Sen máis, abrirías o contedor de `daw-start`, sen
-o proxecto en `~/daw`, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
+o espazo de traballo, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
 
 | Situación | Que pasa |
 |---|---|
 | Abres o Dev Container e `backend-c` é de `daw-start` | Retírase e Dev Containers créao coa súa definición |
-| Abres o Dev Container e o seu contedor é anterior a un cambio do proxecto (`compose*.yaml`, `.env`, `.devcontainer/`) ou da imaxe web | Retírase e créase de novo |
+| Abres o Dev Container e o seu contedor é anterior a un cambio dos ficheiros que o definen (os `compose*.yaml` e o `devcontainer.json` que usou, e `.env`) ou da imaxe web | Retírase e créase de novo |
 | `daw-start`, `daw-start-db` ou `daw-start-all` co Dev Container aberto | O backend non se toca; arrancan só a base de datos e phpMyAdmin |
 | `scripts/check.sh` co Dev Container aberto | Compróbao sen recrealo, e Xdebug dentro do contedor, onde escoita o VS Code do contedor |
 | `daw-stop` ou `daw-stop-all` co Dev Container aberto | Paran tamén `backend-c`, e avisan: VS Code amosa «Cannot reconnect. Please reload the window.» ata que se reabre con **Reopen in Container** |
@@ -437,10 +437,12 @@ o proxecto en `~/daw`, ou `daw-start` pecharía a xanela de VS Code. Os scripts 
 | `daw-start` con `backend-c` en marcha e un ficheiro montado substituído (por exemplo `docker/apache/daw-dev.conf` tras un `git pull`) | Recrea `backend-c`: Docker monta o ficheiro polo seu inodo e seguiría co anterior |
 
 Ao abrir o Dev Container, a comprobación faina o `initializeCommand` de
-`.devcontainer/devcontainer.json` con `scripts/daw.sh prepare-devcontainer`, que precisa Bash,
-Python 3 e Docker. Se falta algún, avisa e Dev Containers abre igual o contedor que atope.
-Retirar o contedor conserva `www/`, o volume da base de datos e os demais volumes. Pérdese só
-o que gardases dentro do contedor fóra de `www/` e `~/daw`.
+`.devcontainer/devcontainer.json` (na aula, `~/html/.devcontainer/devcontainer.json`) con
+`scripts/daw.sh prepare-devcontainer`, que precisa Bash, Python 3 e Docker. Se falta algún, avisa
+e Dev Containers abre igual o contedor que atope. Os ficheiros que definiron o contedor sáense
+das súas etiquetas, así que vale igual coas dúas disposicións. Retirar o contedor conserva
+`www/`, o volume da base de datos e os demais volumes. Pérdese só o que gardases dentro do
+contedor fóra das montaxes.
 
 **F1 → Dev Containers: Rebuild Container** segue dispoñible para forzar un contedor novo. Se aparece `unable to find user ad`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
 
@@ -534,7 +536,7 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 
 Os scripts de `windows/classroom/` preparan o paquete DAW Dev e despregano nos postos por WinRM: validan o
 paquete e o modelo, conservan o modo baixo demanda, verifican o IDE e esperan o resultado real da tarefa do
-alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`, proxecto en `~/daw`) substitúe
-sen migración a anterior: os paquetes antigos non se reutilizan. Véxase o [README dos scripts de aula](windows/classroom/README.md).
+alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`; desde o 27/11/2026, a contorna en
+`~/.daw` e o código web en `~/html`) substitúe sen migración a anterior: os paquetes antigos non se reutilizan. Véxase o [README dos scripts de aula](windows/classroom/README.md).
 
 Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/migration.py` e `tests/overlay.py`.

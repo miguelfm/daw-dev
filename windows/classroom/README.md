@@ -32,7 +32,9 @@ Están ao comezo de `daw-classroom.psm1` e os scripts Bash recíbenos do módulo
 | Paquete no posto (`Get-DawPackageDirectory`) | `C:\ProgramData\DAW-Dev`, cos ficheiros do proxecto en `project\` |
 | Estado de cada conta (`Get-DawStateDirectory`) | `%LOCALAPPDATA%\DAW-Dev`: `install-state.json`, `project-state.json`, rexistros e `install.lock` |
 | Distribución WSL (`Get-DawDistribution`) | `linux`, co marcador `/etc/daw-dev-model` |
-| Proxecto (`Get-DawLinuxProjectPath`) | `/home/ad/daw`, con `www/` e `data/`; en Windows, `\\wsl.localhost\linux\home\ad\daw`. Ata o 27-11-2026, `/home/ad/workspace` (`Get-DawPreviousLinuxProjectPath`): a activación e `UpdateProject` móveno e deixan a ruta anterior como ligazón |
+| Contorna (`Get-DawLinuxProjectPath`) | `/home/ad/.daw`: `compose.yaml`, `.env`, `docker/`, `scripts/` |
+| Traballo do alumnado | `/home/ad/html` (código web, `Get-DawLinuxWebPath`), `/home/ad/data` e `/home/ad/angular`; en Windows, `\\wsl.localhost\linux\home\ad\html` |
+| Rutas anteriores (`Get-DawPreviousLinuxProjectPaths`) | `/home/ad/daw` e `/home/ad/workspace`, con `www/`, `data/` e `angular/` dentro: a activación e `UpdateProject` móveno á disposición actual e deixan as rutas anteriores como ligazóns |
 
 Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
 
@@ -40,7 +42,7 @@ Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
 
 Antes de eliminar unha distribución, a instalación copia o contido da súa raíz web (`WWW_DIR`, por
 defecto `www`) en `Documentos\DAW-Dev-www-<data>-<distribución>` e, despois de importar a nova,
-cópiao en `/home/ad/daw/www`. O resto (`data/`, `angular/`, as bases de datos) pérdese: o
+cópiao en `/home/ad/html`. O resto (`data/`, `angular/`, as bases de datos) pérdese: o
 alumnado gárdao antes. A copia de Documentos consérvase; se a instalación falla antes de
 restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
@@ -60,20 +62,22 @@ restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
 ## Ficheiros do proxecto (`overlay/`)
 
-`overlay/` contén o que `manage.ps1 -Action UpdateProject` copia en `/home/ad/daw`,
-coa mesma ruta relativa. A copia leva tamén ficheiros do repositorio sen cambios, como
-`compose.yaml`, `docker/angular/`, `.vscode/launch.json`, os comandos de terminal e as guías do
-alumnado (`$sharedPaths` en `New-DawProjectStage`).
+`overlay/` contén o que `manage.ps1 -Action UpdateProject` copia en cada conta, coa mesma ruta
+relativa: `html/`, `data/` e `angular/` van ao home (`~/html`…), e o resto á contorna, `~/.daw`.
+A copia leva tamén ficheiros do repositorio sen cambios, como `compose.yaml`, `docker/angular/`,
+os comandos de terminal e as guías do alumnado, e `.vscode/settings.json` do repositorio como
+`html/.vscode/settings.json` (`$sharedPaths` en `New-DawProjectStage`).
 Véxase [actualizar os ficheiros dos proxectos xa importados](../../docs/aula-windows11.md#actualizar-os-ficheiros-dos-proxectos-xa-importados).
 
 ### O que contén agora
 
 | Ficheiro | Efecto |
 |---|---|
-| `compose.override.yaml` | Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `data/` en `/home/ad/data`; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733; o volume `daw-vscode-extensions` coas extensións de VS Code do Dev Container |
+| `compose.override.yaml` | O código web (`../html`) en `/var/www/html` e `/home/ad/html`, os datos (`../data`) en `/home/ad/data` e Angular (`../angular`) no frontend; Apache como `www-data:www-data`, coa máscara `022` de Debian no canto da `002` da imaxe; `www-data` sae do grupo de `ad`; `/var/lib/php/sessions` con permisos 1733; o volume `daw-vscode-extensions` coas extensións de VS Code do Dev Container |
 | `docker/classroom/zz-classroom.ini` | PHP como nun servidor Debian: `output_buffering = Off`, cookie de sesión `HttpOnly` e `SameSite=Lax`, `use_strict_mode`, `save_path`, 32M nas subidas e Xdebug con `trigger` |
-| `data/README.txt` | Crea `data/` co usuario `ad`, non con `root` |
-| `.devcontainer/devcontainer.json` | O do repositorio, con `../compose.override.yaml` na lista: Dev Containers nomea os ficheiros de Compose e non le o *override* por si só |
+| `data/README.txt` | Crea `~/data` co usuario `ad`, non con `root` |
+| `html/.devcontainer/devcontainer.json` e `compose.devcontainer.yaml` | O Dev Container da aula: abre `~/html` (`workspaceFolder`), cos ficheiros de Compose de `~/.daw` e o *override*, que Dev Containers non le por si só |
+| `html/.vscode/launch.json` | Xdebug: `/var/www/html` é o espazo de traballo, `~/html` |
 
 O código web serve desde `/var/www/html`, como nas instalacións persoais. `daw-start` le
 `compose.override.yaml` porque está ao lado de `compose.yaml`. Os cambios aplícanse ao recrear
@@ -84,8 +88,8 @@ ficheiros.
 
 ### Regras da copia
 
-- Non se copia nada en `www/` nin se borra ningún ficheiro.
-- En `data/` só se crean ficheiros novos; os existentes son do alumnado e consérvanse.
+- Non se copia nada no código web (`~/html`, agás `.vscode/` e `.devcontainer/`) nin se borra ningún ficheiro.
+- En `data/` e `angular/` só se crean ficheiros novos; os existentes son do alumnado e consérvanse.
 - Os ficheiros que se substitúen gárdanse antes en `.daw-backup/<data>-<proceso>/`.
 - Antes de cambiar nada compróbanse os SHA256, as rutas (sen ligazóns no destino)
   e que Compose acepte o `compose.override.yaml` novo; ao rematar, o proxecto completo.
@@ -93,8 +97,10 @@ ficheiros.
 
 ### Cambiar o contido
 
-Engade ou edita ficheiros en `overlay/` coa ruta que deben ter no proxecto. Se
-cambia `.devcontainer/devcontainer.json` do repositorio, actualiza a copia de aquí:
-`tests/classroom.ps1` comproba que só difiren na lista de ficheiros de Compose.
+Engade ou edita ficheiros en `overlay/` coa ruta que deben ter: `html/.vscode/`,
+`html/.devcontainer/`, `data/` e `angular/` no home, e o resto na contorna. Se cambia
+`.devcontainer/devcontainer.json` do repositorio, revisa o da aula
+(`html/.devcontainer/devcontainer.json`): `tests/classroom.ps1` comproba que comparten o
+servizo, o usuario e as extensións, e `tests/devcontainer.py` próbao con Docker real.
 `tests/overlay.py` executa a copia real en Bash e, se hai Docker, valida o resultado
 con `docker compose config`.

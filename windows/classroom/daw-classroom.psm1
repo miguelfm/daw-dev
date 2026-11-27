@@ -19,9 +19,16 @@ function Get-DawStateFiles {
 function Get-DawToolsDirectory { Join-Path (Get-DawStateDirectory) 'tools' }
 # Nome xenérico: a distribución pode cambiar sen cambiar as rutas nin as guías.
 function Get-DawDistribution { 'linux' }
-function Get-DawLinuxProjectPath { '/home/ad/daw' }
-# Ata o 27-11-2026 o proxecto estaba en ~/workspace: a activación e UpdateProject múdano a ~/daw.
-function Get-DawPreviousLinuxProjectPath { '/home/ad/workspace' }
+# A contorna (compose.yaml, .env, docker/, scripts/...) vai oculta en ~/.daw, e o que é do
+# alumnado, no home: o código web en ~/html, os datos das tarefas en ~/data e Angular en
+# ~/angular. Así cada cousa queda a un nivel, e ~/data é a mesma ruta ca no contedor.
+function Get-DawLinuxProjectPath { '/home/ad/.daw' }
+function Get-DawLinuxWebPath { '/home/ad/html' }
+function Get-DawLinuxDataPath { '/home/ad/data' }
+function Get-DawLinuxAngularPath { '/home/ad/angular' }
+# Ata o 27-11-2026 o proxecto estaba en ~/daw (antes en ~/workspace), con www, data e angular
+# dentro: a activación e UpdateProject móveno á disposición actual.
+function Get-DawPreviousLinuxProjectPaths { @('/home/ad/daw','/home/ad/workspace') }
 function Get-DawWebImage { 'ghcr.io/miguelfm/daw-php:8.6' }
 # Ata o 27-11-2026 a imaxe web chamábase así: os modelos anteriores trana na distribución.
 function Get-DawPreviousWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
@@ -142,7 +149,8 @@ function Remove-DawDistribution {
 }
 function Get-DawWebRootBackupScript {
     # Como root na distribución que se vai eliminar. Argumentos: destino en Windows e rutas posibles
-    # do proxecto. Copia o contido da raíz web configurada (WWW_DIR, por defecto ./www).
+    # do proxecto. Copia o contido da raíz web configurada (WWW_DIR, por defecto ./www) ou, coa
+    # contorna en ~/.daw, o de ~/html.
     $text=@'
 set -euo pipefail
 dest=$(wslpath -u "$1")
@@ -159,6 +167,8 @@ if [[ -f $project/.env ]]; then
     [[ -z $value ]] || www=$value
 fi
 www=$(cd "$project" && realpath -m -- "$www")
+# Desde o 27-11-2026 o código web vai fóra da contorna, en ~/html.
+[[ -d $www || ! -d $project/../html ]] || www=$(realpath -m -- "$project/../html")
 [[ -d $www && -n $(ls -A -- "$www") ]] || exit 0
 [[ ! -e $dest ]] || { echo "Xa existe $dest; non se sobrescribe." >&2; exit 1; }
 mkdir -p -- "$dest"
@@ -195,38 +205,102 @@ function Backup-DawWebRoot {
     return $target
 }
 function Get-DawProjectMoveScript {
-    # Como root na distribución. Argumentos: ruta anterior e ruta actual do proxecto. Se o proxecto
-    # segue na anterior, móveo cos seus contedores parados (montan as rutas anteriores; o seguinte
-    # arranque recréaos), deixa a anterior como ligazón e reapunta as ordes daw-* do modelo.
+    # Como root na distribución. Argumentos: a contorna actual, as rutas do código web, os datos
+    # e Angular, e as rutas anteriores do proxecto. Move a contorna á actual, se segue nunha
+    # anterior, e www, data e angular fóra dela, ao home. Compróbao todo antes de mover nada, e
+    # para antes os contedores do proxecto (montan as rutas anteriores; o seguinte arranque
+    # recréaos). As rutas anteriores quedan como ligazóns, e reapunta as ordes daw-* do modelo.
     $text=@'
 set -euo pipefail
-old=$1 new=$2
-[[ -d $old && ! -L $old ]] || exit 0
-[[ -f $old/compose.yaml ]] || { echo "$old non é o proxecto DAW Dev; non se moveu." >&2; exit 1; }
-[[ ! -e $new && ! -L $new ]] || { echo "Existen $old e $new; non se moveu ningún." >&2; exit 1; }
+fail() { echo "$1" >&2; exit 1; }
+new=$1 web=$2 data=$3 angular=$4
+shift 4
+old=
+for candidate in "$@"; do
+    if [[ -d $candidate && ! -L $candidate ]]; then
+        [[ -f $candidate/compose.yaml ]] || fail "$candidate non é o proxecto DAW Dev; non se moveu."
+        old=$candidate
+        break
+    fi
+done
+if [[ -n $old ]]; then
+    [[ ! -e $new && ! -L $new ]] || fail "Existen $old e $new; non se moveu ningún."
+    project=$old
+else
+    project=$new
+    [[ -d $project && ! -L $project ]] || exit 0
+fi
+moves=()
+for pair in "www=$web" "data=$data" "angular=$angular"; do
+    name=${pair%%=*} to=${pair#*=}
+    [[ -d $project/$name && ! -L $project/$name ]] || continue
+    if [[ -e $to || -L $to ]]; then
+        [[ -d $to && ! -L $to && -z $(ls -A -- "$to") ]] || fail "Existen $project/$name e $to; non se moveu ningún."
+    fi
+    moves+=("$name" "$to")
+done
+[[ -n $old || ${#moves[@]} -gt 0 ]] || exit 0
 for i in {1..60}; do docker info >/dev/null 2>&1 && break; sleep 1; done
 if docker info >/dev/null 2>&1; then
-    ids=$(docker ps -q --filter "label=com.docker.compose.project.working_dir=$old")
-    [[ -z $ids ]] || docker stop $ids >/dev/null
+    for dir in "$project" "$@"; do
+        ids=$(docker ps -q --filter "label=com.docker.compose.project.working_dir=$dir")
+        [[ -z $ids ]] || docker stop $ids >/dev/null
+    done
 fi
-mv -T -- "$old" "$new"
-ln -s -- "$new" "$old"
-chown -h --reference="$new" -- "$old"
-# DAW_BIN_DIR só nas probas.
-for link in "${DAW_BIN_DIR:-/usr/local/bin}"/daw*; do
-    if [[ -L $link && $(readlink -- "$link") == "$old/scripts/daw.sh" ]]; then
-        ln -sfn -- "$new/scripts/daw.sh" "$link"
-    fi
+if [[ -n $old ]]; then
+    mv -T -- "$old" "$new"
+    ln -s -- "$new" "$old"
+    chown -h --reference="$new" -- "$old"
+    # DAW_BIN_DIR só nas probas.
+    for link in "${DAW_BIN_DIR:-/usr/local/bin}"/daw*; do
+        [[ -L $link ]] || continue
+        target=$(readlink -- "$link")
+        for previous in "$@"; do
+            if [[ $target == "$previous/scripts/daw.sh" ]]; then ln -sfn -- "$new/scripts/daw.sh" "$link"; fi
+        done
+    done
+fi
+for ((i = 0; i < ${#moves[@]}; i += 2)); do
+    name=${moves[i]} to=${moves[i+1]}
+    [[ ! -d $to ]] || rmdir -- "$to"
+    mv -T -- "$new/$name" "$to"
+    # Dentro da contorna, a ruta anterior leva ao novo sitio: un .env ou un acceso anteriores.
+    ln -s -- "$to" "$new/$name"
+    chown -h --reference="$to" -- "$new/$name"
 done
 echo moved
 '@
     Expand-DawScriptTemplate $text
 }
 function Move-DawProjectDirectory {
-    # Devolve $true se moveu o proxecto da ruta anterior á actual.
+    # Devolve $true se moveu a contorna ou o que é do alumnado á disposición actual.
     param([string]$Distribution)
-    $lines=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawProjectMoveScript),'daw-move',(Get-DawPreviousLinuxProjectPath),(Get-DawLinuxProjectPath)))
+    $arguments=@('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawProjectMoveScript),'daw-move',(Get-DawLinuxProjectPath),(Get-DawLinuxWebPath),(Get-DawLinuxDataPath),(Get-DawLinuxAngularPath))+@(Get-DawPreviousLinuxProjectPaths)
+    $lines=@(Invoke-DawNative 'wsl.exe' $arguments)
     return (@($lines|ForEach-Object {([string]$_).Trim()}) -contains 'moved')
+}
+function Get-DawPreviousLinksScript {
+    # Como root. Argumentos: a contorna actual e as rutas anteriores. Retira as ligazóns das rutas
+    # anteriores que levan á contorna, cando xa hai lanzadores e accesos novos (activación).
+    $text=@'
+set -euo pipefail
+new=$(realpath -m -- "$1")
+shift
+# Primeiro todas: ~/workspace leva a ~/.daw a través de ~/daw.
+remove=()
+for old in "$@"; do
+    [[ -L $old && $(realpath -m -- "$old") == "$new" ]] && remove+=("$old")
+done
+for old in "${remove[@]}"; do
+    rm -- "$old"
+    echo "removed $old"
+done
+'@
+    Expand-DawScriptTemplate $text
+}
+function Remove-DawPreviousProjectLinks {
+    param([string]$Distribution)
+    @(Invoke-DawNative 'wsl.exe' (@('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawPreviousLinksScript),'daw-links',(Get-DawLinuxProjectPath))+@(Get-DawPreviousLinuxProjectPaths)))|ForEach-Object {([string]$_).Trim()}|Where-Object {$_ -like 'removed *'}|ForEach-Object {$_.Substring(8)}
 }
 function Restore-DawPendingWebRoot {
     # Copia na raíz web do proxecto as copias pendentes, na orde en que se fixeron. Os ficheiros
@@ -235,7 +309,7 @@ function Restore-DawPendingWebRoot {
     if(-not(Test-Path -LiteralPath $PendingRestore -PathType Leaf)){return @()}
     $restored=@()
     foreach($backup in @(Get-Content -LiteralPath $PendingRestore -Encoding UTF8|Where-Object {$_.Trim()})){
-        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawWebRootRestoreScript),'daw-restore',$backup.Trim(),((Get-DawLinuxProjectPath)+'/www'))|Out-Null
+        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c',(Get-DawWebRootRestoreScript),'daw-restore',$backup.Trim(),(Get-DawLinuxWebPath))|Out-Null
         $restored+=$backup.Trim()
     }
     Remove-Item -LiteralPath $PendingRestore -Force
@@ -464,7 +538,7 @@ function New-DawShortcut {
     $path=Join-Path $desktop 'DAW - Web.lnk'
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut($path)
-    $link.TargetPath=ConvertTo-DawWslPath $Distribution ((Get-DawLinuxProjectPath)+'/www')
+    $link.TargetPath=ConvertTo-DawWslPath $Distribution (Get-DawLinuxWebPath)
     $link.Description='Codigo web de DAW Dev (www)'
     $link.Save()
     if(-not(Test-Path -LiteralPath $path)){throw 'Non se confirmou o acceso directo.'}
@@ -654,7 +728,7 @@ function Assert-DawManifest {
     foreach($name in 'Schema','Marker','Image','Sha256','LinuxUser','LinuxProjectPath'){
         if(-not $Manifest.PSObject.Properties[$name]){throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'}
     }
-    if($Manifest.Schema -ne 2 -or $Manifest.Marker -cne (Get-DawModelMarker).Value -or $Manifest.Image -cne (Get-DawModelArchive) -or $Manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $Manifest.LinuxUser -cne 'ad' -or $Manifest.LinuxProjectPath -cnotin @((Get-DawLinuxProjectPath),(Get-DawPreviousLinuxProjectPath))){
+    if($Manifest.Schema -ne 2 -or $Manifest.Marker -cne (Get-DawModelMarker).Value -or $Manifest.Image -cne (Get-DawModelArchive) -or $Manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $Manifest.LinuxUser -cne 'ad' -or $Manifest.LinuxProjectPath -cnotin @(@(Get-DawLinuxProjectPath)+@(Get-DawPreviousLinuxProjectPaths))){
         throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'
     }
 }
@@ -988,11 +1062,13 @@ function Complete-DawProjectStage {
 function Get-DawProjectDirectory { "$(Get-DawPackageDirectory)\project" }
 function Get-DawProjectScripts { @('update-project.ps1','daw-classroom.psm1') }
 function Test-DawProjectPath {
-    # Relative project path with '/', no '.' or '..' segments, never inside www.
+    # Ruta relativa con '/' e sen segmentos '.' nin '..'. Nunca no código do alumnado: nin www (o
+    # anterior) nin html, agás a configuración de VS Code (html/.vscode e html/.devcontainer).
     param([string]$Path)
     if($Path -cnotmatch '^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'){return $false}
     if(@($Path -split '/'|Where-Object {$_ -in @('.','..')}).Count){return $false}
-    return $Path -notmatch '^www(/|$)'
+    if($Path -match '^www(/|$)'){return $false}
+    return ($Path -notmatch '^html(/|$)' -or $Path -cmatch '^html/\.(vscode|devcontainer)/')
 }
 function Get-DawProjectRevision {
     param([object[]]$Files)
@@ -1016,15 +1092,19 @@ function New-DawProjectStage {
         $sources.Add($file.FullName.Substring($root.Length+1).Replace('\','/'),$file)
     }
     $repo=Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($Source)))
-    $sharedPaths=@(
-        '.gitignore','.vscode/settings.json','.devcontainer/compose.devcontainer.yaml','Dockerfile','README.md',
+    # Ruta na copia = ruta no repositorio. Os axustes de VS Code do repositorio van á
+    # configuración do espazo de traballo da aula, ~/html/.vscode.
+    $sharedPaths=[ordered]@{}
+    foreach($relative in @(
+        '.gitignore','Dockerfile','README.md',
         'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
-        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh','.vscode/launch.json',
+        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh',
         'scripts/keep-alive.sh','compose.yaml','docker/mariadb/healthcheck.sh',
         'docker/angular/.dockerignore','docker/angular/Dockerfile','docker/angular/entrypoint.sh'
-    )
-    foreach($relative in $sharedPaths){
-        $file=Get-Item -LiteralPath (Join-Path $repo $relative) -Force
+    )){$sharedPaths[$relative]=$relative}
+    $sharedPaths['html/.vscode/settings.json']='.vscode/settings.json'
+    foreach($relative in $sharedPaths.Keys){
+        $file=Get-Item -LiteralPath (Join-Path $repo $sharedPaths[$relative]) -Force
         if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw "Ficheiro non válido: $relative"}
         $sources.Add($relative,$file)
     }
@@ -1035,7 +1115,7 @@ function New-DawProjectStage {
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $target -Force
         # Data folders only receive new files; the student's own files are never replaced.
-        $mode=if($relative -match '^data/'){'CreateOnly'}else{'Replace'}
+        $mode=if($relative -match '^(data|angular)/'){'CreateOnly'}else{'Replace'}
         $entries+=[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash;Mode=$mode}
     }
     if(-not $entries.Count){throw 'O proxecto non ten ficheiros que copiar.'}
@@ -1130,7 +1210,9 @@ function Invoke-DawProjectUpdate {
 }
 function Get-DawProjectOverlayScript {
     # Runs as ad. Arguments: source directory, optional image archive and SHA256, and file triples.
-    # Everything is validated before the first change; nothing is deleted and www is never touched.
+    # Everything is validated before the first change; nothing is deleted and the student's web
+    # code is never touched. Paths under html/ (only .vscode and .devcontainer), data/ and
+    # angular/ go to the home, next to the project (~/.daw); the rest, to the project.
     $text=@'
 set -euo pipefail
 fail() { echo "$1" >&2; exit 1; }
@@ -1139,11 +1221,14 @@ if [[ $1 == /* ]]; then src=$1; else src=$(wslpath -u "$1"); fi
 archive=$2 archive_sha=$3
 shift 3
 project=$PWD
+home=${project%/*}
 distro=${WSL_DISTRO_NAME:-linux}
 [[ $distro =~ ^[A-Za-z0-9._-]+$ ]] || fail 'Nome da distribución WSL non válido.'
 [[ -f $project/compose.yaml && ! -L $project/compose.yaml ]] || fail 'Falta o proxecto esperado.'
 [[ -d $src && ! -L $src ]] || fail 'Falta o directorio dos ficheiros do proxecto.'
 digest() { sha256sum < "$1" | cut -d' ' -f1; }
+# O que é do alumnado vai no home, ao lado da contorna.
+base() { case $1 in html/*|data/*|angular/*) echo "$home" ;; *) echo "$project" ;; esac; }
 args=("$@")
 compose=$project/compose.yaml
 override=
@@ -1153,12 +1238,16 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
     [[ /$rel/ != */./* && /$rel/ != */../* ]] || fail "Ruta non válida: $rel"
     lower=${rel,,}
     [[ $lower != www && $lower != www/* ]] || fail "Non se cambia www: $rel"
+    case $lower in
+        html/.vscode/*|html/.devcontainer/*) ;;
+        html|html/*) fail "Non se cambia o código web: $rel" ;;
+    esac
     [[ $sha =~ ^[0-9a-f]{64}$ ]] || fail "SHA256 non válido: $rel"
     [[ $mode == Replace || $mode == CreateOnly ]] || fail "Modo non válido: $rel"
     [[ -f $src/$rel && ! -L $src/$rel ]] || fail "Falta no paquete: $rel"
     [[ $(digest "$src/$rel") == "$sha" ]] || fail "SHA256 non coincide: $rel"
     IFS=/ read -ra parts <<< "$rel"
-    path=$project
+    path=$(base "$rel")
     for ((j = 0; j < ${#parts[@]}; j++)); do
         path=$path/${parts[j]}
         [[ ! -L $path ]] || fail "O destino contén unha ligazón: $rel"
@@ -1207,10 +1296,10 @@ if grep -Fxq "$web_image" <<< "$images"; then
 fi
 for ((i = 0; i < ${#args[@]}; i += 3)); do
     rel=${args[i]} sha=${args[i+1]} mode=${args[i+2]}
-    dest=$project/$rel
+    dest=$(base "$rel")/$rel
     permissions=0644
     case $rel in
-        .vscode/settings.json)
+        .vscode/settings.json|html/.vscode/settings.json)
             replacement="s/\"Debian\"/\"$distro\"/g"
             sha=$(sed "$replacement" "$src/$rel" | sha256sum | cut -d' ' -f1)
             ;;
@@ -1228,7 +1317,7 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
     fi
     mkdir -p -- "$(dirname -- "$dest")"
     tmp=$(mktemp "$(dirname -- "$dest")/.daw-project-XXXXXX")
-    if [[ $rel == .vscode/settings.json ]]; then
+    if [[ $rel == .vscode/settings.json || $rel == html/.vscode/settings.json ]]; then
         sed "$replacement" "$src/$rel" > "$tmp"
     else
         cp -- "$src/$rel" "$tmp"

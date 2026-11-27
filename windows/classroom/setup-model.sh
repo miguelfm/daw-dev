@@ -23,6 +23,15 @@ install)
     mkdir -p "$project"
     tar -xf "${2:?sources.tar}" -C "$project"
     cp -a "$project/windows/classroom/overlay/." "$project/"
+    # A contorna queda en $project; o que é do alumnado, no home: o código web en ~/html (coa
+    # configuración de VS Code da aula), os datos en ~/data e os proxectos de Angular en ~/angular.
+    home=${project%/*}
+    mv -T "$project/www" "$home/html"
+    cp -a "$project/html/." "$home/html/"
+    rm -rf -- "$project/html"
+    install -D -m 644 "$project/.vscode/settings.json" "$home/html/.vscode/settings.json"
+    mv -T "$project/data" "$home/data"
+    mv -T "$project/angular" "$home/angular"
     cat > /etc/wsl.conf <<'EOF'
 [boot]
 systemd=true

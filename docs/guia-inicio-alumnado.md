@@ -26,31 +26,35 @@ datos, e trae as ordes e os ficheiros do proxecto que cambiasen.
 
 Se a conta tiña a instalación anterior (a distribución `Debian`, co proxecto
 en `~/proxectos/daw-dev`), a primeira activación bórraa. Antes copia o teu
-código web en `Documentos\DAW-Dev-www-<data>-Debian` e despois pono no `www`
+código web en `Documentos\DAW-Dev-www-<data>-Debian` e despois pono no `html`
 novo. O resto (`datos`, os proxectos de Angular e as bases de datos)
 pérdese: gárdao antes fóra dela.
 
 ## Onde están os ficheiros
 
-O proxecto está no cartafol `daw`. No Explorador de Windows:
+O teu traballo está no teu cartafol persoal da distribución. No Explorador de
+Windows:
 
 ```text
-\\wsl.localhost\linux\home\ad\daw
+\\wsl.localhost\linux\home\ad
 ```
 
-Ata o 27-11-2026 chamábase `workspace`. Ao repetir a activación móvese a `daw`
-sen perder nada, e `workspace` segue levando ao mesmo cartafol.
+Alí hai tres cartafoles de traballo:
 
-Dentro hai dous cartafoles de traballo:
-
-- **`www`** é a raíz web. O acceso directo «DAW - Web» do Escritorio
-  ábreo; tamén `daw-web-root -Open`. No contedor é `/var/www/html`.
-  O ficheiro `www/u3/t1/index.php` ábrese en
+- **`html`** é a raíz web. O acceso directo «DAW - Web» do Escritorio
+  ábreo; tamén `daw-web-root -Open`. No contedor é `/var/www/html` e tamén
+  `~/html`. O ficheiro `html/u3/t1/index.php` ábrese en
   `http://localhost/u3/t1/index.php`.
 - **`data`** garda os ficheiros que unha aplicación le ou escribe fóra da
-  raíz web. No contedor está en `/home/ad/data`.
+  raíz web. No contedor está en `/home/ad/data`, a mesma ruta.
+- **`angular`** garda os proxectos de Angular (DWCC).
 
-Apache executa PHP como `www-data`, que non pode escribir en `www` nin en
+A contorna (Docker Compose e os scripts) está en `.daw`, un cartafol oculto
+que non hai que tocar. Ata o 27-11-2026 todo ía dentro de `daw` (antes,
+`workspace`). Ao repetir a activación móvese á disposición actual sen perder
+nada.
+
+Apache executa PHP como `www-data`, que non pode escribir en `html` nin en
 `data`. Se unha tarefa necesita que PHP cree ficheiros nun directorio,
 executa as ordes de permisos do enunciado no terminal do contedor
 (véxase *Abrir un terminal de Linux*).
@@ -118,7 +122,8 @@ daw-wsl-shell
 daw-shell
 ```
 
-`daw-wsl-shell` abre a distribución `linux` no proxecto (`~/daw`). Aquí podes
+`daw-wsl-shell` abre a distribución `linux` no teu cartafol persoal (`~`, con
+`html`, `data` e `angular`). Aquí podes
 usar Docker e Git ou consultar `curl --manual`. Funciona tamén con Docker parado.
 
 `daw-shell` entra no backend como `ad`, en `/var/www/html`. Aquí
@@ -140,10 +145,11 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 
 ## Traballar con Visual Studio Code
 
-Executa `daw-code -Container` para abrir o proxecto no contedor de PHP.
-O proxecto está en `~/daw` e o código en `~/daw/www`, como na distribución. O terminal
-integrado (`Ctrl+ñ`) abre no contedor como `ad`: o prompt é `ad@backend:~/daw$`.
-Na distribución, en cambio, leva o nome do computador (`ad@A31EQ28:~/daw$`).
+Executa `daw-code -Container` para abrir o teu código web no contedor de PHP.
+VS Code abre `~/html`, a mesma ruta ca na distribución, e o Explorador amosa
+directamente `u3`, `u4`… O terminal integrado (`Ctrl+ñ`) abre no contedor como
+`ad`: o prompt é `ad@backend:~/html$`. Na distribución, en cambio, leva o nome
+do computador (`ad@A31EQ28:~/html$`).
 
 Se xa tes o proxecto aberto en WSL, podes premer `F1` e escoller
 **Dev Containers: Reopen in Container** na xanela actual.
@@ -155,7 +161,7 @@ aberta no contedor: o servidor web segue como está e non se pecha a xanela.
 
 Se antes usaches `daw-start`, ao abrir o Dev Container verás que se retira
 `backend-c` e se crea de novo. É normal: o Dev Container precisa a súa propia
-configuración. Os teus ficheiros de `www` e as bases de datos consérvanse.
+configuración. Os teus ficheiros de `html` e as bases de datos consérvanse.
 Ao pechar a xanela do contedor, o seguinte `daw-start` faino ao revés.
 
 Xdebug só depura as peticións que o piden:
@@ -187,9 +193,9 @@ Para depurar, abre VS Code dentro do contedor.
   Composer.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
-- **Windows non deixa gardar un ficheiro creado como `root`.** Desde
-  `~/daw`, devólvello a `ad` con esta orde.
+- **Windows non deixa gardar un ficheiro creado como `root`.** Devólvello
+  a `ad` con esta orde, desde un terminal de Linux.
 
   ```bash
-  docker compose exec backend chown ad:ad /var/www/html/u3/t1/f.php
+  docker exec backend-c chown ad:ad /var/www/html/u3/t1/f.php
   ```

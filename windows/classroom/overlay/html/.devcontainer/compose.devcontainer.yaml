@@ -1,0 +1,10 @@
+# Aula: só se usa co Dev Container. O código web xa o monta en ~/html o override da aula.
+services:
+  backend:
+    # Dev Containers reutiliza a imaxe web construída ou descargada previamente.
+    build: !reset null
+    # O editor pode arrincar o servidor web antes de que se precise MariaDB.
+    depends_on: !reset null
+    environment:
+      # VS Code execútase dentro do contedor: Xdebug conecta a localhost
+      XDEBUG_CONFIG: client_host=localhost

@@ -4,7 +4,7 @@ set -euo pipefail
 action=${1:?write|read|clean}
 token=${2:?token}
 [[ $token =~ ^[a-f0-9]{32}$ ]] || exit 2
-cd /home/ad/daw
+cd /home/ad/.daw
 query() {
     docker compose exec -T db sh -c 'exec mariadb --batch --skip-column-names --user="$MARIADB_USER" --password="$MARIADB_PASSWORD" "$MARIADB_DATABASE"'
 }

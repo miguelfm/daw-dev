@@ -1,0 +1,16 @@
+{
+    // Aula: o espazo de traballo é o código web (~/html), que Apache serve en /var/www/html.
+    // Vale igual co VS Code en WSL e dentro do Dev Container, onde ~/html é a mesma ruta.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Escoitar Xdebug",
+            "type": "php",
+            "request": "launch",
+            "port": 9003,
+            "pathMappings": {
+                "/var/www/html": "${workspaceFolder}"
+            }
+        }
+    ]
+}

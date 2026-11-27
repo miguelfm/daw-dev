@@ -87,15 +87,15 @@ exit 0
             # Variante da aula: a copia do launcher leva o instalador e mantén a ruta e o usuario.
             $bin=Get-Bin 'repair aula'
             $installer=Join-Path $script:Repo 'windows/install-daw-commands.ps1'
-            $null=& $installer -Distribution 'linux' -LinuxProjectPath '/home/ad/daw' -LinuxUser ad
+            $null=& $installer -Distribution 'linux' -LinuxProjectPath '/home/ad/.daw' -LinuxUser ad
             $copy=Join-Path $env:LOCALAPPDATA 'DAW-Dev\launcher'
             Assert (Test-Path -LiteralPath (Join-Path $copy 'install-daw-commands.ps1')) 'Installer not copied with the launcher'
             Remove-Item -LiteralPath (Join-Path $bin 'daw-activate.cmd')
-            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'linux' -ProjectPath '/home/ad/daw' -LinuxUser ad
-            Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-activate.cmd'),$enc).Contains('-File "%LOCALAPPDATA%\DAW-Dev\launcher\daw.ps1" -Action activate -Distribution "linux" -ProjectPath "/home/ad/daw" -LinuxUser ad %*'))
+            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'linux' -ProjectPath '/home/ad/.daw' -LinuxUser ad
+            Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-activate.cmd'),$enc).Contains('-File "%LOCALAPPDATA%\DAW-Dev\launcher\daw.ps1" -Action activate -Distribution "linux" -ProjectPath "/home/ad/.daw" -LinuxUser ad %*'))
             # Lanzadores doutra distribución: non se mesturan.
             Remove-Item -LiteralPath (Join-Path $bin 'daw-activate.cmd')
-            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'Outra' -ProjectPath '/home/ad/daw' -LinuxUser ad
+            $null=& (Join-Path $copy 'daw.ps1') -Action help -Distribution 'Outra' -ProjectPath '/home/ad/.daw' -LinuxUser ad
             Assert (-not (Test-Path -LiteralPath (Join-Path $bin 'daw-activate.cmd'))) 'Mixed launchers of another install'
         }finally{
             $env:USERPROFILE=$saved.USERPROFILE;$env:LOCALAPPDATA=$saved.LOCALAPPDATA;$env:Path=$saved.Path;$env:DAW_SKIP_LAUNCHER_REPAIR=$saved.Skip;$env:DAW_SKIP_USER_PATH=$saved.SkipPath
@@ -109,7 +109,7 @@ exit 0
         Assert ((($out -join "`n")|ConvertFrom-Json) -eq $value)
         Throws {Invoke-DawNative $exe @('-NoProfile','-Command','exit 9')} 'exit 9'
         # wsl.exe 3.0 executa "--list" como orde: as opcións van sen comiñas.
-        foreach($bare in '--list','-d','linux','C:\ProgramData\DAW-Dev\','/home/ad/daw'){Assert ((ConvertTo-DawArgument $bare) -ceq $bare) "Quoted: $bare"}
+        foreach($bare in '--list','-d','linux','C:\ProgramData\DAW-Dev\','/home/ad/.daw'){Assert ((ConvertTo-DawArgument $bare) -ceq $bare) "Quoted: $bare"}
         Assert ((ConvertTo-DawArgument '') -eq '""')
         Assert ((ConvertTo-DawArgument 'a b\') -eq '"a b\\"')
         Assert ((ConvertTo-DawArgument 'a"b') -eq '"a\"b"')
@@ -218,7 +218,7 @@ exit 0
             }
         }finally{$env:LOCALAPPDATA=$saved}
     }
-    Test 'pending web root copies are restored in order into the new www, then forgotten' {
+    Test 'pending web root copies are restored in order into ~/html, then forgotten' {
         $pending=Join-Path $script:Temp 'web-restore.txt'
         Assert (@(Restore-DawPendingWebRoot 'linux' $pending).Count -eq 0) 'Nothing pending'
         Set-Content -LiteralPath $pending -Value @('C:\Users\a\Documents\DAW-Dev-www-1-Debian','C:\Users\a\Documents\DAW-Dev-www-2-linux') -Encoding UTF8
@@ -226,7 +226,7 @@ exit 0
         $restored=@(Restore-DawPendingWebRoot 'linux' $pending)
         $calls=@(& $script:M {$script:Calls})
         Assert ($restored.Count -eq 2 -and $calls.Count -eq 2 -and -not(Test-Path $pending))
-        Assert (($calls[0][0..5] -join ' ') -eq '-d linux -u ad --exec bash' -and $calls[0][-2] -like '*DAW-Dev-www-1-Debian' -and $calls[0][-1] -eq '/home/ad/daw/www')
+        Assert (($calls[0][0..5] -join ' ') -eq '-d linux -u ad --exec bash' -and $calls[0][-2] -like '*DAW-Dev-www-1-Debian' -and $calls[0][-1] -eq '/home/ad/html')
         Assert ((Get-DawWebRootBackupScript) -match 'WWW_DIR' -and (Get-DawWebRootRestoreScript) -match '--no-preserve=mode')
     }
     Test 'the installer removes the previous install and only reinstalls on request' {
@@ -300,7 +300,7 @@ exit 0
         }
         $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
         $sha=(Get-FileHash $image -Algorithm SHA256).Hash
-        $manifest=@{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=$sha}
+        $manifest=@{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=$sha}
         Write-DawState (Join-Path $dest 'manifest.json') $manifest
         Update-DawPackage $dest $source
         $m=Assert-DawPackage $dest
@@ -477,7 +477,7 @@ exit 0
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $pkg $name),('payload '+$name))}
         $image=Join-Path $pkg 'linux.tar.gz';[IO.File]::WriteAllText($image,'model')
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $pkg $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
         $global:DawTestVsix={param($path,$version)
             $zip=[IO.Compression.ZipFile]::Open($path,'Create')
             try{$w=New-Object IO.StreamWriter(($zip.CreateEntry('extension/package.json')).Open());try{$w.Write("{""name"":""remote-containers"",""publisher"":""ms-vscode-remote"",""version"":""$version"",""engines"":{""vscode"":""^1.100.0""}}")}finally{$w.Dispose()}}finally{$zip.Dispose()}
@@ -525,7 +525,11 @@ exit 0
         $stage=Join-Path $script:Temp 'stage'
         $m=New-DawProjectStage (Join-Path $script:Repo 'windows/classroom') $stage
         $paths=@($m.Files|ForEach-Object {$_.Path})
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.devcontainer/compose.devcontainer.yaml','.vscode/launch.json','.vscode/settings.json','docs/guia-inicio-alumnado.pdf','scripts/daw.sh','docker/classroom/zz-classroom.ini','data/README.txt')){Assert ($p -in $paths) "Missing $p"}
+        foreach($p in @('compose.override.yaml','html/.devcontainer/devcontainer.json','html/.devcontainer/compose.devcontainer.yaml','html/.vscode/launch.json','html/.vscode/settings.json','docs/guia-inicio-alumnado.pdf','scripts/daw.sh','docker/classroom/zz-classroom.ini','data/README.txt')){Assert ($p -in $paths) "Missing $p"}
+        # In the classroom the environment is ~/.daw: VS Code opens ~/html, with its own settings.
+        foreach($p in @('.devcontainer/devcontainer.json','.devcontainer/compose.devcontainer.yaml','.vscode/launch.json','.vscode/settings.json')){Assert ($p -notin $paths) "Unused in the classroom: $p"}
+        $settings=[IO.File]::ReadAllBytes((Join-Path $stage 'files/html/.vscode/settings.json'))
+        Assert ([Convert]::ToBase64String($settings) -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $script:Repo '.vscode/settings.json')))) 'html/.vscode/settings.json comes from the repository'
         Assert ((@($m.Files|Where-Object {$_.Mode -eq 'CreateOnly'}|ForEach-Object {$_.Path}) -join ',') -eq 'data/README.txt')
         Assert ((Assert-DawProjectOverlay $stage).Revision -eq $m.Revision)
         Throws {New-DawProjectStage (Join-Path $script:Repo 'windows/classroom') $stage} 'xa existe'
@@ -538,9 +542,9 @@ exit 0
         [IO.File]::AppendAllText((Join-Path $stage 'update-project.ps1'),'#')
         Throws {Assert-DawProjectOverlay $stage} 'SHA256 do script'
     }
-    Test 'project paths stay inside the project and outside www' {
-        foreach($p in @('compose.override.yaml','.devcontainer/devcontainer.json','.vscode/launch.json','data/README.txt','docker/classroom/zz-classroom.ini')){Assert (Test-DawProjectPath $p) "Rejected: $p"}
-        foreach($p in @('','/etc/passwd','../x','a/../../x','a/./b','www','www/u3/t1.php','WWW/x','a\b','a//b','a b','C:/x')){Assert (-not(Test-DawProjectPath $p)) "Accepted: $p"}
+    Test 'project paths stay inside the project and outside the web code' {
+        foreach($p in @('compose.override.yaml','html/.devcontainer/devcontainer.json','html/.vscode/launch.json','data/README.txt','angular/README.txt','docker/classroom/zz-classroom.ini')){Assert (Test-DawProjectPath $p) "Rejected: $p"}
+        foreach($p in @('','/etc/passwd','../x','a/../../x','a/./b','www','www/u3/t1.php','WWW/x','html','html/u3/t1.php','html/index.php','html/.vscodex/a','a\b','a//b','a b','C:/x')){Assert (-not(Test-DawProjectPath $p)) "Accepted: $p"}
         # A manifest edited by hand cannot reach outside the project either.
         $stage=Join-Path $script:Temp 'stage-paths'
         $null=New-DawProjectStage (Join-Path $script:Repo 'windows/classroom') $stage
@@ -550,15 +554,17 @@ exit 0
         Write-DawState $path $m
         Throws {Assert-DawProjectOverlay $stage} 'non válida'
     }
-    Test 'overlay devcontainer differs from the repository only by the override file' {
-        $repo=[IO.File]::ReadAllLines((Join-Path $script:Repo '.devcontainer/devcontainer.json'))
-        $overlay=[IO.File]::ReadAllLines((Join-Path $script:Repo 'windows/classroom/overlay/.devcontainer/devcontainer.json'))
-        Assert ($repo.Count -eq $overlay.Count)
-        $diff=@(0..($repo.Count-1)|Where-Object {$repo[$_] -ne $overlay[$_]})
-        Assert ($diff.Count -eq 1)
-        Assert ($overlay[$diff[0]] -eq $repo[$diff[0]].Replace('"../compose.yaml", ','"../compose.yaml", "../compose.override.yaml", '))
-        $config = ($overlay | Where-Object { $_ -notmatch '^\s*//' }) -join [char]10 | ConvertFrom-Json
-        Assert (($config.runServices -join ',') -eq 'backend') 'A rebuilt Dev Container should start only the backend.'
+    Test 'the classroom Dev Container opens ~/html and reuses the environment in ~/.daw' {
+        $read={param($path) ([IO.File]::ReadAllLines((Join-Path $script:Repo $path))|Where-Object {$_ -notmatch '^\s*//'}) -join [char]10|ConvertFrom-Json}
+        $repo=& $read '.devcontainer/devcontainer.json'
+        $aula=& $read 'windows/classroom/overlay/html/.devcontainer/devcontainer.json'
+        Assert (($aula.dockerComposeFile -join ',') -eq '../../.daw/compose.yaml,../../.daw/compose.override.yaml,compose.devcontainer.yaml') ($aula.dockerComposeFile -join ',')
+        Assert ($aula.workspaceFolder -ceq '/home/ad/html' -and $aula.initializeCommand.Contains('${localWorkspaceFolder}/../.daw/scripts/daw.sh'))
+        foreach($name in 'name','service','remoteUser','shutdownAction'){Assert ($aula.$name -ceq $repo.$name) "Differs from the repository: $name"}
+        Assert (($aula.runServices -join ',') -eq 'backend') 'A rebuilt Dev Container should start only the backend.'
+        Assert (($aula.customizations|ConvertTo-Json -Depth 8) -eq ($repo.customizations|ConvertTo-Json -Depth 8)) 'Same VS Code settings and extensions'
+        $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/overlay/html/.devcontainer/compose.devcontainer.yaml'))
+        Assert ($compose.Contains('XDEBUG_CONFIG: client_host=localhost') -and $compose.Contains('build: !reset null') -and $compose -notmatch '- \.:') 'No project mount: the override mounts ~/html'
     }
     Test 'extra Docker images in the package are registered, verified and copied' {
         $dest=Join-Path $script:Temp 'package-images'
@@ -566,7 +572,7 @@ exit 0
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
         $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
         Assert (@(Get-DawPackageImages (Assert-DawPackage $dest)).Count -eq 0)
         $archive=Join-Path $script:Temp 'daw-angular.tar.gz';[IO.File]::WriteAllText($archive,'angular bytes')
         $entry=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/daw-angular:22'
@@ -587,7 +593,7 @@ exit 0
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
         $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model bytes')
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
         $archive=Join-Path $script:Temp 'server.tar.gz';[IO.File]::WriteAllText($archive,'server bytes')
         Throws {Add-DawPackageCodeServer $dest $archive 'abc'} 'non válido'
         $commit='0123456789abcdef0123456789abcdef01234567'
@@ -740,7 +746,7 @@ foreach(`$n in `$Number){
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $pkg $name),('payload '+$name))}
         [IO.File]::WriteAllText((Join-Path $pkg 'linux.tar.gz'),'model')
         $h=[ordered]@{};foreach($name in Get-DawSetupFiles){$h[$name]=(Get-FileHash (Join-Path $pkg $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash (Join-Path $pkg 'linux.tar.gz') -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$h}
+        Write-DawState (Join-Path $pkg 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=(Get-FileHash (Join-Path $pkg 'linux.tar.gz') -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$h}
         $saved=$env:LOCALAPPDATA
         try{
             $env:LOCALAPPDATA=Join-Path $script:Temp 'deploy-appdata'
@@ -773,7 +779,7 @@ foreach(`$n in `$Number){
         foreach($name in Get-DawSetupFiles){[IO.File]::WriteAllText((Join-Path $dest $name),('payload '+$name))}
         $image=Join-Path $dest 'linux.tar.gz';[IO.File]::WriteAllText($image,'model')
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
-        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
+        Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/.daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
         $vsix=Join-Path $script:Temp 'x.vsix';[IO.File]::WriteAllText($vsix,'PK vsix')
         Throws {Add-DawPackageCodeExtension $dest $vsix 'Not Valid'} 'non válida'
         $entry=Add-DawPackageCodeExtension $dest $vsix 'xdebug.php-debug'
@@ -906,7 +912,7 @@ foreach(`$n in `$Number){
     Test 'the stage takes Compose, Angular and keep-alive from the repository, without overlay copies' {
         $stage=Join-Path $script:Temp 'shared-stage'
         $null=New-DawProjectStage (Join-Path $script:Repo 'windows/classroom') $stage
-        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/entrypoint.sh','docker/angular/.dockerignore','scripts/keep-alive.sh','scripts/check.sh','docker/mariadb/healthcheck.sh','.vscode/launch.json'){
+        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/entrypoint.sh','docker/angular/.dockerignore','scripts/keep-alive.sh','scripts/check.sh','docker/mariadb/healthcheck.sh'){
             Assert (-not(Test-Path -LiteralPath (Join-Path $script:Repo ('windows/classroom/overlay/'+$p)))) "Duplicated in overlay: $p"
             $a=[IO.File]::ReadAllBytes((Join-Path $script:Repo $p))
             $b=[IO.File]::ReadAllBytes((Join-Path $stage ('files/'+$p)))
@@ -919,14 +925,15 @@ foreach(`$n in `$Number){
         Assert ((Get-DawStateRelativePath) -ceq 'AppData\Local\DAW-Dev')
         $f=Get-DawStateFiles
         Assert ($f.Lock -ceq 'install.lock' -and $f.Install -ceq 'install-state.json' -and $f.InstallLog -ceq 'install.log' -and $f.Project -ceq 'project-state.json' -and $f.ProjectLog -ceq 'project.log')
-        Assert ((Get-DawDistribution) -ceq 'linux' -and (Get-DawLinuxProjectPath) -ceq '/home/ad/daw')
+        Assert ((Get-DawDistribution) -ceq 'linux' -and (Get-DawLinuxProjectPath) -ceq '/home/ad/.daw')
+        Assert ((Get-DawLinuxWebPath) -ceq '/home/ad/html' -and (Get-DawLinuxDataPath) -ceq '/home/ad/data' -and (Get-DawLinuxAngularPath) -ceq '/home/ad/angular')
         Assert ((Get-DawWebImage) -ceq 'ghcr.io/miguelfm/daw-php:8.6' -and (Get-DawPreviousWebImage) -ceq 'ghcr.io/miguelfm/dwcs-php:8.6-ad' -and (Get-DawModelArchive) -ceq 'linux.tar.gz')
         Assert ((Get-DawModelMarker).Path -ceq '/etc/daw-dev-model' -and (Get-DawModelMarker).Value -ceq 'daw-dev-v2')
         $legacy=Get-DawLegacyInstall
         Assert ($legacy.PackageDirectory -ceq 'C:\ProgramData\DAW-Aula' -and $legacy.StateRelativePath -ceq 'AppData\Local\DAW-Aula' -and $legacy.Distribution -ceq 'Debian' -and $legacy.Marker -ceq 'daw-aula-v1' -and $legacy.RunValue -ceq 'DAWAula')
         Assert ((ConvertTo-DawAdminSharePath 'A34EQ01.example' 'C:\ProgramData\DAW-Dev\project') -ceq '\\A34EQ01.example\c$\ProgramData\DAW-Dev\project')
         Throws {ConvertTo-DawAdminSharePath 'A34EQ01' '\\outro\ruta'} 'non válida'
-        Assert ((ConvertTo-DawWslPath 'linux' '/home/ad/daw/www') -ceq '\\wsl.localhost\linux\home\ad\daw\www')
+        Assert ((ConvertTo-DawWslPath 'linux' '/home/ad/html') -ceq '\\wsl.localhost\linux\home\ad\html')
         $profileRoot=Join-Path $script:Temp 'profile'
         Assert ((Get-DawStateDirectory $profileRoot) -eq (Join-Path $profileRoot 'AppData\Local\DAW-Dev'))
     }
@@ -937,32 +944,40 @@ foreach(`$n in `$Number){
         $setup=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/setup-model.sh'))
         foreach($s in 'project=${DAW_PROJECT:?','web_image=${DAW_WEB_IMAGE:?','marker_file=${DAW_MODEL_MARKER_FILE:?','printf ''%s\n'' "$marker" > "$marker_file"'){Assert ($setup.Contains($s)) "Missing in setup-model.sh: $s"}
         Assert (-not $setup.Contains('/home/ad/www')) 'The model must not link ~/www'
+        foreach($s in 'mv -T "$project/www" "$home/html"','mv -T "$project/data" "$home/data"','mv -T "$project/angular" "$home/angular"','"$home/html/.vscode/settings.json"'){Assert ($setup.Contains($s)) "Missing in setup-model.sh: $s"}
         $build=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/build-package.ps1'))
         Assert ($build.Contains('"DAW_PROJECT=$project"') -and $build.Contains('"DAW_MODEL_MARKER=$($marker.Value)"') -and $build.Contains('LinuxProjectPath = $project'))
     }
-    Test 'the project moves from ~/workspace to ~/daw wherever it is still there' {
-        Assert ((Get-DawPreviousLinuxProjectPath) -ceq '/home/ad/workspace')
-        # A package whose model still has ~/workspace stays valid: the move happens in each account.
-        $m=[pscustomobject]@{Schema=2;Marker=(Get-DawModelMarker).Value;Image=(Get-DawModelArchive);Sha256=('a'*64);LinuxUser='ad';LinuxProjectPath=(Get-DawPreviousLinuxProjectPath)}
-        Assert-DawManifest $m
+    Test 'the project moves to ~/.daw and the student directories to the home wherever it is still there' {
+        Assert ((@(Get-DawPreviousLinuxProjectPaths) -join ',') -ceq '/home/ad/daw,/home/ad/workspace')
+        # A package whose model still has ~/daw or ~/workspace stays valid: the move happens in each account.
+        foreach($previous in Get-DawPreviousLinuxProjectPaths){
+            $m=[pscustomobject]@{Schema=2;Marker=(Get-DawModelMarker).Value;Image=(Get-DawModelArchive);Sha256=('a'*64);LinuxUser='ad';LinuxProjectPath=$previous}
+            Assert-DawManifest $m
+        }
         $m.LinuxProjectPath='/home/ad/other';Throws {Assert-DawManifest $m} 'non recoñecido'
         $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
         $config=$install.IndexOf("'--cd',`$project,'--exec','docker','compose','config'")
         Assert ($install.IndexOf('$status.Imported=$true') -lt $install.IndexOf('$status.ProjectMoved=Move-DawProjectDirectory $Distribution') -and $install.IndexOf('$status.ProjectMoved=Move-DawProjectDirectory $Distribution') -lt $install.IndexOf('/.vscode/settings.json')) 'An imported model moves before settings.json is edited'
         Assert ($install.Contains('if(-not $import){$status.ProjectMoved=Move-DawProjectDirectory $Distribution}') -and $install.LastIndexOf('Move-DawProjectDirectory') -lt $config) 'A kept distribution moves before the project is used'
-        Assert ($install.Contains('Backup-DawWebRoot $Distribution @($project,(Get-DawPreviousLinuxProjectPath))')) 'A reinstall also saves www from the previous path'
+        Assert ($install.Contains('Backup-DawWebRoot $Distribution (@($project)+@(Get-DawPreviousLinuxProjectPaths))')) 'A reinstall also saves www from the previous paths'
+        Assert ($install.IndexOf('Remove-DawPreviousProjectLinks') -gt $install.IndexOf("'install-daw-commands.ps1'") -and $install.IndexOf('Remove-DawPreviousProjectLinks') -lt $install.IndexOf('New-DawShortcut')) 'The previous links go once the launchers point to ~/.daw'
         $update=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/update-project.ps1'))
         $move=$update.IndexOf('$status.ProjectMoved=Move-DawProjectDirectory $Distribution')
         Assert ($move -gt $update.IndexOf('Test-DawModelMarker $Distribution') -and $move -lt $update.IndexOf('Invoke-DawProjectOverlay')) 'UpdateProject moves the project before copying into it'
         & $script:M {$script:Calls=@();function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds) $script:Calls+=,@($Arguments);'moved'}}
         Assert (Move-DawProjectDirectory 'linux')
         $call=@(& $script:M {$script:Calls})[0]
-        Assert (($call[0..6] -join ' ') -eq '-d linux -u root --exec bash -c' -and $call[-2] -ceq '/home/ad/workspace' -and $call[-1] -ceq '/home/ad/daw') ($call -join ' ')
+        Assert (($call[0..6] -join ' ') -eq '-d linux -u root --exec bash -c' -and (($call[-6..-1]) -join ' ') -ceq '/home/ad/.daw /home/ad/html /home/ad/data /home/ad/angular /home/ad/daw /home/ad/workspace') ($call -join ' ')
         $script=Get-DawProjectMoveScript
         Assert (-not $script.Contains("`r") -and $script.Contains('docker stop') -and $script.Contains('ln -s -- "$new" "$old"'))
+        & $script:M {$script:Calls=@();function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds) $script:Calls+=,@($Arguments);'removed /home/ad/daw';'outra liña'}}
+        Assert ((@(Remove-DawPreviousProjectLinks 'linux') -join ',') -ceq '/home/ad/daw')
+        $call=@(& $script:M {$script:Calls})[0]
+        Assert ((($call[-3..-1]) -join ' ') -ceq '/home/ad/.daw /home/ad/daw /home/ad/workspace' -and $call[2] -ceq '-u' -and $call[3] -ceq 'root') ($call -join ' ')
     }
     Test 'deployment scripts take the names from the module' {
-        $literal='/home/ad/(daw|workspace)\b|ProgramData\\DAW-(Dev|Aula)|Local\\DAW-(Dev|Aula)|DAW-Aula-Tools|daw-php:8\.6|dwcs-php:8\.6-ad|install\.lock|install-state\.json|project-state\.json|daw-dev-model|daw-dev-v2|daw-aula-v1|daw-aula-modelo|linux\.tar\.gz'
+        $literal='/home/ad/(\.daw|daw|workspace|html|data|angular)\b|ProgramData\\DAW-(Dev|Aula)|Local\\DAW-(Dev|Aula)|DAW-Aula-Tools|daw-php:8\.6|dwcs-php:8\.6-ad|install\.lock|install-state\.json|project-state\.json|daw-dev-model|daw-dev-v2|daw-aula-v1|daw-aula-modelo|linux\.tar\.gz'
         # activate.ps1 non carga o módulo; o seu texto de axuda nomea o cartafol de estado.
         foreach($f in Get-ChildItem (Join-Path $script:Repo 'windows/classroom') -File -Include *.ps1,*.sh -Recurse|Where-Object {$_.Name -ne 'activate.ps1'}){
             $hits=@(Select-String -LiteralPath $f.FullName -Pattern $literal|Where-Object {$_.Line -notmatch '^\s*#'})
@@ -998,12 +1013,15 @@ foreach(`$n in `$Number){
         $shim=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
         Assert ($shim.Contains("'install-daw-commands.ps1') -Distribution `$Distribution") -and $shim.Contains("'daw.ps1') @PSBoundParameters"))
     }
-    Test 'Xdebug maps only the Apache web root, shared with the classroom' {
+    Test 'Xdebug maps the Apache web root to the workspace, in the repository and in the classroom' {
         $repo=[IO.File]::ReadAllText((Join-Path $script:Repo '.vscode/launch.json'))
         Assert ($repo.Contains('"/var/www/html": "${workspaceFolder}/www"') -and -not $repo.Contains('/home/ad/html'))
-        Assert (-not(Test-Path -LiteralPath (Join-Path $script:Repo 'windows/classroom/overlay/.vscode/launch.json'))) 'Overlay copy of launch.json'
+        # In the classroom the workspace is ~/html itself, in WSL and in the Dev Container.
+        $aula=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/overlay/html/.vscode/launch.json'))
+        Assert ($aula.Contains('"/var/www/html": "${workspaceFolder}"'))
         $override=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/overlay/compose.override.yaml'))
-        Assert ($override.Contains('./data:/home/ad/data') -and -not $override.Contains('/home/ad/html') -and -not $override.Contains('000-default.conf'))
+        foreach($s in '- ../html:/var/www/html','- ../html:/home/ad/html','- ../data:/home/ad/data','- ../angular:/home/node/proxectos'){Assert ($override.Contains($s)) "Missing in the override: $s"}
+        Assert (-not $override.Contains('- ./data:') -and -not $override.Contains('000-default.conf'))
     }
     Test 'project updater validates package and origin BEFORE copying' {
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/update-project.ps1'))
@@ -1021,13 +1039,13 @@ foreach(`$n in `$Number){
     Test 'overlay copy passes path triples and must report every file' {
         $manifest=[pscustomobject]@{Files=@([pscustomobject]@{Path='compose.override.yaml';Sha256='A'*64;Mode='Replace'},[pscustomobject]@{Path='data/README.txt';Sha256='B'*64;Mode='CreateOnly'})}
         & $script:M {
-            $script:Lines=@('substituido compose.override.yaml','conservado data/README.txt','copia /home/ad/daw/.daw-backup/x','');$script:Passed=$null
+            $script:Lines=@('substituido compose.override.yaml','conservado data/README.txt','copia /home/ad/.daw/.daw-backup/x','');$script:Passed=$null
             function script:Invoke-DawNative {param($File,$Arguments) $script:Passed=$Arguments;$script:Lines}
         }
         $r=Invoke-DawProjectOverlay 'linux' 'C:\ProgramData\DAW-Dev\project' $manifest
         Assert ((@($r.Replaced) -join ',') -eq 'compose.override.yaml' -and (@($r.Kept) -join ',') -eq 'data/README.txt' -and $r.Backup -like '*/.daw-backup/x')
         $passed=& $script:M {,$script:Passed}
-        Assert (($passed[0..7] -join ' ') -eq '-d linux -u ad --cd /home/ad/daw --exec bash')
+        Assert (($passed[0..7] -join ' ') -eq '-d linux -u ad --cd /home/ad/.daw --exec bash')
         Assert ($passed[-6] -eq 'compose.override.yaml' -and $passed[-5] -eq ('a'*64) -and $passed[-4] -eq 'Replace' -and $passed[-1] -eq 'CreateOnly')
         & $script:M {$script:Lines=@('igual compose.override.yaml')}
         Throws {Invoke-DawProjectOverlay 'linux' 'C:\ProgramData\DAW-Dev\project' $manifest} 'non informou'

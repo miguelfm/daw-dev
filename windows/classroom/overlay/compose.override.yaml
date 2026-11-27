@@ -1,6 +1,10 @@
 # Aula: Apache con permisos estritos, como nun servidor Debian, e os datos das
 # tarefas fóra da raíz web. daw-start le este ficheiro porque está ao lado de compose.yaml;
-# Dev Containers, porque o nomea .devcontainer/devcontainer.json.
+# Dev Containers, porque o nomea ~/html/.devcontainer/devcontainer.json.
+#
+# A contorna vai en ~/.daw, e o que é do alumnado, no home: ~/html, ~/data e ~/angular. As
+# rutas relativas son respecto a ~/.daw. Estas montaxes substitúen as de compose.yaml
+# (./www e ./angular), porque teñen o mesmo destino no contedor.
 services:
   backend:
     environment:
@@ -8,8 +12,11 @@ services:
       APACHE_RUN_USER: www-data
       APACHE_RUN_GROUP: www-data
     volumes:
+      # O código web, en /var/www/html para Apache e en ~/html, a mesma ruta ca na distribución
+      - ../html:/var/www/html
+      - ../html:/home/ad/html
       # Os ficheiros que len ou escriben as tarefas, fóra da raíz web
-      - ./data:/home/ad/data
+      - ../data:/home/ad/data
       - ./docker/classroom/zz-classroom.ini:/usr/local/etc/php/conf.d/zz-classroom.ini:ro
       # Extensións de VS Code do Dev Container: a activación instálaas desde o paquete, sen
       # Internet, e consérvanse aínda que se volva crear o contedor.
@@ -38,6 +45,11 @@ services:
         sed -i 's/^umask 002$$/umask 022/' /etc/apache2/envvars
         install -d -m 1733 /var/lib/php/sessions
         exec apache2-foreground
+
+  frontend:
+    volumes:
+      # Os proxectos de Angular, en ~/angular
+      - ../angular:/home/node/proxectos
 
 volumes:
   vscode-extensions:

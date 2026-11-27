@@ -5,8 +5,8 @@ Instala DAW Dev na conta que o executa, sen elevación.
 .DESCRIPTION
 Retira primeiro a instalación anterior desta conta (distribución Debian do modelo DAW-Aula,
 o seu estado e os seus lanzadores). Antes de eliminar unha distribución copia a súa raíz web
-(WWW_DIR) en Documentos\DAW-Dev-www-<data>-<distribución>, e despois copia ese contido no www
-do proxecto novo. O resto do contido da distribución pérdese: o alumnado garda antes o que precise.
+(WWW_DIR, ou ~/html) en Documentos\DAW-Dev-www-<data>-<distribución>, e despois copia ese
+contido no ~/html da distribución nova. O resto do contido da distribución pérdese: o alumnado garda antes o que precise.
 Unha distribución co mesmo paquete consérvase. Se procede doutro paquete, só se substitúe
 con -Reinstall, que a elimina con todo o seu contido. Nunca se elimina unha distribución
 sen o marcador do modelo. SkipVSCode omite as extensións e o VS Code Server do paquete.
@@ -36,7 +36,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null;ProjectMoved=$false}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null;ProjectMoved=$false;LinksRemoved=@()}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -58,7 +58,7 @@ try{
         elseif(-not $Reinstall){throw "$Distribution procede doutro paquete. Gardar o traballo e repetir con -Reinstall, que a elimina."}
         else{
             # Tamén na ruta anterior do proxecto: unha conta pode non ter repetido a activación.
-            $backup=Backup-DawWebRoot $Distribution @($project,(Get-DawPreviousLinuxProjectPath)) $pendingRestore
+            $backup=Backup-DawWebRoot $Distribution (@($project)+@(Get-DawPreviousLinuxProjectPaths)) $pendingRestore
             if($backup){$status.WebBackups+=$backup}
             Remove-DawDistribution $Distribution
             $status.Removed+="wsl:$Distribution"
@@ -74,22 +74,24 @@ try{
         if(-not(Test-DawModelMarker $Distribution)){throw 'A imaxe importada non ten o marcador do modelo.'}
         Set-Content -LiteralPath $originPath -Value $manifest.Sha256 -Encoding ASCII
         $status.Imported=$true
-        # Un modelo anterior ao 27-11-2026 trae o proxecto en ~/workspace.
+        # Un modelo anterior ao 27-11-2026 trae o proxecto en ~/daw (ou en ~/workspace).
         $status.ProjectMoved=Move-DawProjectDirectory $Distribution
-        $settingsPath=ConvertTo-DawWslPath $Distribution "$project/.vscode/settings.json"
+        $settingsPath=ConvertTo-DawWslPath $Distribution "$(Get-DawLinuxWebPath)/.vscode/settings.json"
         if(Test-Path -LiteralPath $settingsPath){
             $text=[IO.File]::ReadAllText($settingsPath).Replace('"Debian"',('"'+$Distribution+'"'))
             [IO.File]::WriteAllText($settingsPath,$text,(New-Object Text.UTF8Encoding($false)))
         }
     }
-    # A distribución que xa tiña a conta, co proxecto aínda en ~/workspace.
+    # A distribución que xa tiña a conta, co proxecto aínda en ~/daw (ou en ~/workspace).
     if(-not $import){$status.ProjectMoved=Move-DawProjectDirectory $Distribution}
-    if($status.ProjectMoved){Write-Output "O proxecto está agora en $project (antes $(Get-DawPreviousLinuxProjectPath))."}
+    if($status.ProjectMoved){Write-Output "A contorna está agora en $project, e o código web en $(Get-DawLinuxWebPath)."}
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1')|Out-Null
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','config','--quiet')|Out-Null
     $status.WebRestored=@(Restore-DawPendingWebRoot $Distribution $pendingRestore)
-    foreach($backup in $status.WebRestored){Write-Output "Copiouse en www o contido da raíz web anterior. A copia consérvase en $backup."}
+    foreach($backup in $status.WebRestored){Write-Output "Copiouse en $(Get-DawLinuxWebPath) o contido da raíz web anterior. A copia consérvase en $backup."}
     & (Join-Path $PackageDirectory 'install-daw-commands.ps1') -Distribution $Distribution -LinuxProjectPath $project -LinuxUser ad
+    # Cos lanzadores xa na contorna actual, as ligazóns das rutas anteriores (~/daw, ~/workspace) sobran.
+    $status.LinksRemoved=@(Remove-DawPreviousProjectLinks $Distribution)
     if(-not $SkipVSCode){
         # Dev Containers e WSL, do paquete ou do Marketplace. Sen elas non se abre o proxecto en VS Code,
         # pero o resto da contorna funciona: avísase, séguese e verify-user.ps1 compróbaas.
@@ -112,7 +114,7 @@ try{
     }
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
-    Write-Output "Instalación $RequestId comprobada. Código web: $(ConvertTo-DawWslPath $Distribution "$project/www")"
+    Write-Output "Instalación $RequestId comprobada. Código web: $(ConvertTo-DawWslPath $Distribution (Get-DawLinuxWebPath))"
 }catch{$status.Error=$_.Exception.Message;throw}
 finally{
     try{

@@ -91,7 +91,7 @@ configuración de Compose, que resolve `WWW_DIR` (`./www` por defecto). Se cambi
 |---|---|---|
 | En Windows | `C:\Users\<usuario>\Projects\daw-dev\www` | `/mnt/c/Users/<usuario>/Projects/daw-dev/www` |
 | En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\daw\www` | `/home/<usuario>/daw/www` |
-| Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\daw\www` | `/home/ad/daw/www` |
+| Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\html` | `/home/ad/html` |
 | En Debian, coa montaxe opcional descrita abaixo | `\\wsl.localhost\Debian\home\ad\www` | `/home/ad/www` |
 
 Para explorar Debian, pega `\\wsl.localhost\Debian\` na barra de enderezos.
@@ -247,7 +247,8 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
-   - O espazo de traballo abrirase en `~/daw` (`/home/ad/daw`) dentro do contedor.
+   - O espazo de traballo abrirase en `~/daw` (`/home/ad/daw`) dentro do contedor. Na aula ábrese o
+     código web, `~/html`, e `daw-code -Container` abre directamente o Dev Container.
    - Se `backend-c` o creara antes `daw-start`, retírase e créase de novo coa configuración do
      Dev Container. Co Dev Container aberto, `daw-start-db` e `daw-start-all` arrancan só a base de
      datos e phpMyAdmin, sen pechar VS Code. Consulta

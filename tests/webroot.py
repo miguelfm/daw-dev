@@ -81,6 +81,15 @@ with tempfile.TemporaryDirectory(prefix='daw-webroot-') as tmp:
     assert tree(root / 'c/Users/a/Documents/DAW-Dev-www-1-Debian') == {'a.php': b'a'}
     count += 1; print('PASS follows WWW_DIR from .env')
 
+    # Since 27-11-2026 the environment is ~/.daw and the web code, ~/html, outside it.
+    root = fixture('home-layout')
+    env = root / 'home/ad/.daw'; env.mkdir(parents=True); (env / 'compose.yaml').write_text('services: {}\n')
+    html = root / 'home/ad/html'; (html / 'u3/t4').mkdir(parents=True); (html / 'u3/t4/T4.php').write_text('t4')
+    r = run(root, backup, dest, str(env), str(root / 'home/ad/daw'))
+    assert r.returncode == 0 and r.stdout.split() == ['copied'], r.stderr
+    assert tree(root / 'c/Users/a/Documents/DAW-Dev-www-1-Debian') == tree(html)
+    count += 1; print('PASS with the environment in ~/.daw, copies ~/html')
+
     for name, make in (('empty', lambda root: project(root)), ('no-project', lambda root: None)):
         root = fixture(name)
         make(root)
@@ -96,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix='daw-webroot-') as tmp:
     for f in (src / 'index.php', src / 'u3/t1.php', src / 'u3'):
         f.chmod(0o777)
     os.utime(src / 'u3/t1.php', (1_000_000_000, 1_000_000_000))
-    www = root / 'home/ad/daw/www'
+    www = root / 'home/ad/html'
     www.mkdir(parents=True)
     (www / 'index.php').write_text('repository version'); (www / 'info.php').write_text('info')
     old = os.umask(0o022)

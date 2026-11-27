@@ -138,7 +138,7 @@ switch ($Action.ToLowerInvariant()) {
         Write-Output '  daw-logs: follow container logs; press Ctrl+C to exit.'
         Write-Output '  daw-shell: open Bash in the backend (Apache and PHP) as user ad.'
         Write-Output '  daw-web-shell: alias for daw-shell.'
-        Write-Output '  daw-wsl-shell: open the WSL distribution at the project directory without starting Docker.'
+        Write-Output '  daw-wsl-shell: open the WSL distribution at your home (html, data, angular) or project, without starting Docker.'
         Write-Output '  daw-code: open the project directly in VS Code.'
         Write-Output '  daw-code -Container: open the project directly in its PHP Dev Container.'
         Write-Output '  daw-code -Local: edit in Windows without VS Code Server.'
@@ -169,11 +169,19 @@ switch ($Action.ToLowerInvariant()) {
         if (-not (Test-Path -LiteralPath $codeExe -PathType Leaf)) { throw 'Non se atopou Code.exe.' }
 
         $targetPath = $ProjectPath
+        $workspacePath = $ProjectPath
         $useWslRemote = $ProjectPath.StartsWith('/') -and -not $Local
         if ($ProjectPath.StartsWith('/')) {
             & wsl.exe @wslArgs --exec test -d $ProjectPath
             if ($LASTEXITCODE -ne 0) { throw "The project directory is unavailable in ${Distribution}:$ProjectPath" }
-            $targetPath = "\\wsl.localhost\$Distribution" + ($ProjectPath -replace '/', '\')
+            # Na aula, a contorna está en ~/.daw e o espazo de traballo de VS Code é o código web,
+            # ~/html, coa súa configuración (.vscode e .devcontainer).
+            if ($ProjectPath.TrimEnd('/') -match '^(.*)/\.daw$') {
+                $html = $Matches[1] + '/html'
+                & wsl.exe @wslArgs --exec test -d "$html/.devcontainer"
+                if ($LASTEXITCODE -eq 0) { $workspacePath = $html }
+            }
+            $targetPath = "\\wsl.localhost\$Distribution" + ($workspacePath -replace '/', '\')
         }
         if ($useWslRemote) { Initialize-DawCodeCache $codeExe -ForContainer:$Container }
         if ($Container) {
@@ -186,7 +194,7 @@ switch ($Action.ToLowerInvariant()) {
             exit $LASTEXITCODE
         }
         $codeArgs = if ($useWslRemote) {
-            $path = ($ProjectPath -split '/' | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+            $path = ($workspacePath -split '/' | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
             @('--folder-uri', "vscode-remote://wsl+$Distribution$path")
         } else {
             '"' + $targetPath + '"'
@@ -195,7 +203,9 @@ switch ($Action.ToLowerInvariant()) {
         exit 0
     }
     'wsl-shell' {
-        & wsl.exe @wslArgs --cd $ProjectPath
+        # Na aula, o home (html, data e angular), non a contorna oculta en ~/.daw.
+        $shellPath = if ($ProjectPath.TrimEnd('/') -match '^(.*)/\.daw$') { $Matches[1] } else { $ProjectPath }
+        & wsl.exe @wslArgs --cd $shellPath
         exit $LASTEXITCODE
     }
     # Compose vai sempre por scripts/daw.sh do proxecto. Este script non nomea servizos, así que

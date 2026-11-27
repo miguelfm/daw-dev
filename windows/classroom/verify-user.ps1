@@ -67,8 +67,8 @@ try{
         'responde'
     }
     Test-DawStep 'Proxecto' {
-        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','sh','-c','test -d www && docker compose config --quiet')|Out-Null
-        $project
+        Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','sh','-c','test -d "$1" && docker compose config --quiet','sh',(Get-DawLinuxWebPath))|Out-Null
+        "$project, código web en $(Get-DawLinuxWebPath)"
     }
     Test-DawStep 'Lanzadores' {
         foreach($path in @($launcher,(Join-Path $env:USERPROFILE '.local\bin\daw-start.cmd'),(Join-Path $env:USERPROFILE '.local\bin\daw-activate.cmd'))){

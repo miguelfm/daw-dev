@@ -3,7 +3,8 @@
 .SYNOPSIS
 Copia na distribución DAW Dev da conta os ficheiros do proxecto preparados polo profesor.
 .DESCRIPTION
-Comproba os SHA256 do paquete e o marcador do modelo antes de cambiar nada. Non toca www,
+Comproba os SHA256 do paquete e o marcador do modelo antes de cambiar nada. Non toca o código
+web (~/html, agás a súa configuración de VS Code),
 non borra ficheiros, non substitúe os de data e garda unha copia dos que substitúe.
 Sen Restart, os cambios aplícanse no seguinte daw-start ou ao abrir de novo o Dev Container.
 Con Restart recrea o contedor web se está en marcha, aínda que só cambiase un ficheiro montado,
@@ -48,11 +49,11 @@ try{
     if($Distribution -notin @(Get-DawDistributions)){throw "Esta conta aínda non ten $Distribution`: activar antes DAW Dev."}
     # Só o modelo que instalou install-user.ps1.
     if(-not(Test-DawModelMarker $Distribution)){throw "A distribución $Distribution non é de DAW Dev; conservouse sen modificar."}
-    # Unha conta que aínda non repetiu a activación ten o proxecto en ~/workspace.
+    # Unha conta que aínda non repetiu a activación ten o proxecto en ~/daw (ou en ~/workspace).
     $status.ProjectMoved=Move-DawProjectDirectory $Distribution
     $result=Invoke-DawProjectOverlay $Distribution $PackageDirectory $manifest
     foreach($name in @('Created','Replaced','Unchanged','Kept','Backup')){$status[$name]=$result.$name}
-    $webChanged=@(@($result.Created)+@($result.Replaced)|Where-Object {$_ -in @('compose.yaml','compose.override.yaml') -or $_ -like 'docker/*' -or $_ -like '.devcontainer/*'})
+    $webChanged=@(@($result.Created)+@($result.Replaced)|Where-Object {$_ -in @('compose.yaml','compose.override.yaml') -or $_ -like 'docker/*' -or $_ -like '.devcontainer/*' -or $_ -like 'html/.devcontainer/*'})
     if($Restart -or ($RestartIfChanged -and $webChanged.Count)){$status.Restarted=Restart-DawProjectWeb $Distribution}
     $status.Success=$true
     Write-Output "Proxecto $RequestId actualizado á revisión $($manifest.Revision)."

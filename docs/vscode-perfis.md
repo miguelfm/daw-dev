@@ -42,7 +42,9 @@ Co perfil de DWCS seleccionado:
    se fose necesario. A carpeta local e a do contedor teñen identidades distintas.
 
 A [configuración do devcontainer](../.devcontainer/devcontainer.json) abre
-o servizo `backend`, co usuario `ad` e o proxecto en `~/daw` (`/home/ad/daw`).
+o servizo `backend`, co usuario `ad` e o proxecto en `~/daw` (`/home/ad/daw`). Na aula, a
+contorna está oculta en `~/.daw` e VS Code abre o código web, `~/html`, coa configuración de
+`~/html/.devcontainer/devcontainer.json`.
 Declara **PHP Debug** (`xdebug.php-debug`) e **Intelephense**
 (`bmewburn.vscode-intelephense-client`) para a contorna do contedor.
 O código web segue en `www/`, servido tamén desde `/var/www/html`.

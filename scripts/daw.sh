@@ -81,11 +81,15 @@ running = container["State"]["Running"]
 reason = None
 if mode == "devcontainer":
     # Compose comproba os seus cambios ao arrancar; Dev Containers, non.
+    # Os ficheiros que o definiron, das etiquetas do propio contedor: valen igual co proxecto
+    # do repositorio e coa aula (devcontainer.json en ~/html). O de /tmp xérao Dev Containers.
     created = nanoseconds(container["Created"])
-    for name in ("compose.yaml", "compose.override.yaml", ".env",
-                 ".devcontainer/devcontainer.json", ".devcontainer/compose.devcontainer.yaml"):
-        path = os.path.join(project, name)
-        if os.path.isfile(path) and os.stat(path).st_mtime_ns > created:
+    paths = [f for f in labels.get("com.docker.compose.project.config_files", "").split(",")
+             if f and "/devcontainercli" not in f]
+    paths += [labels.get("devcontainer.config_file", ""), os.path.join(project, ".env")]
+    for path in dict.fromkeys(paths):
+        if path and os.path.isfile(path) and os.stat(path).st_mtime_ns > created:
+            name = os.path.relpath(path, project) if path.startswith(project + os.sep) else path
             reason = f"cambiou {name}"
             break
     if not reason:
@@ -340,7 +344,12 @@ case "$ACTION" in
         printf '%s\n' 'Frontend (Angular) dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
         ;;
     code)
-        code --new-window --profile 'DWCS - PHP' "$PROJECT_DIR" "$@"
+        # Na aula, a contorna está en ~/.daw e o espazo de traballo de VS Code é o código web, ~/html.
+        workspace=$PROJECT_DIR
+        if [[ ${PROJECT_DIR##*/} == .daw && -d $PROJECT_DIR/../html/.devcontainer ]]; then
+            workspace=$(cd "$PROJECT_DIR/../html" && pwd)
+        fi
+        code --new-window --profile 'DWCS - PHP' "$workspace" "$@"
         ;;
     web-root)
         if ! command -v python3 >/dev/null; then

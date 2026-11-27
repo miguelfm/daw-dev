@@ -19,20 +19,21 @@ daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
 daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
 daw-web-root -Open   # Abre a raíz web no Explorador de ficheiros
-daw-wsl-shell   # Abre a distribución linux no proxecto
+daw-wsl-shell   # Abre a distribución linux no teu cartafol persoal (html, data e angular)
 daw-shell   # Abre o contedor de Apache e PHP
 ```
 
-No Explorador, o proxecto da aula está en `\\wsl.localhost\linux\home\ad\daw`, co código web en
-`www` e os datos das tarefas en `data`. O acceso directo **«DAW - Web»** do Escritorio abre `www`.
+No Explorador, o teu traballo na aula está en `\\wsl.localhost\linux\home\ad`: o código web en
+`html`, os datos das tarefas en `data` e os proxectos de Angular en `angular`. A contorna vai oculta
+en `.daw`. O acceso directo **«DAW - Web»** do Escritorio abre `html`.
 
 Para traballar con **VS Code e Dev Containers** (recomendado):
-Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto e detectará a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
+Executa `daw-code -Container` en calquera terminal de Windows: VS Code abre `html` directamente no contedor. Con `daw-code`, ábreo en WSL e detecta a configuración; fai clic en **«Reopen in Container»** no cadro emerxente inferior (ou preme `F1` e elixe **«Dev Containers: Reopen in Container»**). As extensións de VS Code quedan preinstaladas durante a preparación da aula.
 
-Para entrar no proxecto directamente en WSL:
+Para entrar no teu cartafol persoal directamente en WSL:
 
 ```powershell
-wsl -d linux --cd /home/ad/daw
+wsl -d linux --cd /home/ad
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
@@ -90,8 +91,9 @@ Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che d
 > Garda o proxecto dentro de Debian (`~/daw`) para que Docker e as
 > ferramentas Linux lean os ficheiros directamente. O proxecto tamén admite
 > [unha copia en Windows](windows11-contedores.md#rendemento).
-> Como na aula, o proxecto está en `~/daw`. Se xa o descargaches noutra ruta, como
-> `~/workspace` ou `~/proxectos/daw-dev`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
+> Nunha instalación persoal o proxecto é o clon do repositorio, aquí en `~/daw`, co código en
+> `~/daw/www`; na aula, a contorna vai en `~/.daw` e o código en `~/html`. Se xa o descargaches
+> noutra ruta, como `~/workspace` ou `~/proxectos/daw-dev`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
 
 ### 1.3. Instalar Docker
 

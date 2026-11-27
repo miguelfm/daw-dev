@@ -1,14 +1,16 @@
 {
-    // Opcional: abre VS Code DENTRO do contedor web (Dev Containers).
-    // Reutiliza compose.yaml e engade os axustes de compose.devcontainer.yaml.
+    // Aula: abre VS Code DENTRO do backend (Dev Containers), no código web (~/html).
+    // A contorna está en ~/.daw: reutiliza o seu compose.yaml e o override da aula, e engade
+    // os axustes de compose.devcontainer.yaml.
     "name": "DAW Dev PHP",
-    "dockerComposeFile": ["../compose.yaml", "../compose.override.yaml", "compose.devcontainer.yaml"],
+    "dockerComposeFile": ["../../.daw/compose.yaml", "../../.daw/compose.override.yaml", "compose.devcontainer.yaml"],
     "service": "backend",
     "runServices": ["backend"],
     // Antes de buscar o contedor: Dev Containers usaría sen recrealo o que creou daw-start
     // ou un anterior a un cambio do proxecto. Sen bash nin Docker, non impide abrilo.
-    "initializeCommand": "bash \"${localWorkspaceFolder}/scripts/daw.sh\" prepare-devcontainer || exit 0",
-    "workspaceFolder": "/home/ad/daw",
+    "initializeCommand": "bash \"${localWorkspaceFolder}/../.daw/scripts/daw.sh\" prepare-devcontainer || exit 0",
+    // A mesma ruta ca na distribución: o override monta ~/html tamén aquí.
+    "workspaceFolder": "/home/ad/html",
     "remoteUser": "ad",
     "shutdownAction": "stopCompose",
     "customizations": {
