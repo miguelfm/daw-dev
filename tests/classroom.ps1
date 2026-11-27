@@ -1021,6 +1021,7 @@ foreach(`$n in `$Number){
         Assert (-not $daw.Contains('$env:ProgramData')) 'ProgramData is null outside Windows'
         Assert ($daw.Contains("'C:\ProgramData\DAW-Dev'") -and $daw.Contains("Join-Path `$package 'activate.ps1'"))
         Assert ($daw.Contains("'--exec', 'bash', 'scripts/keep-alive.sh'") -and -not $daw.Contains('wsl/keep-alive.sh'))
+        Assert ($daw.Contains("EndsWith('/.daw')) { '../angular' } else { 'angular' }")) 'start-frontend must not create ~/.daw/angular in classroom layout'
         $shim=[IO.File]::ReadAllText((Join-Path $script:Repo 'wsl/daw.ps1'))
         Assert ($shim.Contains("'install-daw-commands.ps1') -Distribution `$Distribution") -and $shim.Contains("'daw.ps1') @PSBoundParameters"))
     }

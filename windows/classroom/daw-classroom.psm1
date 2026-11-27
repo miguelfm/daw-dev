@@ -231,15 +231,25 @@ else
     [[ -d $project && ! -L $project ]] || exit 0
 fi
 moves=()
+empties=()
 for pair in "www=$web" "data=$data" "angular=$angular"; do
     name=${pair%%=*} to=${pair#*=}
     [[ -d $project/$name && ! -L $project/$name ]] || continue
     if [[ -e $to || -L $to ]]; then
+        if [[ -d $to && ! -L $to && -z $(ls -A -- "$project/$name") ]]; then
+            empties+=("$name")
+            continue
+        fi
         [[ -d $to && ! -L $to && -z $(ls -A -- "$to") ]] || fail "Existen $project/$name e $to; non se moveu ningún."
     fi
     moves+=("$name" "$to")
 done
-[[ -n $old || ${#moves[@]} -gt 0 ]] || exit 0
+if [[ -z $old && ${#moves[@]} -eq 0 ]]; then
+    for name in "${empties[@]}"; do
+        rmdir -- "$project/$name"
+    done
+    exit 0
+fi
 for i in {1..60}; do docker info >/dev/null 2>&1 && break; sleep 1; done
 if docker info >/dev/null 2>&1; then
     for dir in "$project" "$@"; do
@@ -260,6 +270,9 @@ if [[ -n $old ]]; then
         done
     done
 fi
+for name in "${empties[@]}"; do
+    rmdir -- "$new/$name"
+done
 for ((i = 0; i < ${#moves[@]}; i += 2)); do
     name=${moves[i]} to=${moves[i+1]}
     [[ ! -d $to ]] || rmdir -- "$to"

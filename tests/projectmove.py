@@ -148,4 +148,12 @@ with tempfile.TemporaryDirectory(prefix='daw-move-') as tmp:
     r, log = run(root)
     assert r.stdout.strip() == '' and log == '', 'The current layout needs nothing'
     print('PASS the current layout needs nothing')
+
+    root = base / 'empty-angular'; h = home(root)
+    (h / '.daw/angular').mkdir(parents=True); (h / 'angular').mkdir(parents=True); (root / 'bin').mkdir()
+    (h / '.daw/compose.yaml').write_text('name: daw-dev\n')
+    (h / 'angular/README.txt').write_text('angular\n')
+    r, log = run(root)
+    assert r.stdout.strip() == '' and log == '' and not (h / '.daw/angular').exists() and (h / 'angular/README.txt').is_file(), r.stdout
+    print('PASS an empty spurious ~/.daw/angular is removed without touching ~/angular')
 print('ALL PROJECT MOVE TESTS PASSED')

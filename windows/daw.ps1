@@ -298,10 +298,14 @@ if ($dawAction -eq 'start-frontend') {
     # A chave pública vai ao proxecto (docker/angular/ssh-key.pub); os proxectos, a angular/.
     $pub = Initialize-AngularKey
     if ($pub -notmatch '^(ssh-ed25519) ([A-Za-z0-9+/=]+)(\s.*)?$') { throw 'Unexpected format of dwcc_angular.pub.' }
+    $keyType = $Matches[1]
+    $keyBody = $Matches[2]
     if ($ProjectPath.StartsWith('/')) {
         # Tipo e chave como argumentos: unha canalización a wsl.exe pode engadir un BOM,
         # e sshd non recoñece entón a liña de authorized_keys.
-        & wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'mkdir -p angular docker/angular && echo $1 $2 > docker/angular/ssh-key.pub' sh $Matches[1] $Matches[2]
+        # Na aula (~/.daw), os proxectos de Angular van en ../angular, non en ~/.daw/angular.
+        $angularDir = if ($ProjectPath.TrimEnd('/').EndsWith('/.daw')) { '../angular' } else { 'angular' }
+        & wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'mkdir -p "$1" docker/angular && echo "$2" "$3" > docker/angular/ssh-key.pub' sh $angularDir $keyType $keyBody
         if ($LASTEXITCODE -ne 0) { throw 'Could not copy the public key to the project.' }
     } else {
         New-Item -ItemType Directory -Force -Path (Join-Path $ProjectPath 'angular'), (Join-Path $ProjectPath 'docker\angular') | Out-Null
