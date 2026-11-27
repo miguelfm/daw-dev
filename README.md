@@ -138,6 +138,11 @@ Dentro da shell estás en `/var/www/html`, o cartafol local definido por `WWW_DI
 co usuario `ad`, que non ten contrasinal: `sudo` non o pide. Tes `php`, `composer` e `mysql` dispoñibles,
 ademais de `nano`, `vi` e `vis` para editar ficheiros.
 
+O prompt indica onde estás: `ad@php:/var/www/html$` no contedor web. Cada contedor leva como
+nome de equipo a súa tecnoloxía: `php`, `mariadb`, `phpmyadmin`, `node` (Angular), `php-manual`,
+`mdn` e `laravel-docs`. Para `docker exec` e `docker ps` seguen os nomes `daw-web`, `daw-db`…
+Na distribución de WSL da aula, o prompt leva o nome do computador, por exemplo `ad@A31EQ28:~/daw$`.
+
 Para abrir a consola **como root**:
 
 ```bash

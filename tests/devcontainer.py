@@ -42,6 +42,7 @@ def web(project):
         'mounts': {m['Destination'] for m in info['Mounts']},
         'env': dict(e.split('=', 1) for e in info['Config']['Env']),
         'image': info['Image'],
+        'hostname': info['Config']['Hostname'],
     }
 
 
@@ -88,7 +89,8 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         state = web(project)
         images.add(state['image'])
         check('Dev Containers replaces the container daw-start created',
-              state['devcontainer'] and '/home/ad/daw' in state['mounts'] and state['env'].get('XDEBUG_CONFIG') == 'client_host=localhost', state)
+              state['devcontainer'] and '/home/ad/daw' in state['mounts'] and state['env'].get('XDEBUG_CONFIG') == 'client_host=localhost'
+              and state['hostname'] == 'php', state)
         opened = state['id']
 
         out = daw(project, 'start')

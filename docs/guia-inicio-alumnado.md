@@ -142,7 +142,8 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 
 Executa `daw-code -Container` para abrir o proxecto no contedor de PHP.
 O proxecto está en `~/daw` e o código en `~/daw/www`, como na distribución. O terminal
-integrado (`Ctrl+ñ`) abre no contedor como `ad`.
+integrado (`Ctrl+ñ`) abre no contedor como `ad`: o prompt é `ad@php:~/daw$`.
+Na distribución, en cambio, leva o nome do computador (`ad@A31EQ28:~/daw$`).
 
 Se xa tes o proxecto aberto en WSL, podes premer `F1` e escoller
 **Dev Containers: Reopen in Container** na xanela actual.
