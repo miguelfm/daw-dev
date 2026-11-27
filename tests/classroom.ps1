@@ -833,6 +833,20 @@ foreach(`$n in `$Number){
         $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
         Assert ($install -match 'try\{\$status\.CodeSettings=@\(Set-DawCodeUserSettings\)\}\s*catch\{Write-Warning') 'User settings must not stop activation'
     }
+    Test 'VS Code machine policy disables telemetry and auto-updates for every account' {
+        & $script:M {
+            $script:Keys=@();$script:Props=@{}
+            function script:Test-Path {param($LiteralPath) $LiteralPath -in $script:Keys}
+            function script:New-Item {param($Path,[switch]$Force) $script:Keys+=$Path}
+            function script:New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force) $script:Props["$Path|$Name"]="$PropertyType|$Value"}
+        }
+        Set-DawCodeMachinePolicy
+        $keys=@(& $script:M {$script:Keys})
+        $props=& $script:M {$script:Props}
+        $reg='HKLM:\SOFTWARE\Policies\Microsoft\VSCode'
+        Assert ($keys -contains $reg)
+        Assert ($props["$reg|TelemetryLevel"] -ceq 'String|off' -and $props["$reg|UpdateMode"] -ceq 'String|none') ($props|Out-String)
+    }
     Test 'the frontend (Angular) is a profiled service started, stopped and logged through daw.sh' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["frontend"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))
@@ -941,7 +955,7 @@ foreach(`$n in `$Number){
             $body=$module.Substring($module.IndexOf("function $fn {"));$body=$body.Substring(0,$body.IndexOf("`nfunction "))
             switch($fn){
                 'Initialize-DawPackageDirectory' {Assert ($body.IndexOf('Assert-DawNoInstallRunning') -lt $body.IndexOf('Remove-DawLegacyPackage') -and $body.Contains('Set-DawProtectedAcl $target')) 'Check running installers before removing the previous package'}
-                'Complete-DawPackage' {Assert ($body.Contains('Assert-DawPackage (Get-DawPackageDirectory)') -and $body.Contains('Set-DawAutoStart -Enabled:$AutoStart') -and $body.Contains('Initialize-DawProjectDirectory'))}
+                'Complete-DawPackage' {Assert ($body.Contains('Assert-DawPackage (Get-DawPackageDirectory)') -and $body.Contains('Set-DawAutoStart -Enabled:$AutoStart') -and $body.Contains('Set-DawCodeMachinePolicy') -and $body.Contains('Initialize-DawProjectDirectory'))}
                 'Complete-DawProjectStage' {Assert ($body.Contains('Assert-DawProjectOverlay (Get-DawProjectDirectory)') -and $body.Contains('Set-DawStartMenuShortcut') -and $body.Contains('Activator=Set-DawActivator'))}
             }
         }

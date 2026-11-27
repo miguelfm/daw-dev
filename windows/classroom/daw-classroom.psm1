@@ -926,6 +926,15 @@ function Set-DawCodeUserSettings {
     }
     return @($added)
 }
+function Set-DawCodeMachinePolicy {
+    # No posto, como administrador: política oficial de VS Code (VSCode.admx) para todas as contas.
+    # Desactiva a telemetría (evita ECONNRESET a OneCollector no Dev Container) e as actualizacións
+    # automáticas (evita timeouts e mantén o commit do VS Code Server do paquete).
+    param([string]$RegistryPath='HKLM:\SOFTWARE\Policies\Microsoft\VSCode')
+    if(-not(Test-Path -LiteralPath $RegistryPath)){New-Item -Path $RegistryPath -Force|Out-Null}
+    New-ItemProperty -Path $RegistryPath -Name 'TelemetryLevel' -Value 'off' -PropertyType String -Force|Out-Null
+    New-ItemProperty -Path $RegistryPath -Name 'UpdateMode' -Value 'none' -PropertyType String -Force|Out-Null
+}
 function Get-DawCodeCommit {
     # O commit do VS Code instalado, de product.json, sen abrir VS Code.
     param([string]$Code)
@@ -1100,12 +1109,13 @@ function Copy-DawPackageFiles {
     return $copied
 }
 function Complete-DawPackage {
-    # Despois da copia: ACL, SHA256 de todos os ficheiros, autoarranque opcional e o directorio
-    # protexido para os ficheiros do proxecto.
+    # Despois da copia: ACL, SHA256 de todos os ficheiros, autoarranque opcional, política de VS Code
+    # e o directorio protexido para os ficheiros do proxecto.
     param([switch]$AutoStart)
     Reset-DawPackageFileAcl
     Assert-DawPackage (Get-DawPackageDirectory)|Out-Null
     Set-DawAutoStart -Enabled:$AutoStart
+    Set-DawCodeMachinePolicy
     Initialize-DawProjectDirectory
 }
 function Complete-DawProjectStage {
