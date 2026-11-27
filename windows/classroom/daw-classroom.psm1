@@ -882,6 +882,50 @@ function Install-DawPackageCodeExtensions {
     Invoke-DawNative 'wsl.exe' $arguments 900|Out-Null
     @($extensions|ForEach-Object {$_.Id})
 }
+function Set-DawCodeUserSettings {
+    # Na aula, evita conexións en segundo plano de VS Code a Microsoft (telemetría no contedor,
+    # descargas automáticas de actualizacións que rompen a caché do servidor, consultas ao Marketplace).
+    # Só engade as claves que falten: respecta calquera preferencia previa do usuario.
+    param([string]$SettingsPath)
+    if(-not $SettingsPath){
+        if(-not $env:APPDATA){return @()}
+        $SettingsPath=Join-Path $env:APPDATA 'Code\User\settings.json'
+    }
+    $defaults=[ordered]@{
+        'telemetry.telemetryLevel'='off'
+        'update.mode'='none'
+        'extensions.autoCheckUpdates'=$false
+        'extensions.autoUpdate'=$false
+        'intelephense.telemetry.enabled'=$false
+    }
+    $data=[ordered]@{}
+    $exists=Test-Path -LiteralPath $SettingsPath -PathType Leaf
+    if($exists){
+        $raw=[IO.File]::ReadAllText($SettingsPath,[Text.Encoding]::UTF8)
+        if($raw.Trim()){
+            $clean=($raw -split '\r?\n'|Where-Object {$_ -notmatch '^\s*//'}) -join "`n"
+            $clean=[regex]::Replace($clean,',(?=\s*[}\]])','')
+            $parsed=$clean|ConvertFrom-Json
+            if($null -eq $parsed -or $parsed -is [array] -or $parsed -isnot [pscustomobject]){
+                throw "settings.json de VS Code non é un obxecto JSON: $SettingsPath"
+            }
+            foreach($p in $parsed.PSObject.Properties){$data[$p.Name]=$p.Value}
+        }
+    }
+    $added=@()
+    foreach($entry in $defaults.GetEnumerator()){
+        if(-not $data.Contains($entry.Key)){
+            $data[$entry.Key]=$entry.Value
+            $added+=$entry.Key
+        }
+    }
+    if($added.Count -or -not $exists){
+        $parent=Split-Path -Parent $SettingsPath
+        if($parent){New-Item -ItemType Directory -Path $parent -Force|Out-Null}
+        Write-DawState $SettingsPath $data
+    }
+    return @($added)
+}
 function Get-DawCodeCommit {
     # O commit do VS Code instalado, de product.json, sen abrir VS Code.
     param([string]$Code)

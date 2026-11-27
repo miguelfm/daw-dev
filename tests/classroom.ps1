@@ -806,6 +806,33 @@ foreach(`$n in `$Number){
         Assert ($install.IndexOf('Initialize-DawCodeServer') -lt $install.IndexOf('Install-DawPackageCodeExtensions $Distribution $server.Commit')) 'Extensions need the VS Code Server first'
         Assert ([IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/verify-user.ps1')).Contains("Test-DawStep 'Extensións de PHP'"))
     }
+    Test 'VS Code classroom defaults disable background Microsoft traffic without overwriting user settings' {
+        $fresh=Join-Path $script:Temp 'vscode-user-fresh/Code/User/settings.json'
+        $added=@(Set-DawCodeUserSettings -SettingsPath $fresh)
+        Assert (($added -join ',') -ceq 'telemetry.telemetryLevel,update.mode,extensions.autoCheckUpdates,extensions.autoUpdate,intelephense.telemetry.enabled') ($added -join ',')
+        $parsed=Get-Content -LiteralPath $fresh -Raw -Encoding UTF8|ConvertFrom-Json
+        Assert ($parsed.'telemetry.telemetryLevel' -ceq 'off' -and $parsed.'update.mode' -ceq 'none' -and $parsed.'extensions.autoCheckUpdates' -eq $false -and $parsed.'extensions.autoUpdate' -eq $false -and $parsed.'intelephense.telemetry.enabled' -eq $false)
+        # Second call is a no-op and does not rewrite the file.
+        $before=[IO.File]::GetLastWriteTimeUtc($fresh)
+        Assert (@(Set-DawCodeUserSettings -SettingsPath $fresh).Count -eq 0)
+        Assert ([IO.File]::GetLastWriteTimeUtc($fresh) -eq $before)
+        # Existing JSONC settings and explicit overrides are preserved.
+        $custom=Join-Path $script:Temp 'vscode-user-custom/settings.json'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $custom) -Force|Out-Null
+        [IO.File]::WriteAllText($custom,"{`n  // User comment`n  `"editor.fontSize`": 16,`n  `"update.mode`": `"manual`",`n  `"nested`": { `"a`": 1 },`n}`n",(New-Object Text.UTF8Encoding($false)))
+        $added=@(Set-DawCodeUserSettings -SettingsPath $custom)
+        Assert ($added -notcontains 'update.mode' -and $added -contains 'telemetry.telemetryLevel' -and $added -contains 'intelephense.telemetry.enabled') ($added -join ',')
+        $parsed=Get-Content -LiteralPath $custom -Raw -Encoding UTF8|ConvertFrom-Json
+        Assert ($parsed.'editor.fontSize' -eq 16 -and $parsed.'update.mode' -ceq 'manual' -and $parsed.nested.a -eq 1 -and $parsed.'telemetry.telemetryLevel' -ceq 'off')
+        # Corrupted or non-object JSON is rejected without altering the file.
+        $bad=Join-Path $script:Temp 'vscode-user-bad/settings.json'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $bad) -Force|Out-Null
+        [IO.File]::WriteAllText($bad,'[1, 2, 3]')
+        Throws {Set-DawCodeUserSettings -SettingsPath $bad} 'non é un obxecto'
+        Assert ([IO.File]::ReadAllText($bad) -ceq '[1, 2, 3]')
+        $install=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/install-user.ps1'))
+        Assert ($install -match 'try\{\$status\.CodeSettings=@\(Set-DawCodeUserSettings\)\}\s*catch\{Write-Warning') 'User settings must not stop activation'
+    }
     Test 'the frontend (Angular) is a profiled service started, stopped and logged through daw.sh' {
         $compose=[IO.File]::ReadAllText((Join-Path $script:Repo 'compose.yaml'))
         Assert ($compose.Contains('profiles: ["frontend"]') -and $compose.Contains('./angular:/home/node/proxectos') -and $compose.Contains('127.0.0.1:2222') -and $compose.Contains('127.0.0.1:4200'))

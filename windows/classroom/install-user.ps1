@@ -36,7 +36,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null;ProjectMoved=$false;LinksRemoved=@()}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSettings=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null;ProjectMoved=$false;LinksRemoved=@()}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -111,6 +111,10 @@ try{
             $status.CodeServer="Error: $($_.Exception.Message)"
             Write-Warning "Non se preparou VS Code Server: $($_.Exception.Message)"
         }
+        # Evita conexións en segundo plano a Microsoft (telemetría, actualizacións automáticas e Marketplace)
+        # sen sobrescribir ningunha preferencia que o usuario xa teña configurada.
+        try{$status.CodeSettings=@(Set-DawCodeUserSettings)}
+        catch{Write-Warning "Non se aplicaron os axustes de VS Code: $($_.Exception.Message)"}
     }
     $status.Shortcut=New-DawShortcut $Distribution
     $status.Success=$true
