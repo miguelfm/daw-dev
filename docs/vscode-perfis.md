@@ -7,7 +7,7 @@ seus nomes reais.
 | Módulo | Perfil de VS Code | Carpeta que se abre |
 |---|---|---|
 | Programación, 1º DAW | `PROG - Java` | O proxecto Java no equipo |
-| DWCS, 2º DAW | `DWCS - PHP` | A raíz de `daw-dev`, despois reaberta no contedor |
+| DWCS, 2º DAW | `DWCS - PHP` | `~/html` na aula ou a raíz do repositorio nunha instalación persoal, reaberta no contedor |
 
 `daw-dev` prepara actualmente a contorna PHP. O perfil de Java precisa o seu
 JDK e as ferramentas correspondentes no equipo; seleccionar ese perfil non
@@ -19,7 +19,8 @@ engade Java ao contedor PHP.
    `.code-profile`, usa **Import Profile**. Para preparalos desde cero, crea
    un perfil para cada módulo.
 2. Na xanela de Programación, abre o proxecto Java e selecciona o seu perfil.
-3. Abre outra xanela coa raíz de `daw-dev` e selecciona o perfil de DWCS.
+3. Abre outra xanela con `~/html` na aula ou coa raíz do repositorio nunha
+   instalación persoal e selecciona o perfil de DWCS.
 
 O perfil garda preferencias, extensións, atallos e fragmentos de código.
 VS Code lembra a asociación coa carpeta ou co espazo de traballo aberto;
@@ -35,8 +36,10 @@ Co perfil de DWCS seleccionado:
 
 1. Comproba que a extensión **Dev Containers**
    (`ms-vscode-remote.remote-containers`) está dispoñible no VS Code local.
-2. Abre a raíz de `daw-dev`, onde están `compose.yaml`, `.vscode/` e
-   `.devcontainer/`; abrir só `www/` non carga esa configuración de proxecto.
+2. Na aula, `daw-code` abre `~/html`, que inclúe `.vscode/` e `.devcontainer/`.
+   Tamén podes usar `daw-code -Container` e pasar directamente ao paso 4.
+   Nunha instalación persoal, abre a raíz do repositorio, onde están
+   `compose.yaml`, `.vscode/` e `.devcontainer/`.
 3. Pulsa `Ctrl+Shift+P` e executa **Dev Containers: Reopen in Container**.
 4. Na xanela conectada, comproba o perfil activo e selecciona o de DWCS
    se fose necesario. A carpeta local e a do contedor teñen identidades distintas.
@@ -47,7 +50,8 @@ contorna está oculta en `~/.daw` e VS Code abre o código web, `~/html`, coa co
 `~/html/.devcontainer/devcontainer.json`.
 Declara **PHP Debug** (`xdebug.php-debug`) e **Intelephense**
 (`bmewburn.vscode-intelephense-client`) para a contorna do contedor.
-O código web segue en `www/`, servido tamén desde `/var/www/html`.
+O código web está en `~/html` na aula e en `www/` por defecto nunha instalación
+persoal. Apache sérveo desde `/var/www/html` no contedor.
 
 As extensións locais e as do contedor teñen ámbitos distintos. Se falta unha
 ferramenta PHP, revisa a sección do contedor na vista **Extensions**.

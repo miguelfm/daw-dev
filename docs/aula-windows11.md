@@ -614,7 +614,7 @@ segue as [probas de rendemento de Angular en WSL2 e VirtualBox](rendemento-angul
 
 ## 5. Uso diario sen administrador
 
-Para o material de clase ou entrega ao alumnado, disponse da [guía rápida de inicio e uso en Markdown para PDF](guia-inicio-alumnado.md).
+Para o material de clase, usa a guía rápida de inicio ([Markdown](guia-inicio-alumnado.md) · [PDF](guia-inicio-alumnado.pdf)).
 
 Abre unha terminal nova despois da primeira instalación:
 
@@ -625,15 +625,17 @@ Abre unha terminal nova despois da primeira instalación:
 | `daw-start-all` | Web + MariaDB + phpMyAdmin |
 | `daw-stop` | Para os servizos e conserva a BD e o código |
 | `daw-status` | Lista tamén contedores parados |
-| `daw-code` | Abre o proxecto en VS Code listo para Dev Containers |
+| `daw-code` | Abre `~/html` en VS Code conectado a WSL |
+| `daw-code -Container` | Abre `~/html` no Dev Container de PHP |
 | `daw-web-root -Open` | Abre a raíz web no Explorador. `daw-web-root` amosa as rutas de Windows e de WSL. |
-| `daw-wsl-shell` | Abre a distribución `linux` no proxecto, tamén con Docker parado |
+| `daw-wsl-shell` | Abre `linux` no cartafol persoal, tamén con Docker parado |
 | `daw-shell` | Abre a terminal do contedor de Apache e PHP |
 | `daw-help` | Axuda dos comandos Windows |
 
 Accede a `http://localhost`, `http://localhost/index.php` e `http://localhost:8081`.
-phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de desenvolvemento son as do
-`.env.example`; os portos quedan limitados ao equipo local.
+`daw-start-db` permite usar MariaDB e comprobar a conexión desde PHP. Para usar tamén
+phpMyAdmin, executa `daw-start-all`. As credenciais son as do `.env.example` e os
+portos quedan limitados ao equipo local.
 
 ### Acceso directo aos ficheiros web e contorna Linux
 

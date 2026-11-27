@@ -22,16 +22,18 @@ equipo, das montaxes e do estado das cachés.
 
 ## Comprobar onde están os ficheiros
 
-Na instalación da aula, `daw-dev` está en `/home/ad/proxectos/daw-dev` e Compose
-monta `./angular` do Debian en `/home/node/proxectos` do contedor. A ruta
-`\\wsl.localhost\Debian\home\ad\proxectos\daw-dev\angular` permite abrir eses
-mesmos ficheiros desde Windows. Se Compose se lanza apuntando a unha copia do
-repositorio en `C:`, a montaxe pode proceder de `/mnt/c`.
+Na aula, a contorna está en `~/.daw` na distribución `linux`. Compose monta
+`~/angular` en `/home/node/proxectos` do contedor. Desde Windows podes abrir eses
+ficheiros en `\\wsl.localhost\linux\home\ad\angular`. Nunha copia do repositorio,
+a montaxe por defecto é `./angular`. Se gardas esa copia en `C:`, a montaxe pode
+proceder de `/mnt/c`.
 
-Desde a raíz de `daw-dev`, en Debian, co contedor arrancado:
+Na terminal da distribución ou da máquina virtual, co contedor arrancado,
+define `angular_dir` como `~/angular` na aula ou `./angular` desde a raíz do clon:
 
 ```bash
-findmnt -T "$(realpath angular)" -o TARGET,SOURCE,FSTYPE
+angular_dir=~/angular
+findmnt -T "$(realpath "$angular_dir")" -o TARGET,SOURCE,FSTYPE
 docker inspect frontend-c --format '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}'
 docker inspect frontend-c --format 'imaxe={{.Image}} cpu={{.HostConfig.NanoCpus}} memoria={{.HostConfig.Memory}}'
 ```
@@ -56,10 +58,11 @@ preparar as chaves SSH e cargar desde o paquete da aula ou descargar a imaxe. Cr
 por separado o tempo desde que seleccionas `dwcc-angular` en VS Code ata que abre
 o terminal remoto. A primeira conexión pode instalar o servidor de VS Code no contedor.
 
-Para comparar só o arranque do mesmo servizo, executa o seguinte desde a raíz de
-`daw-dev` nos dous Debian. Prepara o servizo segundo a [guía de Angular](guia-angular-alumnado.md)
-en WSL. Na MV, se o preparas manualmente, pon a chave **pública** do cliente SSH en
-`docker/angular/chave.pub`, tal e como require a montaxe de Compose. Parte coa mesma
+Para comparar só o arranque do mesmo servizo, executa o seguinte desde o cartafol que
+contén `compose.yaml` (`~/.daw` na aula ou a raíz do repositorio na MV). Prepara o
+servizo segundo a [guía de Angular](guia-angular-alumnado.md) en WSL. Na MV, se o
+preparas manualmente, pon a chave **pública** do cliente SSH en
+`docker/angular/ssh-key.pub`, tal e como require a montaxe de Compose. Parte coa mesma
 imaxe xa dispoñible nos dous e, se mediches a carga co paquete da aula, apunta ese tempo
 separado da descarga por rede.
 

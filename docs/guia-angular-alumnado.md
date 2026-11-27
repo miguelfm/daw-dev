@@ -1,17 +1,16 @@
 # Angular con DAW Dev (DWCC)
 
 O contedor `frontend` de DAW Dev trae Node.js 26, npm e Angular CLI 22.
-Funciona dentro de `Debian`, sen Docker Desktop, e entras nel desde
-Visual Studio Code por SSH, coa conexión `dwcc-angular`. Os proxectos
-gárdanse na túa conta deste computador e vense tamén desde o Explorador de
-Windows.
+Na aula, funciona na distribución `linux` de WSL2. Entras nel desde Visual
+Studio Code por SSH, coa conexión `dwcc-angular`. Os proxectos gárdanse no
+teu cartafol `~/angular` e vense tamén desde o Explorador de Windows.
 
 ## Antes da primeira vez
 
 1. Activa DAW Dev na túa conta: no menú Inicio, **DAW Dev → Activar DAW
-   Dev**. Se xa o activaras antes do 19/11/2026, actívao outra vez: así
-   chegan a orde `daw-start-frontend` e os ficheiros do contedor. Repetir a
-   activación conserva os teus ficheiros e as bases de datos.
+   Dev**. Abre un terminal novo cando remate. Se aínda usas a antiga
+   distribución da aula `Debian`, copia antes os proxectos de Angular
+   fóra dela. Consulta a [guía rápida da aula](https://github.com/miguelfm/daw-dev/blob/main/docs/guia-inicio-alumnado.md#activar-o-contorno).
 2. Comproba que VS Code ten a extensión **Remote - SSH**
    (`ms-vscode-remote.remote-ssh`). Se non a tes, instálaa desde o panel de
    extensións, que se abre con `Ctrl+Maiús+X`.
@@ -24,15 +23,15 @@ Nun terminal de PowerShell:
 daw-start-frontend
 ```
 
-A primeira vez, a orde prepara o acceso e carga a imaxe do contedor, e
-tarda uns 30 segundos:
+A primeira vez, a orde prepara o acceso SSH e carga a imaxe do contedor
+desde o paquete da aula se aínda falta. Esta primeira execución pode
+tardar máis ca as seguintes.
 
 - crea a chave `dwcc_angular` no directorio `.ssh` da túa conta de Windows;
 - engade a conexión `dwcc-angular` ao ficheiro `.ssh\config`, se non a
   tiñas.
 
-As veces seguintes arranca en poucos segundos. Remata indicando como
-conectar e o enderezo da aplicación.
+Ao rematar, a orde indica como conectar e o enderezo da aplicación.
 
 ## Entrar desde Visual Studio Code
 

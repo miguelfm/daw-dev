@@ -20,13 +20,14 @@ servidores nin bases de datos no equipo.
   [preparación dos equipos (administración)](docs/wsl2-administracion.md),
   [instalación e uso](docs/wsl2-alumnado.md),
   [lanzadores e acceso aos ficheiros](docs/windows11-contedores.md) e
-  [guía rápida da aula](docs/guia-inicio-alumnado.md).
+  guía rápida da aula ([Markdown](docs/guia-inicio-alumnado.md) · [PDF](docs/guia-inicio-alumnado.pdf)).
 - **Aulas con contas persoais:** [despregamento remoto desde o profesor, distribución `linux`, execución paralela e soporte para aulas compartidas](docs/aula-windows11.md).
 - **Xestión gráfica opcional:** [Portainer CE en Debian/WSL2](docs/wsl2-alumnado.md#portainer-ce-xestión-gráfica-opcional),
   para xestionar Docker desde o navegador en <https://localhost:9443>.
 - VS Code coa extensión **PHP Debug** (`xdebug.php-debug`). Ao abrir o proxecto, VS Code propón as extensións recomendadas. Se desexas executar o editor dentro do contedor, require a extensión **Dev Containers** (`ms-vscode-remote.remote-containers`).
 
-Para Angular (DWCC), consulta a [guía de uso](docs/guia-angular-alumnado.md) e o [procedemento para comparar o rendemento en WSL2 e VirtualBox](docs/rendemento-angular-wsl2-virtualbox.md).
+Para Angular (DWCC), consulta a guía de uso ([Markdown](docs/guia-angular-alumnado.md) ·
+[PDF](docs/guia-angular-alumnado.pdf)) e o [procedemento para comparar o rendemento en WSL2 e VirtualBox](docs/rendemento-angular-wsl2-virtualbox.md).
 
 ## Posta en marcha
 
@@ -215,6 +216,7 @@ terminal para cargar os nomes actualizados.
 | `daw-start` | Arranca só o backend (`backend-c`), sen iniciar a base de datos nin phpMyAdmin. |
 | `daw-start-all` | Arranca `backend`, `db` e `db-admin`, como `docker compose up -d`. |
 | `daw-start-db` | Arranca a base de datos e o backend. |
+| `daw-start-frontend` | Arranca Angular e prepara a conexión `dwcc-angular` para VS Code. |
 | `daw-start-doc` | Arranca a documentación sen conexión do proxecto [daw-doc](https://github.com/miguelfm/daw-doc): manual de PHP en <http://localhost:8080/>, a referencia de HTML, HTTP e CSS de MDN en <http://localhost:5042/> e Laravel en <http://localhost:8088/>. |
 | `daw-stop` | Para os contedores da contorna con `stop`, conservando os contedores e os datos. |
 | `daw-stop-all` | Para todos os contedores: desenvolvemento, documentación sen conexión e Angular. |
@@ -222,9 +224,9 @@ terminal para cargar os nomes actualizados.
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos dos contedores existentes da contorna, incluídos os parados. |
 | `daw-logs` | Mostra as últimas 100 liñas de logs por servizo e segue as novas; `Ctrl+C` sae da consulta. |
 | `daw-shell` | Abre Bash no backend como `ad`. `daw-web-shell` segue funcionando como alias. |
-| `daw-wsl-shell` | Desde Windows, abre Debian no cartafol do proxecto. En Linux ou macOS xa estás no sistema anfitrión ao abrir o terminal. |
+| `daw-wsl-shell` | Desde Windows, abre `linux` no cartafol persoal na aula ou Debian no cartafol do proxecto nunha instalación manual. |
 | `daw-web-root` | Amosa a ruta nativa en Linux e macOS. En Windows con WSL amosa a ruta do Explorador seguida da de Debian. |
-| `daw-code` | Abre o proxecto en VS Code con soporte e integración completa para Dev Containers. |
+| `daw-code` | Abre VS Code. Na aula abre `~/html` en WSL. O lanzador de Windows acepta `-Container` para abrir directamente o Dev Container. |
 | `daw-help` | Mostra os comandos dispoñibles. |
 
 `daw-start` usa [`--no-deps`](https://docs.docker.com/reference/cli/docker/compose/up/) porque `backend` ten
@@ -396,6 +398,9 @@ na distribución `linux` da aula, a conta `ad` está bloqueada e non ten `sudo`.
 4. Recarga a páxina no navegador: a execución detense no punto de interrupción.
 
 Xdebug intenta conectar en **todas** as peticións (`start_with_request=yes`). Se VS Code non está escoitando non pasa nada: a páxina carga normal e sen avisos.
+
+Na aula, a configuración de PHP require `XDEBUG_TRIGGER`. Para a depuración en `~/html`,
+segue os [pasos da guía da aula](docs/guia-inicio-alumnado.md#traballar-con-visual-studio-code).
 
 O modo cámbiase no `.env` sen reconstruír (despois executa `docker compose up -d`):
 

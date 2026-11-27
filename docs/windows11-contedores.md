@@ -11,6 +11,8 @@ en calquera cartafol, cos comandos `daw-*`. Os comandos e a súa axuda están en
 - Unha copia do repositorio en Windows ou dentro de Debian.
 
 Para preparar o equipo, consulta a [guía de instalación](wsl2-alumnado.md).
+Se usas o paquete da aula, a activación xa instala os lanzadores para a
+distribución `linux`. Consulta a [guía rápida da aula](guia-inicio-alumnado.md).
 
 ## Instalar os comandos no PATH do usuario
 
@@ -159,12 +161,16 @@ Abrir un cartafol desde o Explorador non altera a montaxe que usa Docker.
 | `daw-start` | Arranca só `backend-c`, sen arrancar dependencias; agarda ata que estea preparado. |
 | `daw-start-db` | Arranca MariaDB e o backend xuntos; agarda ata que estean preparados. |
 | `daw-start-all` | Arranca o backend, MariaDB e phpMyAdmin; agarda ata que estean preparados. |
+| `daw-start-frontend` | Arranca Angular e prepara a conexión `dwcc-angular` para VS Code. |
+| `daw-start-doc` / `daw-stop-doc` | Arranca ou para os manuais de PHP, MDN e Laravel. |
 | `daw-stop` | Para os contedores DAW Dev. Conserva contedores e datos. |
 | `daw-status` | Mostra unha táboa compacta co nome, estado e portos, tamén dos contedores parados. |
 | `daw-web-root [-Open]` | Amosa as rutas de Windows e Debian. Con `-Open` tamén abre o cartafol no Explorador. |
-| `daw-code [-Local]` | Abre o proxecto en VS Code. Para unha copia en Debian, conecta coa extensión WSL. Con `-Local` abre o editor en Windows. |
+| `daw-code` | Abre VS Code. Para unha copia en WSL, conecta coa súa extensión. Na aula abre `~/html`. |
+| `daw-code -Container` | Abre directamente o Dev Container do backend. |
+| `daw-code -Local` | Abre o editor en Windows. |
 | `daw-shell` | Abre Bash no backend (Apache e PHP) como `ad`. `daw-web-shell` segue funcionando como alias. |
-| `daw-wsl-shell` | Abre Debian no cartafol do proxecto, tamén con Docker parado. |
+| `daw-wsl-shell` | Abre WSL no cartafol persoal na aula ou no cartafol do proxecto nunha instalación manual. Funciona con Docker parado. |
 | `daw-logs` | Mostra as últimas 100 liñas por servizo e segue os novos logs. `Ctrl+C` sae da consulta. |
 | `daw-help` | Mostra a axuda. |
 
@@ -242,7 +248,8 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
      "dev.containers.executeInWSL": true,
      "dev.containers.executeInWSLDistro": "Debian"
      ```
-     *(No modelo de aula e no proxecto, o valor predeterminado é `"Debian"`).*
+   No repositorio o valor predeterminado é `"Debian"`. Na aula, a configuración
+   de `~/html` apunta á distribución `"linux"`.
    - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/daw-php:8.6`) ou descargala de GHCR.
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
@@ -283,7 +290,8 @@ Cos portos por defecto:
 | MariaDB desde Windows | `localhost:3306` |
 | Portainer CE, se está instalado | <https://localhost:9443> |
 
-O código PHP está en `www/`; os cambios vense ao recargar o navegador.
+O código PHP está en `www/` nunha instalación manual por defecto e en `~/html`
+na aula. Os cambios vense ao recargar o navegador.
 Ao abrir <http://localhost> ou un subdirectorio, móstrase a listaxe de ficheiros,
 mesmo se existe `index.php` ou `index.html`. Para executar a páxina de comprobación,
 abre <http://localhost/index.php>. Para outros exercicios ou demostracións (por exemplo

@@ -1,7 +1,8 @@
 # Contorna DAW Dev en Windows 11 con WSL2 (alumnado)
 
-Con esta guía instalas a contorna de PHP do módulo no teu usuario de Windows. **Non necesitas permisos de
-administrador**: o profesorado xa preparou o equipo ([wsl2-administracion.md](wsl2-administracion.md)).
+Esta guía serve para preparar DAW Dev nunha conta de Windows con WSL2. Se o profesorado xa
+despregou DAW Dev no equipo, só tes que activalo na túa conta. Nun equipo persoal, habilitar
+WSL por primeira vez require permisos de administración.
 
 A contorna funciona dentro de **Debian**, un Linux que corre integrado en Windows grazas a WSL2. O navegador
 e VS Code seguen sendo os de Windows.
@@ -17,7 +18,7 @@ daw-help
 daw-start       # Só PHP e Apache; tamén funciona daw-star
 daw-start-all   # Inclúe MariaDB e phpMyAdmin
 daw-stop        # Conserva os teus ficheiros e a BD
-daw-code        # Abre o proxecto en VS Code con soporte Dev Containers
+daw-code        # Abre ~/html en VS Code conectado a WSL
 daw-web-root -Open   # Abre a raíz web no Explorador de ficheiros
 daw-wsl-shell   # Abre a distribución linux no teu cartafol persoal (html, data e angular)
 daw-shell   # Abre o contedor de Apache e PHP
@@ -36,9 +37,10 @@ Para entrar no teu cartafol persoal directamente en WSL:
 wsl -d linux --cd /home/ad
 ```
 
-Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
-Co modelo xa tes a distribución e Docker preparados: a instalación manual que segue, con Debian, é para
-outros equipos.
+Para a primeira comprobación, os portos dos servizos e a depuración con Xdebug, consulta
+a guía rápida da aula ([Markdown](guia-inicio-alumnado.md) · [PDF](guia-inicio-alumnado.pdf)).
+Co modelo xa tes a distribución e Docker preparados. A instalación manual que segue é
+para equipos sen o paquete da aula.
 
 ## 1. Instalación (só a primeira vez)
 
@@ -118,11 +120,19 @@ Ten que aparecer `Hello from Docker!`.
 
 ```bash
 cd ~/daw
-cp .env.example .env
-docker compose up -d
+test -f .env || cp .env.example .env
 ```
 
-A primeira vez descarga as imaxes e tarda uns minutos. Despois abre no navegador de Windows:
+Para limitar os servizos ao equipo local, pon estes valores no `.env` antes de arrancar:
+
+```dotenv
+WEB_PORT=127.0.0.1:80
+PMA_PORT=127.0.0.1:8081
+DB_PORT=127.0.0.1:3306
+```
+
+Executa `docker compose up -d` en Debian. A primeira vez descarga as imaxes e tarda
+uns minutos. Despois abre no navegador de Windows:
 
 - <http://localhost>: listaxe de ficheiros e subdirectorios.
 - <http://localhost/index.php>: páxina de comprobación. Debe saír todo en verde.
@@ -135,16 +145,6 @@ Para comprobar todo (servidor, base de datos, Composer, permisos e Xdebug):
 ```
 
 Ao final ten que poñer `OK todo correcto`.
-
-Para limitar os servizos ao equipo local, antes do primeiro arranque pon estes valores no `.env`:
-
-```dotenv
-WEB_PORT=127.0.0.1:80
-PMA_PORT=127.0.0.1:8081
-DB_PORT=127.0.0.1:3306
-```
-
-Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os datos da BD consérvanse.
 
 ### 1.5. VS Code
 
@@ -224,8 +224,10 @@ Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 2. Pon un punto de interrupción nun `.php` de `www/`.
 3. Pulsa **F5** («Escoitar Xdebug») e recarga a páxina no navegador.
 
-Se abres o cartafol desde Windows (por exemplo pola ruta `\\wsl$\...`) sen a extensión WSL, os puntos de
-interrupción **non paran**: Xdebug só chega a VS Code cando este está conectado a Debian.
+Estes pasos son para a instalación manual en Debian. Tamén podes usar
+[VS Code dentro do contedor](windows11-contedores.md#integración-con-vs-code-en-windows-11).
+Na aula, abre o Dev Container con `daw-code -Container` e engade
+`?XDEBUG_TRIGGER=1` ao enderezo da páxina que queres depurar.
 
 ### Ver os ficheiros desde Windows
 
