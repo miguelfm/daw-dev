@@ -173,6 +173,10 @@ switch ($Action.ToLowerInvariant()) {
         if ($useWslRemote) { Initialize-DawCodeCache $codeExe -ForContainer:$Container }
         if ($Container) {
             $devContainer = Get-DawDevContainerCommand $codeExe $codeCmd
+            # Tamén o fai initializeCommand, pero desde Windows pode non chegar a WSL: retira o
+            # contedor web que non teña a definición actual do Dev Container, que o reutilizaría.
+            & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh prepare-devcontainer
+            if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the web container before opening the Dev Container.' }
             & $devContainer open $targetPath --disable-telemetry
             exit $LASTEXITCODE
         }
@@ -261,14 +265,11 @@ if ($Action.ToLowerInvariant().StartsWith('start')) {
     & wsl.exe @wslArgs --cd $ProjectPath --exec bash scripts/daw.sh migrar-env
     if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not check the MariaDB password in .env.' }
 }
-if ($Action -in 'start-db', 'start-all') {
-    $runningWeb = & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose ps --status running --quiet web
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    if ($runningWeb) {
-        # Preserve the running web container, including VS Code's Dev Container configuration.
-        $composeArgs = $startArgs + @('db')
-        if ($Action -eq 'start-all') { $composeArgs += 'phpmyadmin' }
-    }
+$composeCommand = @('docker', 'compose') + $composeArgs
+if ($Action -in 'start', 'start-db', 'start-all') {
+    # scripts/daw.sh decide como arrancar web: non recrea un Dev Container aberto e recrea o que
+    # siga cun ficheiro montado que se substituíu. A mesma lóxica en Linux e en Windows.
+    $composeCommand = @('bash', 'scripts/daw.sh', $Action.ToLowerInvariant())
 }
 if ($Action.ToLowerInvariant() -eq 'start-angular') {
     # A chave pública vai ao proxecto (docker/angular/ssh-key.pub); os proxectos, a angular/.
@@ -304,7 +305,7 @@ if ($Action.ToLowerInvariant() -eq 'start-doc') {
         }
     }
 }
-& wsl.exe @wslArgs --cd $ProjectPath --exec docker compose @composeArgs
+& wsl.exe @wslArgs --cd $ProjectPath --exec @composeCommand
 $composeExitCode = $LASTEXITCODE
 if ($composeExitCode -eq 0 -and $Action.ToLowerInvariant() -eq 'start-angular') {
     Write-Output 'Angular is running. In VS Code: F1 > Remote-SSH: Connect to Host... > dwcc-angular,'

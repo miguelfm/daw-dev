@@ -5,8 +5,9 @@ Copia na distribución DAW Dev da conta os ficheiros do proxecto preparados polo
 .DESCRIPTION
 Comproba os SHA256 do paquete e o marcador do modelo antes de cambiar nada. Non toca www,
 non borra ficheiros, non substitúe os de data e garda unha copia dos que substitúe.
-Sen Restart, os cambios aplícanse no seguinte daw-start. Con Restart recrea o
-contedor web se está en marcha, o que pecha unha sesión aberta de Dev Containers.
+Sen Restart, os cambios aplícanse no seguinte daw-start ou ao abrir de novo o Dev Container.
+Con Restart recrea o contedor web se está en marcha, aínda que só cambiase un ficheiro montado,
+o que pecha unha sesión aberta de Dev Containers.
 RestartIfChanged (a activación, que lanza o propio alumno) recréao só se a copia cambiou os
 ficheiros que o definen: Dev Containers reutiliza un contedor en marcha sen pasar por Compose,
 e cun compose.override.yaml anterior quedaría sen o post_start de ~/.vscode-server.

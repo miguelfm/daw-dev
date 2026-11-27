@@ -1213,7 +1213,9 @@ function Restart-DawProjectWeb {
     Invoke-DawNative 'wsl.exe' ($base+@('bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'))|Out-Null
     $running=@(Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','ps','--status','running','--services'))|ForEach-Object {$_.Trim()})
     if('web' -notin $running){return $false}
-    Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','up','-d','--no-deps','--wait','--wait-timeout','300','web'))|Out-Null
+    # Forzado: se só cambiou un ficheiro montado (docker/*), Compose non ve cambios e o contedor
+    # seguiría co ficheiro substituído, porque Docker o montou polo seu inodo.
+    Invoke-DawNative 'wsl.exe' ($base+@('docker','compose','up','-d','--no-deps','--force-recreate','--wait','--wait-timeout','300','web'))|Out-Null
     return $true
 }
 

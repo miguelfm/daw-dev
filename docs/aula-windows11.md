@@ -292,8 +292,11 @@ os ficheiros como `ad`. O resultado de cada posto leva en `Data` a revisión e a
 - Necesita unha única sesión de alumno no posto. Sen sesión, ou se a conta aínda non ten
   a distribución `linux`, o posto devolve `Success=False` co motivo; repetir só eses postos con `-Number`.
 - O módulo vai na propia copia, polo que non depende dos scripts que deixou `CopyPackage`.
-- Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start`. `-Restart` recrea
-  o contedor web se está en marcha; pecha unha sesión aberta de Dev Containers e as sesións de PHP.
+- Por defecto non reinicia nada: os cambios aplícanse no seguinte `daw-start` ou ao abrir de novo
+  o Dev Container. `-Restart` recrea o contedor web se está en marcha, aínda que só cambiase un
+  ficheiro montado como `docker/classroom/zz-classroom.ini`; pecha unha sesión aberta de Dev
+  Containers e as sesións de PHP. A activación fai o mesmo se a copia cambiou `compose*.yaml`,
+  `docker/` ou `.devcontainer/`.
 - Repetila coa mesma revisión non cambia nada. Unha conta que active DAW Dev despois recibe
   os ficheiros da copia que deixou `CopyPackage`; os dun `UpdateProject` posterior, ao repetilo.
 
@@ -473,6 +476,24 @@ o servidor (`mkdir: cannot create directory '/home/ad/.vscode-server/bin': Permi
 Por iso `compose.override.yaml` ten un paso `post_start` que deixa ese directorio a nome de
 `ad` cada vez que arranca o contedor. Compose remátao antes de que `daw-start` ou Dev Containers
 usen o contedor, sexa cal sexa a imaxe.
+
+#### `daw-start` e o Dev Container no mesmo contedor
+
+Dev Containers busca o contedor `web` do proxecto polas etiquetas de Compose e úsao tal como
+estea: se está en marcha non pasa por Compose, e se está parado arráncao sen recrealo. En
+A31EQ28, `daw-code -Container` abriu así un contedor creado antes, sen o `post_start`. Ao
+revés, `daw-start` recrearía o contedor dun Dev Container aberto e pecharía a xanela de VS Code.
+
+- Antes de abrir o Dev Container, `scripts/daw.sh prepare-devcontainer` retira `daw-web` se o
+  creou `daw-start` ou se é anterior aos ficheiros que o definen ou á imaxe web. Lánzao
+  `daw-code -Container` en WSL e tamén o `initializeCommand` de `.devcontainer/devcontainer.json`,
+  así que vale igual para **Reopen in Container**.
+- `daw-start`, `daw-start-db` e `daw-start-all` non tocan un Dev Container en marcha: arrancan só
+  MariaDB e phpMyAdmin. Recrean `daw-web` se segue cun ficheiro montado que se substituíu.
+- `daw.ps1` delega estes tres arranques en `scripts/daw.sh`, a mesma lóxica que en Linux.
+
+`tests/devcontainer.py` próbao con Docker e a CLI de Dev Containers reais, nunha copia do
+proxecto con nomes e portos propios.
 
 ### Contrasinais
 

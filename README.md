@@ -397,7 +397,29 @@ VS Code execútase dentro do contedor `web` co usuario `ad`, e tes PHP, Composer
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
 A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6-ad` de GHCR.
 
-Se xa existía un contedor creado só con `docker compose up -d`, usa **F1 → Dev Containers: Rebuild Container** para aplicar tamén as montaxes de `.devcontainer/compose.devcontainer.yaml`. Reabrir a xanela pode reutilizar o contedor anterior sen `/workspace` nin os axustes de Xdebug. A reconstrución conserva os ficheiros montados e o volume da base de datos. Se aparece `unable to find user ad`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
+### Alternar entre `daw-start` e o Dev Container
+
+O contedor `daw-web` ten dúas definicións. A de `daw-start` serve o web e deixa que Xdebug
+conecte co VS Code do anfitrión. A do Dev Container engade `/workspace`, Xdebug cara a `localhost`
+e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `web` que xa
+exista, e Compose recrea o dun Dev Container. Sen máis, abrirías o contedor de `daw-start`, sen
+`/workspace`, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
+
+| Situación | Que pasa |
+|---|---|
+| Abres o Dev Container e `daw-web` é de `daw-start` | Retírase e Dev Containers créao coa súa definición |
+| Abres o Dev Container e o seu contedor é anterior a un cambio do proxecto (`compose*.yaml`, `.env`, `.devcontainer/`) ou da imaxe web | Retírase e créase de novo |
+| `daw-start`, `daw-start-db` ou `daw-start-all` co Dev Container aberto | O contedor web non se toca; arrancan só a base de datos e phpMyAdmin |
+| `daw-start` despois de pechar a xanela do Dev Container | Recrea `daw-web` coa definición de `daw-start` |
+| `daw-start` con `daw-web` en marcha e un ficheiro montado substituído (por exemplo `docker/apache/daw-dev.conf` tras un `git pull`) | Recrea `daw-web`: Docker monta o ficheiro polo seu inodo e seguiría co anterior |
+
+Ao abrir o Dev Container, a comprobación faina o `initializeCommand` de
+`.devcontainer/devcontainer.json` con `scripts/daw.sh prepare-devcontainer`, que precisa Bash,
+Python 3 e Docker. Se falta algún, avisa e Dev Containers abre igual o contedor que atope.
+Retirar o contedor conserva `www/`, o volume da base de datos e os demais volumes. Pérdese só
+o que gardases dentro do contedor fóra de `www/` e `/workspace`.
+
+**F1 → Dev Containers: Rebuild Container** segue dispoñible para forzar un contedor novo. Se aparece `unable to find user ad`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
 
 - **En Linux (Arch Linux, Debian, Ubuntu...):**
   - Funciona de forma 100% nativa comunicándose co socket `/var/run/docker.sock`, con montaxes nativas de disco e sen sobrecarga de virtualización.

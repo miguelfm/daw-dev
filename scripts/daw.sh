@@ -36,6 +36,93 @@ migrar_env() {
     echo "O contrasinal de MariaDB do .env é agora abc123.. (copia do anterior en $copia)."
 }
 
+# O contedor web ten dúas definicións: a de Compose (daw-start) e a de Dev Containers, que
+# engade /workspace, Xdebug cara a localhost e a súa propia entrada. Dev Containers reutiliza
+# sen recrealo calquera contedor web que xa exista, e Compose recrea o de Dev Containers.
+# web_state escribe «id modo estado motivo»: modo compose ou devcontainer, estado running ou
+# stopped, e motivo «-» ou por que o contedor xa non corresponde aos ficheiros do proxecto.
+# Sen contedor escribe «- none - -».
+web_state() {
+    python3 - "$PROJECT_DIR" "${COMPOSE_ARGS[@]}" <<'PY'
+import json, os, subprocess, sys
+
+project, compose = sys.argv[1], ("compose", "--project-directory", sys.argv[1], *sys.argv[2:])
+
+def docker(*args):
+    return subprocess.run(("docker", *args), check=True, stdout=subprocess.PIPE, encoding="utf-8").stdout
+
+def nanoseconds(stamp):
+    # Docker usa RFC 3339 en UTC con ata nove decimais, que datetime non le enteiro.
+    from datetime import datetime, timezone
+    stamp = stamp.rstrip("Z")
+    whole, _, fraction = stamp.partition(".")
+    seconds = datetime.fromisoformat(whole).replace(tzinfo=timezone.utc).timestamp()
+    return int(seconds) * 10**9 + int((fraction + "000000000")[:9])
+
+ids = [i for i in docker(*compose, "ps", "--all", "--quiet", "web").split() if i]
+if not ids:
+    print("- none - -")
+    sys.exit()
+container = json.loads(docker("inspect", "--type", "container", ids[0]))[0]
+labels = container["Config"].get("Labels") or {}
+mode = "devcontainer" if labels.get("devcontainer.local_folder") else "compose"
+running = container["State"]["Running"]
+reason = None
+if mode == "devcontainer":
+    # Compose comproba os seus cambios ao arrancar; Dev Containers, non.
+    created = nanoseconds(container["Created"])
+    for name in ("compose.yaml", "compose.override.yaml", ".env",
+                 ".devcontainer/devcontainer.json", ".devcontainer/compose.devcontainer.yaml"):
+        path = os.path.join(project, name)
+        if os.path.isfile(path) and os.stat(path).st_mtime_ns > created:
+            reason = f"cambiou {name}"
+            break
+    if not reason:
+        # Dev Containers constrúe a súa imaxe sobre a do proxecto: debe conter as súas capas.
+        image = json.loads(docker(*compose, "config", "--format", "json"))["services"]["web"].get("image")
+        if image:
+            try:
+                base = json.loads(docker("image", "inspect", image))[0]["RootFS"]["Layers"]
+            except subprocess.CalledProcessError:
+                base = None
+            used = json.loads(docker("image", "inspect", container["Image"]))[0]["RootFS"]["Layers"]
+            if base and used[:len(base)] != base:
+                reason = f"hai unha imaxe nova {image}"
+if running and not reason:
+    # Docker monta un ficheiro polo seu inodo: se git ou a copia da aula o substitúen, o
+    # contedor en marcha segue co anterior ata que se volve arrancar.
+    started = nanoseconds(container["State"]["StartedAt"])
+    for mount in container.get("Mounts") or []:
+        source = mount.get("Source", "")
+        if mount.get("Type") == "bind" and os.path.isfile(source) and os.stat(source).st_mtime_ns > started:
+            reason = f"cambiou {os.path.relpath(source, project) if source.startswith(project + os.sep) else source}"
+            break
+print(container["Id"][:12], mode, "running" if running else "stopped", reason or "-")
+PY
+}
+
+read_web_state() {
+    WEB_ID=- WEB_MODE=unknown WEB_STATUS=unknown WEB_STALE=-
+    command -v python3 >/dev/null || return 1
+    local state
+    state=$(web_state) || return 1
+    read -r WEB_ID WEB_MODE WEB_STATUS WEB_STALE <<< "$state"
+}
+
+# Compose recrearía o contedor dun Dev Container aberto e pecharía a sesión de VS Code.
+web_in_devcontainer() {
+    [[ $WEB_MODE == devcontainer && $WEB_STATUS == running ]]
+}
+
+wait_docker() {
+    local i
+    for ((i = 0; i < 30; i++)); do
+        docker info >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    return 1
+}
+
 show_help() {
     cat << 'EOF'
 Uso: daw-start | daw-start-all | daw-start-db | daw-start-angular | daw-start-doc
@@ -100,20 +187,51 @@ case "$ACTION" in
 esac
 
 case "$ACTION" in
-    start)
-        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps web "$@"
-        ;;
-    start-db|start-all)
-        running_web=$(docker compose "${COMPOSE_ARGS[@]}" ps --status running --quiet web)
-        services=()
-        if [[ -n $running_web ]]; then
-            # Keep a running Dev Container attached while starting the database services.
-            services=(db)
-            if [[ $ACTION == start-all ]]; then services+=(phpmyadmin); fi
-        elif [[ $ACTION == start-db ]]; then
-            services=(db web)
+    start|start-db|start-all)
+        if ! read_web_state; then
+            echo 'Aviso: non se puido comprobar o contedor web (precisa Python 3); arráncase con Compose.' >&2
         fi
-        docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "${services[@]}" "$@"
+        if web_in_devcontainer; then
+            # Apache segue servindo no Dev Container; Compose recrearíao e pecharía VS Code.
+            echo 'daw-web está aberto en Dev Containers: segue en marcha así. Para usar a definición de daw-start, pecha antes a xanela de VS Code do contedor.'
+        elif [[ $WEB_STATUS == running && $WEB_STALE != - ]]; then
+            echo "Recréase daw-web: $WEB_STALE."
+            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 --no-deps --force-recreate web
+        fi
+        services=()
+        case $ACTION in
+            start) web_in_devcontainer || services=(--no-deps web) ;;
+            start-db) if web_in_devcontainer; then services=(db); else services=(db web); fi ;;
+            start-all) if web_in_devcontainer; then services=(db phpmyadmin); fi ;;
+        esac
+        if ((${#services[@]})); then
+            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "${services[@]}" "$@"
+        elif [[ $ACTION == start-all ]]; then
+            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --wait-timeout 300 "$@"
+        fi
+        ;;
+    prepare-devcontainer)
+        # initializeCommand de .devcontainer/devcontainer.json e daw-code -Container: Dev Containers
+        # usa o contedor web que atope, así que se retira o que non teña a súa definición actual.
+        # www, a base de datos e os volumes non están no contedor: non se perde traballo.
+        if ! wait_docker; then
+            echo 'Aviso: Docker non responde; Dev Containers usará o contedor web que atope.' >&2
+            exit 0
+        fi
+        if ! read_web_state; then
+            echo 'Aviso: non se puido comprobar o contedor web (precisa Python 3).' >&2
+            exit 0
+        fi
+        reason=
+        if [[ $WEB_MODE == compose ]]; then
+            reason='creouno daw-start, sen /workspace nin a configuración do Dev Container'
+        elif [[ $WEB_MODE == devcontainer && $WEB_STALE != - ]]; then
+            reason=$WEB_STALE
+        fi
+        if [[ -n $reason ]]; then
+            echo "Retírase daw-web para que Dev Containers o cree de novo: $reason."
+            docker rm -f "$WEB_ID" >/dev/null
+        fi
         ;;
     migrar-env)
         # Para daw.ps1, que arranca os contedores desde Windows

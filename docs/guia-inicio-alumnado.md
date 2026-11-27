@@ -147,7 +147,12 @@ Se xa tes o proxecto aberto en WSL, podes premer `F1` e escoller
 Ao abrir ou reconstruír o Dev Container arranca o servidor web. Cando
 precises MariaDB, executa `daw-start-db` desde PowerShell. Para usar tamén
 phpMyAdmin, executa `daw-start-all`. Podes facelo coa xanela de VS Code
-aberta no contedor.
+aberta no contedor: o servidor web segue como está e non se pecha a xanela.
+
+Se antes usaches `daw-start`, ao abrir o Dev Container verás que se retira
+`daw-web` e se crea de novo. É normal: o Dev Container precisa a súa propia
+configuración. Os teus ficheiros de `www` e as bases de datos consérvanse.
+Ao pechar a xanela do contedor, o seguinte `daw-start` faino ao revés.
 
 Xdebug só depura as peticións que o piden:
 

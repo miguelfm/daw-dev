@@ -248,6 +248,10 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
    - O espazo de traballo abrirase en `/workspace` dentro do contedor.
+   - Se `daw-web` o creara antes `daw-start`, retírase e créase de novo coa configuración do
+     Dev Container. Co Dev Container aberto, `daw-start-db` e `daw-start-all` arrancan só a base de
+     datos e phpMyAdmin, sen pechar VS Code. Consulta
+     [alternar entre `daw-start` e o Dev Container](../README.md#alternar-entre-daw-start-e-o-dev-container).
    - Cando abras un novo terminal (`Ctrl+` `), estarás directamente na liña de ordes de Linux como usuario `ad`, con PHP 8.6, Composer, Git e o cliente de MariaDB dispoñibles.
 
 ### Opción B: VS Code en Windows con terminal integrado no contedor
