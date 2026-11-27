@@ -67,12 +67,12 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
     files = run('git', '-C', str(repo), 'ls-files', '-z').split('\0')
     for rel in filter(None, files):
         source = repo / rel
-        if source.is_file() and not rel.startswith('www/'):
+        # www/ only with the repository's index.php and info.php, which check.sh uses.
+        if source.is_file():
             target = project / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
     (project / 'www').mkdir(exist_ok=True)
-    (project / 'www/index.php').write_text('<?php echo "ok";\n')
     # The classroom layout: devcontainer.json also names compose.override.yaml, here the test's.
     shutil.copy(repo / 'windows/classroom/overlay/.devcontainer/devcontainer.json', project / '.devcontainer/devcontainer.json')
     (project / 'compose.override.yaml').write_text(OVERRIDE)
@@ -110,6 +110,16 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         out = daw(project, 'start-all')
         pma = run('docker', 'inspect', '-f', '{{.State.Running}}', 'daw-test-db-admin-c').strip()
         check('daw-start-all keeps the Dev Container', web(project)['id'] == opened and pma == 'true', out)
+
+        # check.sh starts Compose itself: on 27-11-2026 it recreated an open Dev Container and
+        # VS Code stayed in «Cannot reconnect». Xdebug connects inside the container there.
+        out = run('bash', 'scripts/check.sh', cwd=project, check=False)
+        check('check.sh keeps an open Dev Container and checks Xdebug inside it',
+              web(project)['id'] == opened and 'aberto en Dev Containers' in out
+              and 'Xdebug conecta' in out and 'todo correcto' in out, out)
+        out = daw(project, 'stop')
+        check('daw-stop warns that VS Code loses the Dev Container',
+              'perderá a conexión' in out and not web(project)['running'], out)
 
         up(project)
         check('Dev Containers reuses its own current container', web(project)['id'] == opened)

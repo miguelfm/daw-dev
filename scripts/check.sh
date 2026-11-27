@@ -36,8 +36,18 @@ docker compose version
 seccion "Arranque"
 # Os contedores dos servizos anteriores ao 27-11-2026 ocuparían os portos.
 bash scripts/daw.sh remove-old-services
+# Un Dev Container aberto compróbase tal como está: Compose recrearía backend-c coa
+# definición de daw-start e VS Code quedaría en «Cannot reconnect».
+SERVIZOS=()
+DEVCONTAINER=
+id=$(docker compose ps -q --status running backend 2>/dev/null)
+if [[ -n $id && -n $(docker inspect -f '{{index .Config.Labels "devcontainer.local_folder"}}' "$id" 2>/dev/null) ]]; then
+    DEVCONTAINER=1 SERVIZOS=(db db-admin)
+    aviso "backend-c está aberto en Dev Containers: compróbase sen recrealo${BUILD[*]:+, e sen --build}"
+    BUILD=()
+fi
 inicio=$SECONDS
-if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 > /tmp/daw-dev-comprobar.log 2>&1; then
+if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 "${SERVIZOS[@]}" > /tmp/daw-dev-comprobar.log 2>&1; then
     ok "docker compose up${BUILD[*]:+ ${BUILD[*]}} en $((SECONDS - inicio)) s"
 else
     fallo "docker compose up: últimas liñas do log:"; tail -20 /tmp/daw-dev-comprobar.log
@@ -100,13 +110,19 @@ sed -i 's/v1/v2/' "$WWW/$PROBA.php"
 if [ "$(curl -s "$WEB/$PROBA.php")" = v2 ]; then ok "os cambios vense ao momento (OPcache)"; else fallo "os cambios non se ven ao recargar"; fi
 
 seccion "Xdebug"
-# Simula VS Code escoitando no porto 9003 deste equipo (en WSL2: dentro de Debian)
+# Simula VS Code escoitando no porto 9003 deste equipo (en WSL2: dentro de Debian) ou, nun
+# Dev Container, dentro do contedor, onde Xdebug conecta (client_host=localhost)
 escoita=$(mktemp)
-docker run --rm --network host --entrypoint php "$IMAXE" -n -r '
+ESCOITA='
     $s = @stream_socket_server("tcp://0.0.0.0:9003");
     if (!$s) { echo "OCUPADO"; exit; }
     $c = @stream_socket_accept($s, 15);
-    echo $c ? fread($c, 4096) : "SEN_CONEXION";' > "$escoita" 2>&1 &
+    echo $c ? fread($c, 4096) : "SEN_CONEXION";'
+if [[ -n $DEVCONTAINER ]]; then
+    docker compose exec -T backend php -n -r "$ESCOITA" > "$escoita" 2>&1 &
+else
+    docker run --rm --network host --entrypoint php "$IMAXE" -n -r "$ESCOITA" > "$escoita" 2>&1 &
+fi
 sleep 3
 curl -s -m 10 -o /dev/null "$WEB/info.php"
 wait

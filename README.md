@@ -431,6 +431,8 @@ o proxecto en `~/daw`, ou `daw-start` pecharía a xanela de VS Code. Os scripts 
 | Abres o Dev Container e `backend-c` é de `daw-start` | Retírase e Dev Containers créao coa súa definición |
 | Abres o Dev Container e o seu contedor é anterior a un cambio do proxecto (`compose*.yaml`, `.env`, `.devcontainer/`) ou da imaxe web | Retírase e créase de novo |
 | `daw-start`, `daw-start-db` ou `daw-start-all` co Dev Container aberto | O backend non se toca; arrancan só a base de datos e phpMyAdmin |
+| `scripts/check.sh` co Dev Container aberto | Compróbao sen recrealo, e Xdebug dentro do contedor, onde escoita o VS Code do contedor |
+| `daw-stop` ou `daw-stop-all` co Dev Container aberto | Paran tamén `backend-c`, e avisan: VS Code amosa «Cannot reconnect. Please reload the window.» ata que se reabre con **Reopen in Container** |
 | `daw-start` despois de pechar a xanela do Dev Container | Recrea `backend-c` coa definición de `daw-start` |
 | `daw-start` con `backend-c` en marcha e un ficheiro montado substituído (por exemplo `docker/apache/daw-dev.conf` tras un `git pull`) | Recrea `backend-c`: Docker monta o ficheiro polo seu inodo e seguiría co anterior |
 

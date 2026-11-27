@@ -172,6 +172,10 @@ Para depurar, abre VS Code dentro do contedor.
 - **`http://localhost/` non responde.** Mira `daw-status`: se `backend-c`
   non está `Up`, executa `daw-start`.
 - **phpMyAdmin non abre ou non conecta.** Arranca con `daw-start-all`.
+- **VS Code repite «Cannot reconnect. Please reload the window.».** O
+  contedor do Dev Container parouse, por exemplo cun `daw-stop`. Preme
+  **Reload Window** e, se non conecta, `F1` → **Dev Containers: Reopen in
+  Container**: o contedor arranca de novo, cos teus ficheiros.
 - **Windows non recoñece `daw-start`.** Abre un terminal novo. Se persiste,
   escolle **DAW Dev → Activar DAW Dev** no menú Inicio.
 - **A activación remata cun erro.** Avisa ao docente. O rexistro está en

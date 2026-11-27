@@ -313,6 +313,9 @@ case "$ACTION" in
         # Para daw.ps1, que arranca os contedores desde Windows
         ;;
     stop|stop-all)
+        if read_web_state 2>/dev/null && web_in_devcontainer; then
+            echo 'backend-c está aberto en Dev Containers: a xanela de VS Code perderá a conexión («Cannot reconnect»). Ábrea de novo con Reopen in Container.'
+        fi
         docker compose "${COMPOSE_ARGS[@]}" --profile frontend --profile doc stop "$@"
         ;;
     stop-doc)
