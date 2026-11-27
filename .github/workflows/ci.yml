@@ -61,12 +61,9 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: |
-            ghcr.io/${{ github.repository }}
-            ghcr.io/${{ github.repository_owner }}/dwcs-php
-          tags: type=raw,value=${{ env.PHP_VERSION }}-ad
+          images: ghcr.io/${{ github.repository_owner }}/daw-php
           labels: |
-            org.opencontainers.image.title=daw-dev
+            org.opencontainers.image.title=daw-php
             org.opencontainers.image.description=Contorna PHP ${{ env.PHP_VERSION }} (Apache) para desenvolvemento web en DAW
 
       # Imaxe co UID/GID 1000, o habitual no primeiro usuario de Linux e de WSL
@@ -76,7 +73,12 @@ jobs:
           push: true
           build-args: |
             PHP_VERSION=${{ env.PHP_VERSION }}
-          tags: ${{ steps.meta.outputs.tags }}
+          # daw-php:8.6 é o nome actual. dwcs-php:8.6-ad e daw-dev:8.6-ad, os anteriores, para os
+          # paquetes e proxectos que aínda os nomean.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/daw-php:${{ env.PHP_VERSION }}
+            ghcr.io/${{ github.repository_owner }}/dwcs-php:${{ env.PHP_VERSION }}-ad
+            ghcr.io/${{ github.repository }}:${{ env.PHP_VERSION }}-ad
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -102,18 +104,23 @@ jobs:
         with:
           context: docker/angular
           load: true
-          tags: ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
+          # daw-angular:22 é o nome actual; dwcc-angular:22, o anterior.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/daw-angular:22
+            ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
           labels: |
-            org.opencontainers.image.title=dwcc-angular
+            org.opencontainers.image.title=daw-angular
             org.opencontainers.image.description=Node.js e Angular CLI con SSH para DWCC en DAW Dev
           cache-from: type=gha,scope=angular
           cache-to: type=gha,mode=max,scope=angular
 
       - name: Comprobar Node, Angular CLI e sshd
         run: |
-          docker run --rm --entrypoint sh ghcr.io/${{ github.repository_owner }}/dwcc-angular:22 \
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository_owner }}/daw-angular:22 \
             -c 'node --version && ng version | grep -q "Angular CLI" && test -x /usr/sbin/sshd && id node'
 
       - name: Publicar
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: docker push ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/daw-angular:22
+          docker push ghcr.io/${{ github.repository_owner }}/dwcc-angular:22
