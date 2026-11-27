@@ -18,7 +18,10 @@ if '--images' in args:
     print(os.environ['DAW_DOCKER_IMAGE'])
 loaded=pathlib.Path(os.environ['DAW_DOCKER_LOG']).with_suffix('.loaded')
 if args[:2] == ['image', 'inspect']:
-    sys.exit(0 if loaded.is_file() else 1)
+    # DAW_DOCKER_PREVIOUS: the image of a model before 27-11-2026, already in the distribution.
+    sys.exit(0 if loaded.is_file() or args[2:] == [os.environ.get('DAW_DOCKER_PREVIOUS')] else 1)
+if args[:2] == ['image', 'tag']:
+    loaded.touch()
 if args[:1] == ['run'] and fail == 'legacy-image':
     sys.exit(1)
 if args[:2] in (['image', 'load'], ['image', 'pull']):
@@ -71,10 +74,11 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
             out += [rel, digest(p), 'CreateOnly' if rel.startswith('data/') else 'Replace']
         return out
 
-    def run(root, src, project, args=None, fail='', path=None, image='', archive=('-', '-')):
+    def run(root, src, project, args=None, fail='', path=None, image='', archive=('-', '-'), previous=''):
         log = root / 'docker.log'
         log.unlink(missing_ok=True)
-        env = dict(os.environ, PATH=path or (str(bin_dir) + os.pathsep + os.environ['PATH']), DAW_DOCKER_LOG=str(log), DAW_DOCKER_FAIL=fail, DAW_DOCKER_IMAGE=image)
+        log.with_suffix('.loaded').unlink(missing_ok=True) if previous else None
+        env = dict(os.environ, PATH=path or (str(bin_dir) + os.pathsep + os.environ['PATH']), DAW_DOCKER_LOG=str(log), DAW_DOCKER_FAIL=fail, DAW_DOCKER_IMAGE=image, DAW_DOCKER_PREVIOUS=previous)
         r = subprocess.run(['bash', str(script), str(src), *archive] + (triples(src) if args is None else args), cwd=project, env=env, capture_output=True, text=True)
         calls = [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []
         return r, calls
@@ -103,12 +107,12 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
 
     root86, src86, project86 = fixture('php86-offline')
     env_file = project86 / '.env'
-    env = 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php\nWEB_PORT=127.0.0.1:80\n'
+    env = 'DAW_PHP_IMAGE=ghcr.io/miguelfm/daw-php\nWEB_PORT=127.0.0.1:80\n'
     env_file.write_text(env)
     env_file.chmod(0o600)
     archive = root86 / 'daw-dev-php86.tar.gz'
     archive.write_bytes(b'docker image archive')
-    image = 'ghcr.io/miguelfm/dwcs-php:8.6-ad'
+    image = 'ghcr.io/miguelfm/daw-php:8.6'
     before86 = snapshot(project86)
     r, calls = run(root86, src86, project86, image=image, archive=(str(archive), '0' * 64))
     assert r.returncode != 0 and 'SHA256' in r.stderr and snapshot(project86) == before86, r.stderr
@@ -121,6 +125,14 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
     r, calls = run(root86, src86, project86, image=image)
     assert r.returncode == 0 and not any(call[:2] in (['image', 'load'], ['image', 'pull']) for call in calls), calls
     count += 1; print('PASS PHP 8.6 is loaded once from the verified archive and .env is kept')
+
+    # A model before 27-11-2026 has the image as dwcs-php:8.6-ad: offline, it is renamed.
+    rootp, srcp, projectp = fixture('previous-image')
+    previous = 'ghcr.io/miguelfm/dwcs-php:8.6-ad'
+    r, calls = run(rootp, srcp, projectp, image=image, previous=previous)
+    assert r.returncode == 0 and ['image', 'tag', previous, image] in calls, (r.stderr, calls)
+    assert not any(call[:2] in (['image', 'load'], ['image', 'pull']) for call in calls), calls
+    count += 1; print('PASS the previous PHP image already in the distribution is renamed, without downloading')
 
     root, src, project = fixture('vscode-settings')
     (src / '.vscode').mkdir(exist_ok=True)
@@ -195,12 +207,12 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         for name in ('compose.yaml', '.env.example', '.devcontainer'):
             (shutil.copytree if (repo / name).is_dir() else shutil.copy)(repo / name, project / name)
         # Use a custom tag to exercise real Compose without downloading the web image.
-        (project / '.env').write_text('DAW_DEV_IMAGE=example.invalid/dwcs-php\n')
+        (project / '.env').write_text('DAW_PHP_IMAGE=example.invalid/daw-php\n')
         r, calls = run(root, overlay, project, path=os.environ['PATH'])
         assert r.returncode == 0, r.stderr
         config = subprocess.run([docker, 'compose', 'config', '--format', 'json'], cwd=project, capture_output=True, text=True, check=True)
         web = json.loads(config.stdout)['services']['backend']
-        assert web['image'] == 'example.invalid/dwcs-php:8.6-ad' and web['build']['args']['PHP_VERSION'] == '8.6', web
+        assert web['image'] == 'example.invalid/daw-php:8.6' and web['build']['args']['PHP_VERSION'] == '8.6', web
         targets = [v['target'] for v in web['volumes']]
         assert '/home/ad/data' in targets and '/var/www/html' in targets and '/home/ad/html' not in targets and '/usr/local/etc/php/conf.d/zz-classroom.ini' in targets, targets
         assert web['environment']['APACHE_RUN_USER'] == 'www-data', web['environment']

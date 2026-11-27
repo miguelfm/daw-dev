@@ -243,7 +243,7 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
      "dev.containers.executeInWSLDistro": "Debian"
      ```
      *(No modelo de aula e no proxecto, o valor predeterminado é `"Debian"`).*
-   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/dwcs-php:8.6-ad`) ou descargala de GHCR.
+   - O ficheiro [`.devcontainer/compose.devcontainer.yaml`](../.devcontainer/compose.devcontainer.yaml) usa `build: !reset null` para reutilizar a imaxe web local (`ghcr.io/miguelfm/daw-php:8.6`) ou descargala de GHCR.
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).

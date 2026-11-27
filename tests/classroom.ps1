@@ -568,13 +568,13 @@ exit 0
         $hashes=[ordered]@{};foreach($name in Get-DawSetupFiles){$hashes[$name]=(Get-FileHash (Join-Path $dest $name) -Algorithm SHA256).Hash}
         Write-DawState (Join-Path $dest 'manifest.json') @{Schema=2;Marker='daw-dev-v2';LinuxUser='ad';LinuxProjectPath='/home/ad/daw';Image='linux.tar.gz';Sha256=(Get-FileHash $image -Algorithm SHA256).Hash;ScriptSha256=[pscustomobject]$hashes}
         Assert (@(Get-DawPackageImages (Assert-DawPackage $dest)).Count -eq 0)
-        $archive=Join-Path $script:Temp 'dwcc-angular.tar.gz';[IO.File]::WriteAllText($archive,'angular bytes')
-        $entry=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
-        Assert ($entry.File -eq 'dwcc-angular.tar.gz' -and (Test-Path (Join-Path $dest 'dwcc-angular.tar.gz')))
-        $null=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/dwcc-angular:22'
+        $archive=Join-Path $script:Temp 'daw-angular.tar.gz';[IO.File]::WriteAllText($archive,'angular bytes')
+        $entry=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/daw-angular:22'
+        Assert ($entry.File -eq 'daw-angular.tar.gz' -and (Test-Path (Join-Path $dest 'daw-angular.tar.gz')))
+        $null=Add-DawPackageImage $dest $archive 'ghcr.io/miguelfm/daw-angular:22'
         $images=@(Get-DawPackageImages (Assert-DawPackage $dest))
-        Assert ($images.Count -eq 1 -and $images[0].Name -eq 'ghcr.io/miguelfm/dwcc-angular:22') 'Repeating the image must replace its entry'
-        [IO.File]::WriteAllText((Join-Path $dest 'dwcc-angular.tar.gz'),'tampered')
+        Assert ($images.Count -eq 1 -and $images[0].Name -eq 'ghcr.io/miguelfm/daw-angular:22') 'Repeating the image must replace its entry'
+        [IO.File]::WriteAllText((Join-Path $dest 'daw-angular.tar.gz'),'tampered')
         Throws {Assert-DawPackage $dest} 'imaxe Docker'
         Throws {Get-DawPackageImages ([pscustomobject]@{Images=@([pscustomobject]@{File='../x.tar';Sha256=('a'*64);Name='x'})})} 'non recoñecida'
         $t=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/manage.ps1'))
@@ -920,7 +920,7 @@ foreach(`$n in `$Number){
         $f=Get-DawStateFiles
         Assert ($f.Lock -ceq 'install.lock' -and $f.Install -ceq 'install-state.json' -and $f.InstallLog -ceq 'install.log' -and $f.Project -ceq 'project-state.json' -and $f.ProjectLog -ceq 'project.log')
         Assert ((Get-DawDistribution) -ceq 'linux' -and (Get-DawLinuxProjectPath) -ceq '/home/ad/daw')
-        Assert ((Get-DawWebImage) -ceq 'ghcr.io/miguelfm/dwcs-php:8.6-ad' -and (Get-DawModelArchive) -ceq 'linux.tar.gz')
+        Assert ((Get-DawWebImage) -ceq 'ghcr.io/miguelfm/daw-php:8.6' -and (Get-DawPreviousWebImage) -ceq 'ghcr.io/miguelfm/dwcs-php:8.6-ad' -and (Get-DawModelArchive) -ceq 'linux.tar.gz')
         Assert ((Get-DawModelMarker).Path -ceq '/etc/daw-dev-model' -and (Get-DawModelMarker).Value -ceq 'daw-dev-v2')
         $legacy=Get-DawLegacyInstall
         Assert ($legacy.PackageDirectory -ceq 'C:\ProgramData\DAW-Aula' -and $legacy.StateRelativePath -ceq 'AppData\Local\DAW-Aula' -and $legacy.Distribution -ceq 'Debian' -and $legacy.Marker -ceq 'daw-aula-v1' -and $legacy.RunValue -ceq 'DAWAula')
@@ -932,7 +932,7 @@ foreach(`$n in `$Number){
     }
     Test 'Bash scripts get the image and the model marker from the module' {
         Assert ((Get-DawProjectOverlayScript) -notmatch '__DAW_') 'Unexpanded marker'
-        Assert ((Get-DawProjectOverlayScript).Contains('web_image=ghcr.io/miguelfm/dwcs-php:8.6-ad'))
+        Assert ((Get-DawProjectOverlayScript).Contains('web_image=ghcr.io/miguelfm/daw-php:8.6') -and (Get-DawProjectOverlayScript).Contains('previous_image=ghcr.io/miguelfm/dwcs-php:8.6-ad'))
         Assert ((Get-DawProjectOverlayScript) -notmatch 'PHP_VERSION=8\.5|env_tmp') 'The PHP 8.5 migration is gone'
         $setup=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/setup-model.sh'))
         foreach($s in 'project=${DAW_PROJECT:?','web_image=${DAW_WEB_IMAGE:?','marker_file=${DAW_MODEL_MARKER_FILE:?','printf ''%s\n'' "$marker" > "$marker_file"'){Assert ($setup.Contains($s)) "Missing in setup-model.sh: $s"}
@@ -962,7 +962,7 @@ foreach(`$n in `$Number){
         Assert (-not $script.Contains("`r") -and $script.Contains('docker stop') -and $script.Contains('ln -s -- "$new" "$old"'))
     }
     Test 'deployment scripts take the names from the module' {
-        $literal='/home/ad/(daw|workspace)\b|ProgramData\\DAW-(Dev|Aula)|Local\\DAW-(Dev|Aula)|DAW-Aula-Tools|dwcs-php:8\.6-ad|install\.lock|install-state\.json|project-state\.json|daw-dev-model|daw-dev-v2|daw-aula-v1|daw-aula-modelo|linux\.tar\.gz'
+        $literal='/home/ad/(daw|workspace)\b|ProgramData\\DAW-(Dev|Aula)|Local\\DAW-(Dev|Aula)|DAW-Aula-Tools|daw-php:8\.6|dwcs-php:8\.6-ad|install\.lock|install-state\.json|project-state\.json|daw-dev-model|daw-dev-v2|daw-aula-v1|daw-aula-modelo|linux\.tar\.gz'
         # activate.ps1 non carga o módulo; o seu texto de axuda nomea o cartafol de estado.
         foreach($f in Get-ChildItem (Join-Path $script:Repo 'windows/classroom') -File -Include *.ps1,*.sh -Recurse|Where-Object {$_.Name -ne 'activate.ps1'}){
             $hits=@(Select-String -LiteralPath $f.FullName -Pattern $literal|Where-Object {$_.Line -notmatch '^\s*#'})

@@ -22,7 +22,9 @@ function Get-DawDistribution { 'linux' }
 function Get-DawLinuxProjectPath { '/home/ad/daw' }
 # Ata o 27-11-2026 o proxecto estaba en ~/workspace: a activación e UpdateProject múdano a ~/daw.
 function Get-DawPreviousLinuxProjectPath { '/home/ad/workspace' }
-function Get-DawWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
+function Get-DawWebImage { 'ghcr.io/miguelfm/daw-php:8.6' }
+# Ata o 27-11-2026 a imaxe web chamábase así: os modelos anteriores trana na distribución.
+function Get-DawPreviousWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
 function Get-DawModelArchive { 'linux.tar.gz' }
 # Imaxes Docker que deben ir no paquete para usar Angular e a documentación sen Internet
 # (as mesmas que carga daw.ps1).
@@ -35,7 +37,7 @@ function Get-DawWindowsCodeExtensionIds { @('ms-vscode-remote.remote-containers'
 function Get-DawPackageCodeExtensionIds { @(Get-DawCodeExtensionIds)+@(Get-DawWindowsCodeExtensionIds) }
 function Get-DawCodeExtensionsVolume { 'daw-vscode-extensions' }
 function Get-DawPackageImageNames {
-    @('ghcr.io/miguelfm/dwcc-angular:22','ghcr.io/miguelfm/daw-doc-php:en','ghcr.io/miguelfm/daw-doc-devdocs:latest','ghcr.io/miguelfm/daw-doc-laravel:13.x')
+    @('ghcr.io/miguelfm/daw-angular:22','ghcr.io/miguelfm/daw-doc-php:en','ghcr.io/miguelfm/daw-doc-devdocs:latest','ghcr.io/miguelfm/daw-doc-laravel:13.x')
 }
 # O modelo leva este ficheiro: só se reinstala ou actualiza unha distribución que o teña.
 function Get-DawModelMarker { [pscustomobject]@{Path='/etc/daw-dev-model';Value='daw-dev-v2'} }
@@ -64,7 +66,7 @@ function ConvertTo-DawAdminSharePath {
 function Expand-DawScriptTemplate {
     # Os scripts Bash levan marcadores __DAW_*__ para os valores anteriores.
     param([string]$Text)
-    $Text=$Text.Replace('__DAW_WEB_IMAGE__',(Get-DawWebImage))
+    $Text=$Text.Replace('__DAW_WEB_IMAGE__',(Get-DawWebImage)).Replace('__DAW_PREVIOUS_WEB_IMAGE__',(Get-DawPreviousWebImage))
     if($Text -match '__DAW_[A-Z_]+__'){throw "Marcador sen valor: $($Matches[0])"}
     $Text.Replace("`r",'')
 }
@@ -1179,9 +1181,14 @@ fi
 images=$(docker compose "${compose_args[@]}" config --images) \
     || fail 'Compose non acepta os ficheiros novos; non se cambiou nada.'
 web_image=__DAW_WEB_IMAGE__
+previous_image=__DAW_PREVIOUS_WEB_IMAGE__
 if grep -Fxq "$web_image" <<< "$images"; then
     for ((i=0; i<60; i++)); do docker info >/dev/null 2>&1 && break; sleep 1; done
     docker info >/dev/null 2>&1 || fail 'Docker non responde.'
+    # Un modelo anterior ao 27-11-2026 trae a imaxe co nome anterior: sen Internet, renoméase.
+    if ! docker image inspect "$web_image" >/dev/null 2>&1 && docker image inspect "$previous_image" >/dev/null 2>&1; then
+        docker image tag "$previous_image" "$web_image" || fail 'Non se puido renomear a imaxe PHP anterior.'
+    fi
     if ! docker image inspect "$web_image" >/dev/null 2>&1; then
         if [[ $archive != - ]]; then
             [[ $archive == /* ]] || archive=$(wslpath -u "$archive")

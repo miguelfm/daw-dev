@@ -20,8 +20,12 @@ if (-not $ProjectPath) { $ProjectPath = Split-Path -Parent $PSScriptRoot }
 $wslArgs = @('-d', $Distribution)
 if ($LinuxUser) { $wslArgs += @('-u', $LinuxUser) }
 # Angular (DWCC): imaxe publicada e, na aula, copia no paquete para cargala sen Internet.
-$angularImage = 'ghcr.io/miguelfm/dwcc-angular:22'
-$angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } else { "$classroomPackage\dwcc-angular.tar.gz" }
+# Ata o 27-11-2026 a imaxe era dwcc-angular:22: un paquete anterior trae ese arquivo, e
+# scripts/daw.sh renomea a imaxe anterior que xa estea na distribución.
+$angularImages = @('ghcr.io/miguelfm/daw-angular:22', 'ghcr.io/miguelfm/dwcc-angular:22')
+$angularArchive = if ($env:DAW_ANGULAR_ARCHIVE) { $env:DAW_ANGULAR_ARCHIVE } else {
+    @("$classroomPackage\daw-angular.tar.gz", "$classroomPackage\dwcc-angular.tar.gz") | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
 # Documentación sen conexión (daw-doc): na aula, as tres imaxes van no paquete.
 $docImages = [ordered]@{
     'ghcr.io/miguelfm/daw-doc-php:en' = 'daw-doc-php.tar.gz'
@@ -249,8 +253,8 @@ if ($dawAction -eq 'start-frontend') {
         [IO.File]::WriteAllText((Join-Path $ProjectPath 'docker\angular\ssh-key.pub'), $pub + "`n", (New-Object Text.UTF8Encoding($false)))
     }
     # A redirección vai en sh: en PowerShell 5.1, redirixir stderr dun programa con Stop é un erro.
-    & wsl.exe @wslArgs --exec sh -c 'docker image inspect $1 >/dev/null 2>&1' sh $angularImage
-    if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath $angularArchive)) {
+    & wsl.exe @wslArgs --exec sh -c 'docker image inspect "$1" >/dev/null 2>&1 || docker image inspect "$2" >/dev/null 2>&1' sh @angularImages
+    if ($LASTEXITCODE -ne 0 -and $angularArchive -and (Test-Path -LiteralPath $angularArchive)) {
         Write-Output 'Loading the Angular image from the classroom package (only the first time)...'
         $linuxArchive = ((& wsl.exe @wslArgs --exec wslpath -u $angularArchive) -join '').Trim()
         & wsl.exe @wslArgs --exec docker load -i $linuxArchive

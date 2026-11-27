@@ -16,8 +16,9 @@ services:
         PHP_VERSION: ${PHP_VERSION:-8.6}
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
-    # A etiqueta -ad identifica as imaxes coa conta ad, mesmo se hai unha 8.6 anterior na caché.
-    image: ${DAW_DEV_IMAGE:-ghcr.io/miguelfm/dwcs-php}:${PHP_VERSION:-8.6}-ad
+    # A imaxe leva o nome do que contén e a versión de PHP na etiqueta. Ata o 27-11-2026 era
+    # dwcs-php:8.6-ad, coa variable DAW_DEV_IMAGE; daw.sh renomea a anterior se falta esta.
+    image: ${DAW_PHP_IMAGE:-ghcr.io/miguelfm/daw-php}:${PHP_VERSION:-8.6}
     ports:
       - "${WEB_PORT:-80}:80"
     volumes:
@@ -88,7 +89,7 @@ services:
     hostname: frontend
     build:
       context: ./docker/angular
-    image: ${ANGULAR_IMAGE:-ghcr.io/miguelfm/dwcc-angular}:${ANGULAR_TAG:-22}
+    image: ${ANGULAR_IMAGE:-ghcr.io/miguelfm/daw-angular}:${ANGULAR_TAG:-22}
     ports:
       - "${ANGULAR_SSH_PORT:-127.0.0.1:2222}:22"
       - "${ANGULAR_PORT:-127.0.0.1:4200}:4200"
@@ -101,7 +102,7 @@ services:
       # Chave pública do usuario de Windows; daw-start-frontend créaa
       - type: bind
         source: ./docker/angular/ssh-key.pub
-        # Ruta da imaxe dwcc-angular (entrypoint.sh)
+        # Ruta da imaxe daw-angular (entrypoint.sh)
         target: /chave.pub
         read_only: true
         bind:

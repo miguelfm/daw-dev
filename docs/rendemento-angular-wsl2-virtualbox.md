@@ -70,7 +70,7 @@ time docker compose --profile frontend up -d --wait --wait-timeout 300 --no-buil
 
 Mide a creación do contedor nunha copia de proba que aínda non o teña e o rearranque
 dun contedor existente noutra serie. Se tamén queres medir a obtención da imaxe,
-cronometra `docker load -i /ruta/dwcc-angular.tar.gz` ou
+cronometra `docker load -i /ruta/daw-angular.tar.gz` ou
 `docker compose --profile frontend pull frontend` antes do arranque. Anota se xa había
 capas da imaxe no equipo.
 `--wait` indica que o servizo está en marcha. Comproba o SSH ou o HTTP por separado

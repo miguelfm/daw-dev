@@ -67,7 +67,9 @@ docker compose up -d --no-deps backend
 docker compose exec -u ad backend php -v
 ```
 
-A etiqueta `8.6-ad` identifica a imaxe coa conta `ad`. Se traballas cos cambios locais
+A imaxe é `ghcr.io/miguelfm/daw-php:8.6`: o nome di o que contén e a etiqueta, a versión de PHP.
+Ata o 27-11-2026 chamábase `dwcs-php:8.6-ad`; se só tes esa, `daw-start` pásaa ao nome novo
+sen descargar nada, e a CI segue publicando o nome anterior. Se traballas cos cambios locais
 ou tes un UID/GID personalizado, constrúe a imaxe con `docker compose build backend`.
 Ao recrear `backend`, consérvanse `www/` e o volume de MariaDB. Se gardaches traballo
 dentro do contedor fóra de `www/` ou de `~/daw`, cópiao ao proxecto antes de recrealo. Para os equipos da aula, segue o
@@ -414,7 +416,7 @@ Para alternar entre Programación con Java e DWCS con PHP, consulta a
 Coa extensión **Dev Containers** (`ms-vscode-remote.remote-containers`): *F1 → Dev Containers: Reopen in Container*.
 VS Code execútase dentro do contedor `backend` co usuario `ad`, e tes PHP, Composer, Git e o cliente `mysql` no terminal integrado sen `docker compose exec`.
 A depuración funciona igual (F5). Xdebug conecta a `localhost` grazas a `.devcontainer/compose.devcontainer.yaml`.
-A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/dwcs-php:8.6-ad` de GHCR.
+A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web local ou descargue `ghcr.io/miguelfm/daw-php:8.6` de GHCR.
 
 ### Alternar entre `daw-start` e o Dev Container
 
@@ -514,14 +516,15 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 - **OPcache** está activo con `revalidate_freq=0` para que os cambios se vexan ao momento.
 - **Imaxes publicadas e CI:** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) executa `scripts/check.sh`
   en cada cambio e en cada pull request. Se as probas pasan en `main`, publica
-  `ghcr.io/miguelfm/daw-dev:8.6-ad` e a ruta pública compatible `ghcr.io/miguelfm/dwcs-php:8.6-ad`.
-  Por defecto úsase a segunda para permitir descargas sen login: os paquetes novos de GHCR nacen privados
-  ata que o propietario cambia a súa visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
+  `ghcr.io/miguelfm/daw-php:8.6` e `ghcr.io/miguelfm/daw-angular:22`, públicas e sen login. Para os
+  paquetes e proxectos anteriores publica tamén os nomes de antes (`dwcs-php:8.6-ad`, `daw-dev:8.6-ad` e
+  `dwcc-angular:22`). Nun fork, os paquetes novos de GHCR poden nacer privados: comproba a súa
+  visibilidade. Tamén a reconstrúe cada luns para incorporar as actualizacións
   de seguridade de PHP e Debian.
   O alumnado descarga as imaxes en vez de compilalas: aforra minutos e evita fallos de rede no build.
   As imaxes publicadas usan o UID 1000.
-- **Usar o teu propio repositorio:** fai un fork. O CI publica as imaxes en `ghcr.io/<o-teu-usuario>/daw-dev`.
-  Cambia o valor por defecto de `DAW_DEV_IMAGE` en `compose.yaml`, e a URL en
+- **Usar o teu propio repositorio:** fai un fork. O CI publica as imaxes en `ghcr.io/<o-teu-usuario>/daw-php`.
+  Pon `DAW_PHP_IMAGE=ghcr.io/<o-teu-usuario>/daw-php` no `.env` (antes `DAW_DEV_IMAGE`), e cambia a URL en
   [docs/wsl2-alumnado.md](docs/wsl2-alumnado.md).
 - **Credenciais:** son de exemplo e só para desenvolvemento local. Non hai que expoñer estes portos fóra do equipo.
 

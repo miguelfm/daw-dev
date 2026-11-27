@@ -116,7 +116,7 @@ do profesor. O usuario Linux é `ad`, UID/GID 1000, con contrasinal bloqueado e 
 Para administración Linux posterior, o propietario da distribución pode usar `wsl -d linux -u root`.
 Isto non lle concede permisos de administrador de Windows.
 
-O modelo usa o Compose do proxecto, incluída a imaxe pública `ghcr.io/miguelfm/dwcs-php:8.6-ad`,
+O modelo usa o Compose do proxecto, incluída a imaxe pública `ghcr.io/miguelfm/daw-php:8.6`,
 co proxecto en `/home/ad/daw` e o volume `daw-dev_db_data` para as bases de datos de cada conta.
 O ficheiro `/etc/daw-dev-model` identifica o modelo: a activación só substitúe unha distribución que o teña.
 Configura `WEB_PORT=127.0.0.1:80`, `PMA_PORT=127.0.0.1:8081` e `DB_PORT=127.0.0.1:3306`.
@@ -133,7 +133,7 @@ Se falla só a descarga das imaxes, `-Resume` continúa o mesmo modelo a partir 
 sen reinstalar Debian. Tamén podes aproveitar imaxes xa descargadas nunha Debian do profesor:
 
 ```powershell
-wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/dwcs-php:8.6-ad mariadb:lts phpmyadmin:latest
+wsl -d Debian --exec docker image save --output /mnt/c/DAW-images.tar ghcr.io/miguelfm/daw-php:8.6 mariadb:lts phpmyadmin:latest
 .\windows\classroom\build-package.ps1 -OutputDirectory C:\DAW-Paquete-2026 -Resume -DockerImagesArchive C:\DAW-images.tar
 ```
 
@@ -320,6 +320,10 @@ contedor engade `-c`: `backend` (`backend-c`, PHP e Apache), `db` (`db-c`), `db-
   proxecto, así que o lanzador vale cun proxecto doutra versión.
 - `daw-start-frontend` substitúe a `daw-start-angular`, e `daw-shell` a `daw-web-shell`; os
   nomes anteriores seguen como alias. `DB_HOST` segue sendo `db`.
+- As imaxes levan o nome do que conteñen: `daw-php:8.6` (antes `dwcs-php:8.6-ad`) e
+  `daw-angular:22` (antes `dwcc-angular:22`). A CI publica tamén os nomes anteriores. Sen
+  Internet, a copia do proxecto e `daw.sh` pasan ao nome novo a imaxe anterior que xa estea na
+  distribución, e retiran o nome anterior.
 
 ### Proxecto en `~/daw` (27-11-2026)
 
@@ -383,7 +387,9 @@ o acceso directo e que a distribución `Debian` desapareceu.
 
 #### PHP 8.6
 
-O modelo leva a imaxe `ghcr.io/miguelfm/dwcs-php:8.6-ad`, con PHP 8.6, Xdebug e `mbstring`.
+O modelo leva a imaxe `ghcr.io/miguelfm/daw-php:8.6`, con PHP 8.6, Xdebug e `mbstring`. Ata o
+27-11-2026 chamábase `dwcs-php:8.6-ad`: nas contas cun modelo anterior, a copia do proxecto e
+`daw-start` pásana ao nome novo sen Internet.
 
 <details>
 <summary>Publicación histórica de PHP 8.6 (21/11/2026)</summary>
@@ -440,12 +446,13 @@ O servizo `frontend` de `compose.yaml` (perfil `frontend`, contedor `frontend-c`
 26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
 `~/daw/angular`. O seu uso está na
 [guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
-`ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI; o paquete leva unha copia para cargala
-sen Internet:
+`ghcr.io/miguelfm/daw-angular:22` (antes `dwcc-angular:22`) publícaa a CI; o paquete leva unha
+copia para cargala sen Internet. Un paquete anterior trae `dwcc-angular.tar.gz`: `daw-start-frontend`
+cárgao igual e `scripts/daw.sh` pasa a imaxe ao nome novo.
 
 ```powershell
-# No Linux do profesor: docker save ghcr.io/miguelfm/dwcc-angular:22 | gzip > dwcc-angular.tar.gz
-.\windows\classroom\add-package-image.ps1 -PackageDirectory C:\DAW-Paquete-2026 -Archive C:\ruta\dwcc-angular.tar.gz -Name ghcr.io/miguelfm/dwcc-angular:22
+# No Linux do profesor: docker save ghcr.io/miguelfm/daw-angular:22 | gzip > daw-angular.tar.gz
+.\windows\classroom\add-package-image.ps1 -PackageDirectory C:\DAW-Paquete-2026 -Archive C:\ruta\daw-angular.tar.gz -Name ghcr.io/miguelfm/daw-angular:22
 ```
 
 O manifesto garda a imaxe en `Images`, co seu SHA256; `Assert-DawPackage` compróbaa e

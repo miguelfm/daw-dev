@@ -23,17 +23,28 @@ if [[ -f $PROJECT_DIR/compose.override.yaml ]]; then
     COMPOSE_ARGS+=(-f "$PROJECT_DIR/compose.override.yaml")
 fi
 
-# O contrasinal de MariaDB é abc123.., o da MV da aula. Un .env copiado do
-# .env.example antes do 24-11-2026 leva o contrasinal por defecto anterior:
-# cámbiase antes de arrancar, cunha copia do .env. Outros valores consérvanse.
+# Arranxos dun .env anterior, cunha copia do .env antes de cambialo. Outros valores consérvanse:
+# - Un .env copiado do .env.example antes do 24-11-2026 leva o contrasinal por defecto anterior
+#   de MariaDB; agora é abc123.., o da MV da aula.
+# - Ata o 27-11-2026 a imaxe PHP era DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php; compose.yaml
+#   xa non le esa variable, e a liña do .env.example retírase para non confundir.
 migrar_env() {
     local env=$PROJECT_DIR/.env copia
     [[ -f $env && ! -L $env ]] || return 0
-    grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env" || return 0
+    if grep -qE '^DAW_DEV_IMAGE=' "$env" && ! grep -qxF 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php' "$env"; then
+        echo 'Aviso: o .env ten DAW_DEV_IMAGE, que xa non se usa: indica a imaxe con DAW_PHP_IMAGE (sen a etiqueta).' >&2
+    fi
+    grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$|^DAW_DEV_IMAGE=ghcr\.io/miguelfm/dwcs-php$' "$env" || return 0
     copia="$env.daw-backup-$(date +%Y%m%d%H%M%S)-$$"
     cp -p "$env" "$copia"
-    sed -i -E 's/^(DB_(ROOT_)?PASSWORD)=abc123\.$/\1=abc123../' "$env"
-    echo "O contrasinal de MariaDB do .env é agora abc123.. (copia do anterior en $copia)."
+    if grep -qE '^DB_(ROOT_)?PASSWORD=abc123\.$' "$env"; then
+        sed -i -E 's/^(DB_(ROOT_)?PASSWORD)=abc123\.$/\1=abc123../' "$env"
+        echo "O contrasinal de MariaDB do .env é agora abc123.. (copia do anterior en $copia)."
+    fi
+    if grep -qxF 'DAW_DEV_IMAGE=ghcr.io/miguelfm/dwcs-php' "$env"; then
+        sed -i '/^DAW_DEV_IMAGE=ghcr\.io\/miguelfm\/dwcs-php$/d' "$env"
+        echo "Retirouse do .env DAW_DEV_IMAGE, que xa non se usa (copia do anterior en $copia)."
+    fi
 }
 
 # O contedor backend ten dúas definicións: a de Compose (daw-start) e a de Dev Containers, que
@@ -140,6 +151,23 @@ remove_old_services() {
     done
 }
 
+# Ata o 27-11-2026 as imaxes eran dwcs-php:8.6-ad e dwcc-angular:22. Sen Internet, como na aula,
+# a anterior que xa estea no equipo pasa a levar o nome actual; despois retírase o nome
+# anterior (docker image rm non borra unha imaxe que use un contedor).
+OLD_IMAGES='ghcr.io/miguelfm/dwcs-php:8.6-ad=ghcr.io/miguelfm/daw-php:8.6 ghcr.io/miguelfm/dwcc-angular:22=ghcr.io/miguelfm/daw-angular:22'
+rename_old_images() {
+    local pair old new
+    for pair in $OLD_IMAGES; do
+        old=${pair%%=*} new=${pair#*=}
+        docker image inspect "$old" >/dev/null 2>&1 || continue
+        if ! docker image inspect "$new" >/dev/null 2>&1; then
+            docker image tag "$old" "$new" || continue
+            echo "A imaxe $old chámase agora $new."
+        fi
+        docker image rm "$old" >/dev/null 2>&1 || true
+    done
+}
+
 wait_docker() {
     local i
     for ((i = 0; i < 30; i++)); do
@@ -217,7 +245,7 @@ case "$ACTION" in
     start|start-all|start-db|start-doc|start-frontend|migrar-env) migrar_env ;;
 esac
 case "$ACTION" in
-    start|start-all|start-db|start-doc|start-frontend|remove-old-services) remove_old_services ;;
+    start|start-all|start-db|start-doc|start-frontend|remove-old-services) remove_old_services; rename_old_images ;;
 esac
 
 case "$ACTION" in
@@ -253,6 +281,7 @@ case "$ACTION" in
             exit 0
         fi
         remove_old_services
+        rename_old_images
         if ! read_web_state; then
             echo 'Aviso: non se puido comprobar o backend (precisa Python 3).' >&2
             exit 0
@@ -273,6 +302,7 @@ case "$ACTION" in
         # estaba en marcha (ou o web anterior), aínda que só cambiase un ficheiro montado.
         wait_docker || { echo 'Docker non responde.' >&2; exit 1; }
         remove_old_services
+        rename_old_images >&2
         if docker compose "${COMPOSE_ARGS[@]}" ps --status running --services | grep -Fxq backend \
             || [[ " $OLD_RUNNING " == *" web "* ]]; then
             docker compose "${COMPOSE_ARGS[@]}" up -d --no-deps --force-recreate --wait --wait-timeout 300 backend >&2
