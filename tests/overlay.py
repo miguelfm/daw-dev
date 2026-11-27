@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
         src = root / 'src'; shutil.copytree(overlay, src)
         # As in New-DawProjectStage, the stage also carries the repository Compose and Angular files.
         shutil.copy(repo / 'compose.yaml', src / 'compose.yaml'); shutil.copytree(repo / 'docker/angular', src / 'docker/angular')
-        project = root / 'home/ad/workspace'
+        project = root / 'home/ad/daw'
         (project / 'www').mkdir(parents=True); (project / '.devcontainer').mkdir()
         (project / 'compose.yaml').write_text('services: {}\n')
         (project / 'www/work.php').write_text('student work')
@@ -190,7 +190,7 @@ with tempfile.TemporaryDirectory(prefix='daw-overlay-') as tmp:
 
     docker = shutil.which('docker')
     if docker and subprocess.run([docker, 'compose', 'version'], capture_output=True).returncode == 0:
-        root = base / 'real'; project = root / 'home/ad/workspace'
+        root = base / 'real'; project = root / 'home/ad/daw'
         project.mkdir(parents=True)
         for name in ('compose.yaml', '.env.example', '.devcontainer'):
             (shutil.copytree if (repo / name).is_dir() else shutil.copy)(repo / name, project / name)

@@ -32,11 +32,14 @@ pérdese: gárdao antes fóra dela.
 
 ## Onde están os ficheiros
 
-O proxecto está no cartafol `workspace`. No Explorador de Windows:
+O proxecto está no cartafol `daw`. No Explorador de Windows:
 
 ```text
-\\wsl.localhost\linux\home\ad\workspace
+\\wsl.localhost\linux\home\ad\daw
 ```
+
+Ata o 27-11-2026 chamábase `workspace`. Ao repetir a activación móvese a `daw`
+sen perder nada, e `workspace` segue levando ao mesmo cartafol.
 
 Dentro hai dous cartafoles de traballo:
 
@@ -115,7 +118,7 @@ daw-wsl-shell
 daw-web-shell
 ```
 
-`daw-wsl-shell` abre a distribución `linux` no proxecto (`~/workspace`). Aquí podes
+`daw-wsl-shell` abre a distribución `linux` no proxecto (`~/daw`). Aquí podes
 usar Docker e Git ou consultar `curl --manual`. Funciona tamén con Docker parado.
 
 `daw-web-shell` entra no contedor web como `ad`, en `/var/www/html`. Aquí
@@ -138,7 +141,7 @@ piden ningún contrasinal, nin de Linux nin de Windows.
 ## Traballar con Visual Studio Code
 
 Executa `daw-code -Container` para abrir o proxecto no contedor de PHP.
-O proxecto está en `/workspace` e o código en `/workspace/www`. O terminal
+O proxecto está en `~/daw` e o código en `~/daw/www`, como na distribución. O terminal
 integrado (`Ctrl+ñ`) abre no contedor como `ad`.
 
 Se xa tes o proxecto aberto en WSL, podes premer `F1` e escoller
@@ -180,7 +183,7 @@ Para depurar, abre VS Code dentro do contedor.
 - **PHP non pode escribir un ficheiro (`Permission denied`).** O directorio
   necesita os permisos que indica o enunciado: Apache é `www-data`.
 - **Windows non deixa gardar un ficheiro creado como `root`.** Desde
-  `~/workspace`, devólvello a `ad` con esta orde.
+  `~/daw`, devólvello a `ad` con esta orde.
 
   ```bash
   docker compose exec web chown ad:ad /var/www/html/u3/t1/f.php

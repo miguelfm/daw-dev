@@ -62,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='daw-webroot-') as tmp:
     (p / 'www/u3/t1').mkdir(parents=True)
     (p / 'www/u3/t1/index.php').write_text('<?php echo 1;')
     (p / 'www/.htaccess').write_text('Options -Indexes')
-    r = run(root, backup, dest, str(root / 'home/ad/workspace'), str(p))
+    r = run(root, backup, dest, str(root / 'home/ad/daw'), str(p))
     assert r.returncode == 0 and r.stdout.split() == ['copied'], r.stderr
     copy = root / 'c/Users/a/Documents/DAW-Dev-www-1-Debian'
     assert tree(copy) == tree(p / 'www')
@@ -96,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix='daw-webroot-') as tmp:
     for f in (src / 'index.php', src / 'u3/t1.php', src / 'u3'):
         f.chmod(0o777)
     os.utime(src / 'u3/t1.php', (1_000_000_000, 1_000_000_000))
-    www = root / 'home/ad/workspace/www'
+    www = root / 'home/ad/daw/www'
     www.mkdir(parents=True)
     (www / 'index.php').write_text('repository version'); (www / 'info.php').write_text('info')
     old = os.umask(0o022)

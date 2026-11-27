@@ -18,7 +18,7 @@ O despregamento do 18/11/2026 na aula 34 descríbese en [despregamento na aula 3
 5. **Activación da contorna:**
    - **En aulas compartidas (configuración aplicada nas Aulas 31 e 34):** A activación realízase baixo demanda polo propio alumno mediante a entrada do menú Inicio (**DAW Dev → Activar DAW Dev**), ou polo profesor durante a clase mediante `.\windows\classroom\manage.ps1 -Action InstallUser -Classroom 31` (ou `-Classroom 34`). Deste xeito, os alumnos alleos ao módulo que utilicen os mesmos equipos non sofren ningún atraso no inicio de sesión, nin consumo de disco no seu perfil, nin ven ningún aviso nin proceso en segundo plano.
    - **En aulas de uso exclusivo:** Só engadindo `-AutoStart` a `CopyPackage` se activa a entrada `Run` en Windows para que cada alumno importe automaticamente a súa distribución no primeiro inicio de sesión.
-6. Cada conta ten a distribución `linux`, co usuario **`ad`** e o proxecto en `/home/ad/workspace`. O acceso directo **«DAW - Web»** do Escritorio abre o seu `www`. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
+6. Cada conta ten a distribución `linux`, co usuario **`ad`** e o proxecto en `/home/ad/daw`. O acceso directo **«DAW - Web»** do Escritorio abre o seu `www`. Desde PowerShell ou CMD, o alumno pode usar os lanzadores `daw-*` sen elevación.
 
 As distribucións WSL son **por conta Windows e por equipo**: instalar a distribución como administrador non a instala
 nas contas do alumnado. Se un alumno cambia de equipo, nese equipo terá outra copia. Os datos e o código
@@ -117,7 +117,7 @@ Para administración Linux posterior, o propietario da distribución pode usar `
 Isto non lle concede permisos de administrador de Windows.
 
 O modelo usa o Compose do proxecto, incluída a imaxe pública `ghcr.io/miguelfm/dwcs-php:8.6-ad`,
-co proxecto en `/home/ad/workspace` e o volume `daw-dev_db_data` para as bases de datos de cada conta.
+co proxecto en `/home/ad/daw` e o volume `daw-dev_db_data` para as bases de datos de cada conta.
 O ficheiro `/etc/daw-dev-model` identifica o modelo: a activación só substitúe unha distribución que o teña.
 Configura `WEB_PORT=127.0.0.1:80`, `PMA_PORT=127.0.0.1:8081` e `DB_PORT=127.0.0.1:3306`.
 Non se abre o socket Docker pola rede. VS Code debe conectarse a WSL para usar Xdebug.
@@ -265,7 +265,7 @@ con todo o seu contido e importa a nova. Como coa instalación anterior, copia a
 
 ### Actualizar os ficheiros dos proxectos xa importados
 
-`UpdateProject` copia `windows/classroom/overlay` en `/home/ad/workspace` da
+`UpdateProject` copia `windows/classroom/overlay` en `/home/ad/daw` da
 distribución do alumno conectado, sen volver copiar o modelo de 1,4 GB. O contido actual e as
 regras da copia están no [README dos ficheiros do proxecto](../windows/classroom/README.md).
 
@@ -306,6 +306,24 @@ actualiza o paquete con `update-package.ps1`, cópiao aos postos e volve executa
 **Activar DAW Dev** na conta do alumno. `UpdateProject` aplica os ficheiros da
 distribución. A activación instala os lanzadores e actualiza o acceso directo.
 
+### Proxecto en `~/daw` (27-11-2026)
+
+O proxecto pasou de `~/workspace` a `~/daw`, e no Dev Container de `/workspace` a `/home/ad/daw`:
+a mesma ruta dentro e fóra do contedor. Non hai que reinstalar nada:
+
+- A activación (`daw-activate`) e `UpdateProject` moven `~/workspace` a `~/daw` se a conta aínda o
+  ten alí. Antes paran os contedores do proxecto, que montan as rutas anteriores; o seguinte
+  `daw-start` ou a seguinte apertura do Dev Container créanos de novo. As bases de datos e as
+  extensións están en volumes de Docker e non cambian.
+- `~/workspace` queda como ligazón a `~/daw`: os marcadores do Explorador, os cartafoles recentes
+  de VS Code e os lanzadores dunha activación anterior seguen funcionando.
+- A activación crea de novo os lanzadores e o acceso directo **«DAW - Web»** coa ruta nova.
+- Un paquete construído antes, co modelo en `~/workspace`, segue sendo válido: cada conta móveo
+  ao activar. `-Reinstall` garda tamén o `www` da ruta anterior.
+
+Se unha conta ten os dous directorios, a migración non move ningún e a activación falla co
+motivo. Revisa cal ten o traballo, garda o outro fóra e repite a activación.
+
 ### Pasar á instalación DAW Dev
 
 A instalación DAW Dev (26/11/2026) substitúe a anterior sen migrar nada:
@@ -315,7 +333,7 @@ A instalación DAW Dev (26/11/2026) substitúe a anterior sen migrar nada:
 | Paquete no posto | `C:\ProgramData\DAW-Aula` | `C:\ProgramData\DAW-Dev` |
 | Estado da conta | `%LOCALAPPDATA%\DAW-Aula` | `%LOCALAPPDATA%\DAW-Dev` |
 | Distribución WSL | `Debian` | `linux` |
-| Proxecto | `~/proxectos/daw-dev` (e `~/www`) | `~/workspace` |
+| Proxecto | `~/proxectos/daw-dev` (e `~/www`) | `~/daw` |
 | Datos das tarefas | `datos/`, no contedor `/home/ad/datos` | `data/`, no contedor `/home/ad/data` |
 | Raíz web no contedor | `/var/www/html` e `/home/ad/html` | `/var/www/html` |
 | Acceso directo | «DAW - Proxectos (www)» | «DAW - Web» |
@@ -339,7 +357,7 @@ O contedor xa non imita a MV de DWCS: os enunciados usan `/home/ad/data`.
    consérvase), `%LOCALAPPDATA%\DAW-Aula`, `%LOCALAPPDATA%\daw-dev-launcher` e o acceso directo
    vello. Antes de eliminar a distribución copia o contido da súa raíz web en
    `Documentos\DAW-Dev-www-<data>-Debian`. Despois importa `linux`, copia ese contido en
-   `~/workspace/www` (substitúe os ficheiros co mesmo nome) e instala os lanzadores novos. A copia
+   `~/daw/www` (substitúe os ficheiros co mesmo nome) e instala os lanzadores novos. A copia
    de Documentos consérvase. Se a activación falla despois de copiar, a seguinte restaura a copia
    pendente (`%LOCALAPPDATA%\DAW-Dev\web-restore.txt`).
 
@@ -405,7 +423,7 @@ despois da activación.
 
 O servizo `angular` de `compose.yaml` (perfil `angular`) é o contedor DWCC-Angular: Node.js
 26, Angular CLI 22 e SSH en `127.0.0.1:2222`, cos proxectos en
-`~/workspace/angular`. O seu uso está na
+`~/daw/angular`. O seu uso está na
 [guía de Angular para o alumnado](guia-angular-alumnado.md). A imaxe
 `ghcr.io/miguelfm/dwcc-angular:22` publícaa a CI; o paquete leva unha copia para cargala
 sen Internet:
@@ -578,14 +596,14 @@ phpMyAdmin e a comprobación de BD requiren `daw-start-all`. As credenciais de d
 ### Acceso directo aos ficheiros web e contorna Linux
 
 `ad` é a conta do modelo WSL e da terminal do contedor PHP. As rutas de traballo son:
-- **Desde o Explorador de ficheiros:** `\\wsl.localhost\linux\home\ad\workspace\www`. Tamén podes usar o acceso directo **«DAW - Web»** ou `daw-web-root -Open`. Os datos das tarefas están en `\\wsl.localhost\linux\home\ad\workspace\data`.
+- **Desde o Explorador de ficheiros:** `\\wsl.localhost\linux\home\ad\daw\www`. Tamén podes usar o acceso directo **«DAW - Web»** ou `daw-web-root -Open`. Os datos das tarefas están en `\\wsl.localhost\linux\home\ad\daw\data`.
 - **Con VS Code e Dev Containers:**
   O instalador preinstala automaticamente no perfil do alumno as extensións `ms-vscode-remote.remote-containers` e `ms-vscode-remote.remote-wsl` e comproba que figuren instaladas. Se falta VS Code ou falla a instalación, informa de erro; para omitir expresamente o IDE usar `-SkipVSCode`. O alumno só ten que executar:
   ```powershell
   daw-code
   ```
   Ao abrirse o proxecto en VS Code, aparecerá unha mensaxe emerxente para reabrir no contedor (ou premendo `F1` e seleccionando **«Dev Containers: Reopen in Container»**). A imaxe precompilada inclúe PHP 8.6, Composer, Xdebug e o cliente MariaDB.
-- **Desde a terminal de Linux:** `daw-wsl-shell` abre `~/workspace` co usuario `ad`.
+- **Desde a terminal de Linux:** `daw-wsl-shell` abre `~/daw` co usuario `ad`.
 
 Os lanzadores Windows arrancan WSL se está parado, agardan por Docker e manteñen unha sesión oculta
 mentres existan contedores do proxecto en marcha. `daw-stop` deixa rematar esa sesión en ata 20 segundos.

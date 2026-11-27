@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 Start-Transcript -LiteralPath (Join-Path $stateDir 'test.log') -Append | Out-Null
 $report = [ordered]@{ User = [Security.Principal.WindowsIdentity]::GetCurrent().Name; WindowsAdmin = $false; Success = $false; Error = $null }
 $token = [Guid]::NewGuid().ToString('N')
-$project = '/home/ad/workspace'
+$project = '/home/ad/daw'
 $fixture = (& wsl.exe -d $Distribution -u ad --exec wslpath -a -u (Join-Path $PSScriptRoot 'db-persistence.sh')) -join ''
 $fixture = $fixture.Trim()
 function Invoke-NativeChecked([scriptblock]$Command) {

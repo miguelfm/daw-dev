@@ -6,8 +6,9 @@ services:
     # O editor pode arrincar o servidor web antes de que se precise MariaDB.
     depends_on: !reset null
     volumes:
-      # O proxecto completo en /workspace (www/ segue montado en /var/www/html)
-      - .:/workspace:cached
+      # O proxecto completo en ~/daw, a mesma ruta que na distribución da aula
+      # (www/ segue montado en /var/www/html)
+      - .:/home/ad/daw:cached
     environment:
       # VS Code execútase dentro do contedor: Xdebug conecta a localhost
       XDEBUG_CONFIG: client_host=localhost

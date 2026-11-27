@@ -8,7 +8,7 @@
     // Antes de buscar o contedor: Dev Containers usaría sen recrealo o que creou daw-start
     // ou un anterior a un cambio do proxecto. Sen bash nin Docker, non impide abrilo.
     "initializeCommand": "bash \"${localWorkspaceFolder}/scripts/daw.sh\" prepare-devcontainer || exit 0",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/home/ad/daw",
     "remoteUser": "ad",
     "shutdownAction": "stopCompose",
     "customizations": {

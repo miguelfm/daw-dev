@@ -32,6 +32,8 @@ jobs:
         run: python3 tests/webroot.py
       - name: Actual VS Code Server install in isolated fixtures
         run: python3 tests/codeserver.py
+      - name: Actual project move from ~/workspace to ~/daw in isolated fixtures
+        run: python3 tests/projectmove.py
       - name: Dev Containers CLI
         run: |
           node --version

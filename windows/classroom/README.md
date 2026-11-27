@@ -32,7 +32,7 @@ Están ao comezo de `daw-classroom.psm1` e os scripts Bash recíbenos do módulo
 | Paquete no posto (`Get-DawPackageDirectory`) | `C:\ProgramData\DAW-Dev`, cos ficheiros do proxecto en `project\` |
 | Estado de cada conta (`Get-DawStateDirectory`) | `%LOCALAPPDATA%\DAW-Dev`: `install-state.json`, `project-state.json`, rexistros e `install.lock` |
 | Distribución WSL (`Get-DawDistribution`) | `linux`, co marcador `/etc/daw-dev-model` |
-| Proxecto (`Get-DawLinuxProjectPath`) | `/home/ad/workspace`, con `www/` e `data/`; en Windows, `\\wsl.localhost\linux\home\ad\workspace` |
+| Proxecto (`Get-DawLinuxProjectPath`) | `/home/ad/daw`, con `www/` e `data/`; en Windows, `\\wsl.localhost\linux\home\ad\daw`. Ata o 27-11-2026, `/home/ad/workspace` (`Get-DawPreviousLinuxProjectPath`): a activación e `UpdateProject` móveno e deixan a ruta anterior como ligazón |
 
 Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
 
@@ -40,7 +40,7 @@ Ao cambiar un destes valores, as contas instaladas teñen que reinstalarse.
 
 Antes de eliminar unha distribución, a instalación copia o contido da súa raíz web (`WWW_DIR`, por
 defecto `www`) en `Documentos\DAW-Dev-www-<data>-<distribución>` e, despois de importar a nova,
-cópiao en `/home/ad/workspace/www`. O resto (`data/`, `angular/`, as bases de datos) pérdese: o
+cópiao en `/home/ad/daw/www`. O resto (`data/`, `angular/`, as bases de datos) pérdese: o
 alumnado gárdao antes. A copia de Documentos consérvase; se a instalación falla antes de
 restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
@@ -60,7 +60,7 @@ restaurala, queda en `web-restore.txt` e restáurase na seguinte.
 
 ## Ficheiros do proxecto (`overlay/`)
 
-`overlay/` contén o que `manage.ps1 -Action UpdateProject` copia en `/home/ad/workspace`,
+`overlay/` contén o que `manage.ps1 -Action UpdateProject` copia en `/home/ad/daw`,
 coa mesma ruta relativa. A copia leva tamén ficheiros do repositorio sen cambios, como
 `compose.yaml`, `docker/angular/`, `.vscode/launch.json`, os comandos de terminal e as guías do
 alumnado (`$sharedPaths` en `New-DawProjectStage`).

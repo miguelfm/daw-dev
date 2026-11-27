@@ -23,7 +23,7 @@ daw-wsl-shell   # Abre a distribución linux no proxecto
 daw-web-shell   # Abre o contedor de Apache e PHP
 ```
 
-No Explorador, o proxecto da aula está en `\\wsl.localhost\linux\home\ad\workspace`, co código web en
+No Explorador, o proxecto da aula está en `\\wsl.localhost\linux\home\ad\daw`, co código web en
 `www` e os datos das tarefas en `data`. O acceso directo **«DAW - Web»** do Escritorio abre `www`.
 
 Para traballar con **VS Code e Dev Containers** (recomendado):
@@ -32,7 +32,7 @@ Executa `daw-code` en calquera terminal de Windows. VS Code abrirase no proxecto
 Para entrar no proxecto directamente en WSL:
 
 ```powershell
-wsl -d linux --cd /home/ad/workspace
+wsl -d linux --cd /home/ad/daw
 ```
 
 Desde esa terminal usa `code .` para abrir VS Code conectado a WSL e traballar con Xdebug.
@@ -78,25 +78,25 @@ Primeiro actualiza os paquetes de Debian e instala as ferramentas de descarga:
 ```bash
 sudo apt update && sudo apt upgrade
 sudo apt install -y git wget
-git clone https://github.com/miguelfm/daw-dev.git ~/workspace
+git clone https://github.com/miguelfm/daw-dev.git ~/daw
 ```
 
 `apt upgrade` pide confirmación para actualizar os paquetes instalados; `wget` instálase explicitamente
 co segundo comando. O instalador de Docker tamén inclúe `wget` entre as dependencias.
 
 Se o profesorado che indica outro repositorio, usa esa URL. Se en vez diso che dan un `.zip`, descomprímeo en Windows, executa
-`mkdir -p ~/workspace && cd ~/workspace && explorer.exe .` en Debian e arrastra á xanela que se abre o contido do cartafol `daw-dev`.
+`mkdir -p ~/daw && cd ~/daw && explorer.exe .` en Debian e arrastra á xanela que se abre o contido do cartafol `daw-dev`.
 
-> Garda o proxecto dentro de Debian (`~/workspace`) para que Docker e as
+> Garda o proxecto dentro de Debian (`~/daw`) para que Docker e as
 > ferramentas Linux lean os ficheiros directamente. O proxecto tamén admite
 > [unha copia en Windows](windows11-contedores.md#rendemento).
-> Como na aula, o proxecto está en `~/workspace`. Se xa o descargaches noutra ruta, como
-> `~/proxectos/daw-dev`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
+> Como na aula, o proxecto está en `~/daw`. Se xa o descargaches noutra ruta, como
+> `~/workspace` ou `~/proxectos/daw-dev`, conserva esa ruta e substitúe a ruta dos exemplos seguintes pola túa.
 
 ### 1.3. Instalar Docker
 
 ```bash
-sudo bash ~/workspace/scripts/install-docker.sh
+sudo bash ~/daw/scripts/install-docker.sh
 ```
 
 Cando remate:
@@ -115,7 +115,7 @@ Ten que aparecer `Hello from Docker!`.
 ### 1.4. Primeiro arranque da contorna
 
 ```bash
-cd ~/workspace
+cd ~/daw
 cp .env.example .env
 docker compose up -d
 ```
@@ -152,7 +152,7 @@ Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os 
 3. En Debian, desde o proxecto:
 
    ```bash
-   cd ~/workspace
+   cd ~/daw
    code .
    ```
 
@@ -167,12 +167,12 @@ Se xa arrancaches os contedores, aplica o cambio con `docker compose up -d`. Os 
 2. Arranca a contorna:
 
    ```bash
-   cd ~/workspace && docker compose up -d
+   cd ~/daw && docker compose up -d
    ```
 
 3. Abre VS Code con `code .` e o navegador en <http://localhost>.
 
-O teu código vai en `~/workspace/www/`. Os cambios vense ao recargar o navegador.
+O teu código vai en `~/daw/www/`. Os cambios vense ao recargar o navegador.
 Para saír do terminal de Debian escribe `exit`.
 
 Se ao pechar as sesións de Debian deixa de responder `localhost`, mantén aberta
@@ -207,8 +207,8 @@ Para usar `daw-start`, `daw-code` e `daw-web-root` desde Windows, instala
 Para atallos manuais de Bash ou PowerShell, consulta
 [a sección de atallos do README](../README.md#atallos-daw-para-a-terminal).
 
-Se usas Bash, cambia a ruta dos exemplos a `$HOME/workspace/compose.yaml` e garda os alias en `~/.bashrc`.
-En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/workspace/compose.yaml`.
+Se usas Bash, cambia a ruta dos exemplos a `$HOME/daw/compose.yaml` e garda os alias en `~/.bashrc`.
+En PowerShell, usa a ruta de Debian `/home/<o-teu-usuario>/daw/compose.yaml`.
 Se conservas unha instalación anterior en `~/dwcs`, usa esa ruta nos atallos.
 
 - `daw-start`: arranca só PHP + Apache, para exercicios sen base de datos.
@@ -228,7 +228,7 @@ interrupción **non paran**: Xdebug só chega a VS Code cando este está conecta
 ### Ver os ficheiros desde Windows
 
 En Debian, `explorer.exe .` abre o cartafol actual no Explorador de Windows. Tamén podes ir a
-`\\wsl.localhost\Debian\home\<o-teu-usuario>\workspace\www` no Explorador
+`\\wsl.localhost\Debian\home\<o-teu-usuario>\daw\www` no Explorador
 se seguiches a instalación manual desta guía. `daw-web-root -Open` abre o
 cartafol que usa Apache, mesmo cun `WWW_DIR` personalizado. Tamén podes
 [configurar unha ruta fixa en `/home/ad/www`](windows11-contedores.md#ruta-fixa-opcional-nunha-instalación-manual).
@@ -290,12 +290,12 @@ Os datos de Portainer persisten no volume `portainer_data`; inicia con Docker sa
 
 ## 3. Problemas habituais
 
-Executa primeiro `cd ~/workspace && ./scripts/check.sh`: indica que parte falla. Se non o sabes arranxar,
+Executa primeiro `cd ~/daw && ./scripts/check.sh`: indica que parte falla. Se non o sabes arranxar,
 pásalle a saída ao profesorado.
 
 | Síntoma | Solución |
 |---|---|
-| <http://localhost> non carga | Abre Debian e executa `cd ~/workspace && docker compose up -d`. |
+| <http://localhost> non carga | Abre Debian e executa `cd ~/daw && docker compose up -d`. |
 | `permission denied ... docker.sock` | Non fixeches o `wsl --shutdown` despois de instalar Docker (paso 1.3). |
 | `Cannot connect to the Docker daemon` | Dentro de Debian executa `sudo systemctl enable --now docker`. Se persiste, executa `wsl --shutdown` en PowerShell e volve abrir Debian. |
 | `port is already allocated` | Outro programa usa ese porto. Párao ou cambia o porto no `.env` do proxecto; por exemplo `WEB_PORT=127.0.0.1:8080`. |

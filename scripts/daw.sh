@@ -37,7 +37,7 @@ migrar_env() {
 }
 
 # O contedor web ten dúas definicións: a de Compose (daw-start) e a de Dev Containers, que
-# engade /workspace, Xdebug cara a localhost e a súa propia entrada. Dev Containers reutiliza
+# engade o proxecto en ~/daw, Xdebug cara a localhost e a súa propia entrada. Dev Containers reutiliza
 # sen recrealo calquera contedor web que xa exista, e Compose recrea o de Dev Containers.
 # web_state escribe «id modo estado motivo»: modo compose ou devcontainer, estado running ou
 # stopped, e motivo «-» ou por que o contedor xa non corresponde aos ficheiros do proxecto.
@@ -224,7 +224,7 @@ case "$ACTION" in
         fi
         reason=
         if [[ $WEB_MODE == compose ]]; then
-            reason='creouno daw-start, sen /workspace nin a configuración do Dev Container'
+            reason='creouno daw-start, sen o proxecto en ~/daw nin a configuración do Dev Container'
         elif [[ $WEB_MODE == devcontainer && $WEB_STALE != - ]]; then
             reason=$WEB_STALE
         fi

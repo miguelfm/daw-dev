@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 # O mesmo bloqueo que a instalación: nunca se executan as dúas á vez na mesma conta.
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Project
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Revision=$null;Created=@();Replaced=@();Unchanged=@();Kept=@();Backup=$null;Restarted=$false}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Revision=$null;Created=@();Replaced=@();Unchanged=@();Kept=@();Backup=$null;Restarted=$false;ProjectMoved=$false}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -48,6 +48,8 @@ try{
     if($Distribution -notin @(Get-DawDistributions)){throw "Esta conta aínda non ten $Distribution`: activar antes DAW Dev."}
     # Só o modelo que instalou install-user.ps1.
     if(-not(Test-DawModelMarker $Distribution)){throw "A distribución $Distribution non é de DAW Dev; conservouse sen modificar."}
+    # Unha conta que aínda non repetiu a activación ten o proxecto en ~/workspace.
+    $status.ProjectMoved=Move-DawProjectDirectory $Distribution
     $result=Invoke-DawProjectOverlay $Distribution $PackageDirectory $manifest
     foreach($name in @('Created','Replaced','Unchanged','Kept','Backup')){$status[$name]=$result.$name}
     $webChanged=@(@($result.Created)+@($result.Replaced)|Where-Object {$_ -in @('compose.yaml','compose.override.yaml') -or $_ -like 'docker/*' -or $_ -like '.devcontainer/*'})

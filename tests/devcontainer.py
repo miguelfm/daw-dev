@@ -82,13 +82,13 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
     try:
         out = daw(project, 'start')
         state = web(project)
-        check('daw-start creates the Compose definition', state['running'] and not state['devcontainer'] and '/workspace' not in state['mounts'], state)
+        check('daw-start creates the Compose definition', state['running'] and not state['devcontainer'] and '/home/ad/daw' not in state['mounts'], state)
 
         up(project)
         state = web(project)
         images.add(state['image'])
         check('Dev Containers replaces the container daw-start created',
-              state['devcontainer'] and '/workspace' in state['mounts'] and state['env'].get('XDEBUG_CONFIG') == 'client_host=localhost', state)
+              state['devcontainer'] and '/home/ad/daw' in state['mounts'] and state['env'].get('XDEBUG_CONFIG') == 'client_host=localhost', state)
         opened = state['id']
 
         out = daw(project, 'start')
@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix='daw-devcontainer-') as tmp:
         daw(project, 'start')
         state = web(project)
         check('daw-start recreates a closed Dev Container with its own definition',
-              state['running'] and not state['devcontainer'] and '/workspace' not in state['mounts'], state)
+              state['running'] and not state['devcontainer'] and '/home/ad/daw' not in state['mounts'], state)
 
         # git and the classroom copy replace files: the running container keeps the old inode.
         conf = project / 'docker/apache/daw-dev.conf'

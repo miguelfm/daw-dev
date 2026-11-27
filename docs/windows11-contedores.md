@@ -47,7 +47,7 @@ os dous scripts a un cartafol temporal de Windows antes de executar o instalador
 Así podes actualizar os lanzadores directamente desde a copia activa de Debian.
 
 ```powershell
-$project = '/home/uxia/workspace'
+$project = '/home/uxia/daw'
 wsl.exe -d Debian --exec true
 $source = '\\wsl.localhost\Debian' + ($project -replace '/', '\')
 $setup = Join-Path $env:TEMP ('daw-dev-setup-' + [guid]::NewGuid().ToString('N'))
@@ -90,8 +90,8 @@ configuración de Compose, que resolve `WWW_DIR` (`./www` por defecto). Se cambi
 | Onde se gardou o proxecto | Ruta no Explorador | Ruta en Debian |
 |---|---|---|
 | En Windows | `C:\Users\<usuario>\Projects\daw-dev\www` | `/mnt/c/Users/<usuario>/Projects/daw-dev/www` |
-| En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\workspace\www` | `/home/<usuario>/workspace/www` |
-| Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\workspace\www` | `/home/ad/workspace/www` |
+| En Debian, cunha instalación manual | `\\wsl.localhost\Debian\home\<usuario>\daw\www` | `/home/<usuario>/daw/www` |
+| Na distribución `linux` da aula | `\\wsl.localhost\linux\home\ad\daw\www` | `/home/ad/daw/www` |
 | En Debian, coa montaxe opcional descrita abaixo | `\\wsl.localhost\Debian\home\ad\www` | `/home/ad/www` |
 
 Para explorar Debian, pega `\\wsl.localhost\Debian\` na barra de enderezos.
@@ -127,7 +127,7 @@ o `www` da mesma copia. A ruta fixa é independente do nome da conta de Windows.
 3. Engade esta liña, substituíndo a primeira ruta polo `www` da túa copia activa:
 
    ```fstab
-   /home/uxia/workspace/www /home/ad/www none bind,nofail 0 0
+   /home/uxia/daw/www /home/ad/www none bind,nofail 0 0
    ```
 
 4. Valida e activa a montaxe:
@@ -247,7 +247,7 @@ Esta opción executa VS Code e todas as súas ferramentas directamente **dentro 
 3. **Uso:**
    - Executa a orde `daw-code` en PowerShell ou CMD (ou abre a carpeta do proxecto en VS Code en Windows).
    - Ao detectar a configuración, VS Code amosará a mensaxe emerxente para reabrir no contedor. Fai clic en **«Reopen in Container»** (ou preme **`F1`** / `Ctrl+Shift+P` e selecciona `Dev Containers: Reopen in Container`).
-   - O espazo de traballo abrirase en `/workspace` dentro do contedor.
+   - O espazo de traballo abrirase en `~/daw` (`/home/ad/daw`) dentro do contedor.
    - Se `daw-web` o creara antes `daw-start`, retírase e créase de novo coa configuración do
      Dev Container. Co Dev Container aberto, `daw-start-db` e `daw-start-all` arrancan só a base de
      datos e phpMyAdmin, sen pechar VS Code. Consulta

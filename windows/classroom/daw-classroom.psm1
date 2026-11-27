@@ -19,7 +19,9 @@ function Get-DawStateFiles {
 function Get-DawToolsDirectory { Join-Path (Get-DawStateDirectory) 'tools' }
 # Nome xenérico: a distribución pode cambiar sen cambiar as rutas nin as guías.
 function Get-DawDistribution { 'linux' }
-function Get-DawLinuxProjectPath { '/home/ad/workspace' }
+function Get-DawLinuxProjectPath { '/home/ad/daw' }
+# Ata o 27-11-2026 o proxecto estaba en ~/workspace: a activación e UpdateProject múdano a ~/daw.
+function Get-DawPreviousLinuxProjectPath { '/home/ad/workspace' }
 function Get-DawWebImage { 'ghcr.io/miguelfm/dwcs-php:8.6-ad' }
 function Get-DawModelArchive { 'linux.tar.gz' }
 # Imaxes Docker que deben ir no paquete para usar Angular e a documentación sen Internet
@@ -189,6 +191,40 @@ function Backup-DawWebRoot {
     if(-not(@($lines|ForEach-Object {$_.Trim()}) -contains 'copied')){return $null}
     Add-Content -LiteralPath $PendingRestore -Value $target -Encoding UTF8
     return $target
+}
+function Get-DawProjectMoveScript {
+    # Como root na distribución. Argumentos: ruta anterior e ruta actual do proxecto. Se o proxecto
+    # segue na anterior, móveo cos seus contedores parados (montan as rutas anteriores; o seguinte
+    # arranque recréaos), deixa a anterior como ligazón e reapunta as ordes daw-* do modelo.
+    $text=@'
+set -euo pipefail
+old=$1 new=$2
+[[ -d $old && ! -L $old ]] || exit 0
+[[ -f $old/compose.yaml ]] || { echo "$old non é o proxecto DAW Dev; non se moveu." >&2; exit 1; }
+[[ ! -e $new && ! -L $new ]] || { echo "Existen $old e $new; non se moveu ningún." >&2; exit 1; }
+for i in {1..60}; do docker info >/dev/null 2>&1 && break; sleep 1; done
+if docker info >/dev/null 2>&1; then
+    ids=$(docker ps -q --filter "label=com.docker.compose.project.working_dir=$old")
+    [[ -z $ids ]] || docker stop $ids >/dev/null
+fi
+mv -T -- "$old" "$new"
+ln -s -- "$new" "$old"
+chown -h --reference="$new" -- "$old"
+# DAW_BIN_DIR só nas probas.
+for link in "${DAW_BIN_DIR:-/usr/local/bin}"/daw*; do
+    if [[ -L $link && $(readlink -- "$link") == "$old/scripts/daw.sh" ]]; then
+        ln -sfn -- "$new/scripts/daw.sh" "$link"
+    fi
+done
+echo moved
+'@
+    Expand-DawScriptTemplate $text
+}
+function Move-DawProjectDirectory {
+    # Devolve $true se moveu o proxecto da ruta anterior á actual.
+    param([string]$Distribution)
+    $lines=@(Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','root','--exec','bash','-c',(Get-DawProjectMoveScript),'daw-move',(Get-DawPreviousLinuxProjectPath),(Get-DawLinuxProjectPath)))
+    return (@($lines|ForEach-Object {([string]$_).Trim()}) -contains 'moved')
 }
 function Restore-DawPendingWebRoot {
     # Copia na raíz web do proxecto as copias pendentes, na orde en que se fixeron. Os ficheiros
@@ -616,7 +652,7 @@ function Assert-DawManifest {
     foreach($name in 'Schema','Marker','Image','Sha256','LinuxUser','LinuxProjectPath'){
         if(-not $Manifest.PSObject.Properties[$name]){throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'}
     }
-    if($Manifest.Schema -ne 2 -or $Manifest.Marker -cne (Get-DawModelMarker).Value -or $Manifest.Image -cne (Get-DawModelArchive) -or $Manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $Manifest.LinuxUser -cne 'ad' -or $Manifest.LinuxProjectPath -cne (Get-DawLinuxProjectPath)){
+    if($Manifest.Schema -ne 2 -or $Manifest.Marker -cne (Get-DawModelMarker).Value -or $Manifest.Image -cne (Get-DawModelArchive) -or $Manifest.Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or $Manifest.LinuxUser -cne 'ad' -or $Manifest.LinuxProjectPath -cnotin @((Get-DawLinuxProjectPath),(Get-DawPreviousLinuxProjectPath))){
         throw 'Manifesto de modelo non recoñecido: crear o paquete con build-package.ps1.'
     }
 }

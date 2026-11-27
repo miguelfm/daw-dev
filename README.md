@@ -70,7 +70,7 @@ docker compose exec -u ad web php -v
 A etiqueta `8.6-ad` identifica a imaxe coa conta `ad`. Se traballas cos cambios locais
 ou tes un UID/GID personalizado, constrúe a imaxe con `docker compose build web`.
 Ao recrear `web`, consérvanse `www/` e o volume de MariaDB. Se gardaches traballo
-dentro do contedor fóra de `www/` ou de `/workspace`, cópiao ao proxecto antes de recrealo. Para os equipos da aula, segue o
+dentro do contedor fóra de `www/` ou de `~/daw`, cópiao ao proxecto antes de recrealo. Para os equipos da aula, segue o
 [procedemento de actualización e carga sen Internet](docs/aula-windows11.md#actualizar-a-php-86-nos-equipos-da-aula).
 
 ## Comandos do día a día
@@ -238,7 +238,7 @@ Abre outra terminal ou executa `source ~/.config/fish/conf.d/my_aliases.fish` pa
 
 Engade este bloque a `~/.bashrc` se usas Bash ou a `~/.zshrc` se usas Zsh. En macOS, se a túa
 terminal abre Bash como shell de inicio de sesión, podes gardalo en `~/.bash_profile`.
-**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/workspace`.**
+**Na instalación WSL2 desta guía, substitúe `$HOME/Projects/daw-dev` por `$HOME/daw`.**
 
 ```bash
 alias daw-start='docker compose -f "$HOME/Projects/daw-dev/compose.yaml" up -d --no-deps web'
@@ -265,7 +265,7 @@ Substitúe `uxia` polo teu usuario de Debian; se usas outra distribución ou rut
 Para usar `daw-web-root` ou `daw-wsl-shell`, instala [os lanzadores de Windows](docs/windows11-contedores.md#instalar-os-comandos-no-path-do-usuario).
 
 ```powershell
-$script:DawCompose = '/home/uxia/workspace/compose.yaml'
+$script:DawCompose = '/home/uxia/daw/compose.yaml'
 function daw-start { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d --no-deps web @args }
 function daw-start-db { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d db web @args }
 function daw-start-all { wsl.exe -d Debian -- docker compose -f $script:DawCompose up -d @args }
@@ -400,10 +400,10 @@ A directiva `build: !reset null` fai que Dev Containers reutilice a imaxe web lo
 ### Alternar entre `daw-start` e o Dev Container
 
 O contedor `daw-web` ten dúas definicións. A de `daw-start` serve o web e deixa que Xdebug
-conecte co VS Code do anfitrión. A do Dev Container engade `/workspace`, Xdebug cara a `localhost`
+conecte co VS Code do anfitrión. A do Dev Container engade o proxecto en `~/daw`, Xdebug cara a `localhost`
 e a entrada de Dev Containers. Dev Containers usa sen recrealo calquera contedor `web` que xa
 exista, e Compose recrea o dun Dev Container. Sen máis, abrirías o contedor de `daw-start`, sen
-`/workspace`, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
+o proxecto en `~/daw`, ou `daw-start` pecharía a xanela de VS Code. Os scripts encárganse de evitalo:
 
 | Situación | Que pasa |
 |---|---|
@@ -417,7 +417,7 @@ Ao abrir o Dev Container, a comprobación faina o `initializeCommand` de
 `.devcontainer/devcontainer.json` con `scripts/daw.sh prepare-devcontainer`, que precisa Bash,
 Python 3 e Docker. Se falta algún, avisa e Dev Containers abre igual o contedor que atope.
 Retirar o contedor conserva `www/`, o volume da base de datos e os demais volumes. Pérdese só
-o que gardases dentro do contedor fóra de `www/` e `/workspace`.
+o que gardases dentro do contedor fóra de `www/` e `~/daw`.
 
 **F1 → Dev Containers: Rebuild Container** segue dispoñible para forzar un contedor novo. Se aparece `unable to find user ad`, comproba que a imaxe usada inclúe ese usuario antes de reconstruír. O perfil de terminal de Linux detecta se xa está dentro do contedor e abre Bash directamente.
 
@@ -510,7 +510,7 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 
 Os scripts de `windows/classroom/` preparan o paquete DAW Dev e despregano nos postos por WinRM: validan o
 paquete e o modelo, conservan o modo baixo demanda, verifican o IDE e esperan o resultado real da tarefa do
-alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`, proxecto en `~/workspace`) substitúe
+alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`, proxecto en `~/daw`) substitúe
 sen migración a anterior: os paquetes antigos non se reutilizan. Véxase o [README dos scripts de aula](windows/classroom/README.md).
 
 Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/migration.py` e `tests/overlay.py`.

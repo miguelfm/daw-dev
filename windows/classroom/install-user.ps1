@@ -36,7 +36,7 @@ $project=Get-DawLinuxProjectPath
 New-Item -ItemType Directory -Path $stateDir -Force|Out-Null
 $lock=[IO.File]::Open((Join-Path $stateDir $stateFiles.Lock),'OpenOrCreate','ReadWrite','None')
 $statusPath=Join-Path $stateDir $stateFiles.Install
-$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null}
+$status=[ordered]@{Schema=2;RequestId=$RequestId;User=$identity.Name;UserSid=$identity.User.Value;Distribution=$Distribution;Phase='Running';StartedUtc=[DateTime]::UtcNow.ToString('o');Success=$false;Error=$null;Removed=@();WebBackups=@();WebRestored=@();Imported=$false;CodeExtensions=@();CodeExtensionsError=$null;CodeServer=$null;PhpExtensions=@();CodeSkipped=$SkipVSCode.IsPresent;Shortcut=$null;ProjectMoved=$false}
 $transcriptStarted=$false
 try{
     Write-DawState $statusPath $status
@@ -57,7 +57,8 @@ try{
         if($origin -eq $manifest.Sha256 -and -not $Reinstall){$import=$false}
         elseif(-not $Reinstall){throw "$Distribution procede doutro paquete. Gardar o traballo e repetir con -Reinstall, que a elimina."}
         else{
-            $backup=Backup-DawWebRoot $Distribution @($project) $pendingRestore
+            # Tamén na ruta anterior do proxecto: unha conta pode non ter repetido a activación.
+            $backup=Backup-DawWebRoot $Distribution @($project,(Get-DawPreviousLinuxProjectPath)) $pendingRestore
             if($backup){$status.WebBackups+=$backup}
             Remove-DawDistribution $Distribution
             $status.Removed+="wsl:$Distribution"
@@ -73,12 +74,17 @@ try{
         if(-not(Test-DawModelMarker $Distribution)){throw 'A imaxe importada non ten o marcador do modelo.'}
         Set-Content -LiteralPath $originPath -Value $manifest.Sha256 -Encoding ASCII
         $status.Imported=$true
+        # Un modelo anterior ao 27-11-2026 trae o proxecto en ~/workspace.
+        $status.ProjectMoved=Move-DawProjectDirectory $Distribution
         $settingsPath=ConvertTo-DawWslPath $Distribution "$project/.vscode/settings.json"
         if(Test-Path -LiteralPath $settingsPath){
             $text=[IO.File]::ReadAllText($settingsPath).Replace('"Debian"',('"'+$Distribution+'"'))
             [IO.File]::WriteAllText($settingsPath,$text,(New-Object Text.UTF8Encoding($false)))
         }
     }
+    # A distribución que xa tiña a conta, co proxecto aínda en ~/workspace.
+    if(-not $import){$status.ProjectMoved=Move-DawProjectDirectory $Distribution}
+    if($status.ProjectMoved){Write-Output "O proxecto está agora en $project (antes $(Get-DawPreviousLinuxProjectPath))."}
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--exec','bash','-c','for i in {1..60}; do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1')|Out-Null
     Invoke-DawNative 'wsl.exe' @('-d',$Distribution,'-u','ad','--cd',$project,'--exec','docker','compose','config','--quiet')|Out-Null
     $status.WebRestored=@(Restore-DawPendingWebRoot $Distribution $pendingRestore)

@@ -49,7 +49,7 @@ conectar e o enderezo da aplicación.
 Desde Windows, os mesmos proxectos están no cartafol:
 
 ```text
-\\wsl.localhost\linux\home\ad\workspace\angular
+\\wsl.localhost\linux\home\ad\daw\angular
 ```
 
 ## Crear e executar unha aplicación
