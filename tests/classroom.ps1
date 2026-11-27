@@ -77,12 +77,12 @@ exit 0
             Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-start.cmd'),$enc) -ceq $old) 'Replaced an existing launcher'
             $activate=[IO.File]::ReadAllText((Join-Path $bin 'daw-activate.cmd'),$enc)
             Assert ($activate.Contains("-File ""$launcher"" -Action activate -Distribution ""Debian"" %*")) 'daw-activate not restored'
-            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 19)
+            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 20)
             Assert (($env:Path -split ';') -contains $bin) 'PATH not restored'
             # Sen ningún lanzador, restáuranse todos.
             $bin=Get-Bin 'repair empty'
             $null=& $launcher -Action help -Distribution 'Debian-Proba'
-            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 19)
+            Assert (@(Get-ChildItem $bin -Filter 'daw-*.cmd').Count -eq 20)
             Assert ([IO.File]::ReadAllText((Join-Path $bin 'daw-www.cmd'),$enc).Contains('-Distribution "Debian-Proba"'))
             # Variante da aula: a copia do launcher leva o instalador e mantén a ruta e o usuario.
             $bin=Get-Bin 'repair aula'
