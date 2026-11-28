@@ -86,8 +86,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Fallou git archive.' }
 # Engade a configuración desta entrega, incluídos cambios locais. Só rutas versionadas.
 $localPaths = @(
     '.gitignore', '.devcontainer', '.vscode', 'Dockerfile', 'README.md', 'compose.yaml',
-    'docs',
-    'scripts/daw.sh', 'scripts/check.sh', 'windows/daw.ps1', 'scripts/keep-alive.sh', 'windows/install-daw-commands.ps1',
+    'docs', 'scripts', 'windows/daw.ps1', 'windows/install-daw-commands.ps1',
     'windows/classroom'
 )
 $localSources = @(& git.exe -C $repo ls-files -- @localPaths)

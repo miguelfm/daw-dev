@@ -509,7 +509,7 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 │       ├── client/daw-dev.cnf   # os comandos `mysql`/`mariadb` conectan a `db` por defecto
 │       └── init/             # scripts .sql iniciais
 ├── www/                      # ← O TEU CÓDIGO (DocumentRoot; carpetas locais como dwcs/ ignoradas en git)
-├── scripts/                  # comandos daw-* de Linux, check.sh (comprobación da contorna) e scripts que se executan en WSL
+├── scripts/                  # comandos daw-*, helpers Python (daw_helpers.py), check.sh, install-linux.sh e scripts de WSL
 ├── docs/                     # guías de Windows 11 + WSL2 (administración e alumnado)
 ├── windows/                  # comandos daw-* de Windows e instalación de WSL2
 │   └── classroom/            # despregamento na aula (paquete, WinRM, ficheiros do proxecto)

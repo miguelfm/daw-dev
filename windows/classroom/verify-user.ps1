@@ -13,7 +13,8 @@ param(
     [ValidatePattern('^([a-zA-Z0-9._-]+)?$')][string]$Distribution,
     [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId=([guid]::NewGuid().ToString('N')),
     [string]$ExpectedUserSid,
-    [switch]$SkipVSCode
+    [switch]$SkipVSCode,
+    [switch]$IncludeFrontend
 )
 $ErrorActionPreference='Stop'
 # Con [CmdletBinding()] e -File, Windows PowerShell 5.1 deixa baleiro $PSScriptRoot nos valores por defecto.
@@ -85,6 +86,14 @@ try{
     Test-DawStep 'Documentación' {
         Invoke-DawLauncher 'start-doc'
         (@('http://localhost:8080/','http://localhost:5042/','http://localhost:8088/')|ForEach-Object {Test-DawUrl $_}) -join ', '
+    }
+    if($IncludeFrontend){
+        Test-DawStep 'Frontend (Angular)' {
+            Invoke-DawLauncher 'start-frontend'
+            $kh=Join-Path (Join-Path (Join-Path $HOME '.ssh') 'known_hosts.d') 'dwcc-angular'
+            if(-not(Test-Path -LiteralPath $kh -PathType Leaf)){throw "Falta a chave do host SSH sincronizada en $kh."}
+            'frontend healthy + SSH known_hosts'
+        }
     }
     if(-not $SkipVSCode){
         Test-DawStep 'Extensións de VS Code' {

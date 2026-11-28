@@ -58,7 +58,7 @@ Copy-Item -LiteralPath "$source\windows\install-daw-commands.ps1", "$source\wind
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$setup\install-daw-commands.ps1" -Distribution Debian -LinuxProjectPath $project
 ```
 
-O instalador garda `daw.ps1` en `%LOCALAPPDATA%\daw-dev-launcher`. Repite o paso
+O instalador garda `daw.ps1` e `install-daw-commands.ps1` en `%LOCALAPPDATA%\DAW-Dev\launcher`. Repite o paso
 cando cambies de ruta ou actualices os scripts. `daw-code` abre a copia de Debian en
 VS Code a través da extensión WSL. O despregamento da aula inclúe este paso na
 activación da conta. [Guía do despregamento automatizado](aula-windows11.md).

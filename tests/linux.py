@@ -45,7 +45,7 @@ def copy_repo(dest):
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
     # Include untracked scripts created in this working tree (e.g., before git add)
-    for rel in ('scripts/install-linux.sh', '.github/dependabot.yml'):
+    for rel in ('scripts/daw_helpers.py', 'scripts/install-linux.sh', '.github/dependabot.yml'):
         src = repo / rel
         if src.is_file():
             dst = dest / rel
@@ -329,8 +329,13 @@ def save():
 
 if args[:1] == ['compose']:
     if '--images' in args:
-        for img in ('ghcr.io/miguelfm/daw-doc-php:en', 'ghcr.io/miguelfm/daw-doc-devdocs:latest', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'):
-            print(img)
+        if 'db' in args or 'db-admin' in args:
+            for img in os.environ.get('DAW_STUB_DB_IMAGES', 'mariadb:12.3\nphpmyadmin:5.2.3').splitlines():
+                if img:
+                    print(img)
+        else:
+            for img in ('ghcr.io/miguelfm/daw-doc-php:en', 'ghcr.io/miguelfm/daw-doc-devdocs:latest', 'ghcr.io/miguelfm/daw-doc-laravel:13.x'):
+                print(img)
         save(); sys.exit(0)
     if 'config' in args:
         print('name: daw-dev')
@@ -378,7 +383,7 @@ save(); sys.exit(0)
     docker_stub.chmod(0o755)
 
     try:
-        def run_daw(action, state_file, pull_ok='0'):
+        def run_daw(action, state_file, pull_ok='0', db_images=None):
             env = dict(
                 os.environ,
                 PATH=f'{stub_bin}:{os.environ["PATH"]}',
@@ -386,6 +391,8 @@ save(); sys.exit(0)
                 DAW_STUB_PULL_OK=pull_ok,
                 DAW_DOC_RELEASE_API=f'http://127.0.0.1:{port}/release.json',
             )
+            if db_images is not None:
+                env['DAW_STUB_DB_IMAGES'] = db_images
             return run('bash', str(proj / 'scripts/daw.sh'), action, env=env, check_rc=False)
 
         # 1. Missing images + failing pull -> downloads release, verifies SHA256SUMS, loads all 3 images
@@ -461,9 +468,47 @@ save(); sys.exit(0)
         check('daw.sh does not mis-tag mismatched local mariadb:lts or phpmyadmin:latest versions',
               r.returncode == 0 and 'mariadb:12.3' not in imgs6 and 'phpmyadmin:5.2.3' not in imgs6,
               imgs6)
+
+        # 7. Dynamic version matching (e.g. after a Dependabot bump in compose.yaml)
+        st7 = base / 'st7.json'
+        st7.write_text(json.dumps({
+            'images': {
+                'mariadb:lts': {'env': ['MARIADB_VERSION=1:12.4.1+maria~ubu2404']},
+                'phpmyadmin:latest': {'env': ['VERSION=5.2.4']},
+            },
+            'log': [],
+        }))
+        r = run_daw('remove-old-services', st7, db_images='mariadb:12.4\nphpmyadmin:5.2.4')
+        imgs7 = json.loads(st7.read_text())['images']
+        check('daw.sh dynamically aliases updated pinned versions from compose.yaml',
+              r.returncode == 0 and 'mariadb:12.4' in imgs7 and 'phpmyadmin:5.2.4' in imgs7,
+              imgs7)
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_helpers_and_keepalive(base):
+    env_file = base / 'sample.env'
+    env_file.write_text(
+        '# comment\n'
+        'export WWW_DIR="/home/demo/html"\n'
+        'ANGULAR_SSH_PORT=127.0.0.1:2222 # inline comment\n'
+        "ANGULAR_SSH_PORT='127.0.0.1:2299'\n",
+        encoding='utf-8',
+    )
+    www = run('python3', str(repo / 'scripts/daw_helpers.py'), 'read-env', str(env_file), 'WWW_DIR').stdout.strip()
+    port = run('python3', str(repo / 'scripts/daw_helpers.py'), 'read-env', str(env_file), 'ANGULAR_SSH_PORT').stdout.strip()
+    missing = run('python3', str(repo / 'scripts/daw_helpers.py'), 'read-env', str(env_file), 'NO_SUCH', 'fallback').stdout.strip()
+    check('daw_helpers.py read-env handles export, quotes, inline comments, last-wins and defaults',
+          www == '/home/demo/html' and port == '127.0.0.1:2299' and missing == 'fallback',
+          (www, port, missing))
+
+    keep = (repo / 'scripts/keep-alive.sh').read_text(encoding='utf-8')
+    check('keep-alive.sh uses per-user/project lock and checks profiled containers',
+          '/tmp/daw-dev-keep-alive.lock' not in keep
+          and 'XDG_RUNTIME_DIR' in keep
+          and '--profile frontend --profile doc' in keep)
 
 
 def test_compose_and_dockerfile():
@@ -471,6 +516,9 @@ def test_compose_and_dockerfile():
     check('Dockerfile pins mlocati/php-extension-installer instead of :latest',
           'mlocati/php-extension-installer:latest' not in dockerfile
           and 'mlocati/php-extension-installer:2.' in dockerfile)
+    angular_df = (repo / 'docker/angular/Dockerfile').read_text(encoding='utf-8')
+    check('docker/angular/Dockerfile pins exact Node and Angular CLI versions',
+          'FROM node:26.13.1-bookworm' in angular_df and 'ANGULAR_CLI_VERSION=22.3.0' in angular_df)
     check('.gitignore ignores root /compose.override.yaml without ignoring classroom overlay',
           run('git', '-C', str(repo), 'check-ignore', 'compose.override.yaml', check_rc=False).returncode == 0
           and run('git', '-C', str(repo), 'check-ignore', 'windows/classroom/overlay/compose.override.yaml', check_rc=False).returncode != 0)
@@ -492,5 +540,6 @@ with tempfile.TemporaryDirectory(prefix='daw-linux-tests-') as tmp:
     test_setup_angular(base)
     test_install_linux(base)
     test_doc_fallback_and_pinned_aliases(base)
+    test_helpers_and_keepalive(base)
     test_compose_and_dockerfile()
 print(f'ALL {count} LINUX TESTS PASSED')

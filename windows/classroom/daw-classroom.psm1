@@ -38,8 +38,8 @@ function Get-DawModelArchive { 'linux.tar.gz' }
 # Extensións de VS Code para PHP (as de .devcontainer/devcontainer.json): o paquete leva os .vsix
 # e a activación instálaas sen Internet en WSL e no volume do Dev Container.
 function Get-DawCodeExtensionIds { @('xdebug.php-debug','bmewburn.vscode-intelephense-client') }
-# As do VS Code de Windows para abrir o proxecto en WSL e no Dev Container.
-function Get-DawWindowsCodeExtensionIds { @('ms-vscode-remote.remote-containers','ms-vscode-remote.remote-wsl') }
+# As do VS Code de Windows para abrir o proxecto en WSL, Dev Containers e Angular (Remote - SSH).
+function Get-DawWindowsCodeExtensionIds { @('ms-vscode-remote.remote-containers','ms-vscode-remote.remote-wsl','ms-vscode-remote.remote-ssh') }
 # Todas as que leva o paquete en .vsix, para instalalas sen Internet.
 function Get-DawPackageCodeExtensionIds { @(Get-DawCodeExtensionIds)+@(Get-DawWindowsCodeExtensionIds) }
 function Get-DawCodeExtensionsVolume { 'daw-vscode-extensions' }
@@ -1164,9 +1164,11 @@ function New-DawProjectStage {
     $sharedPaths=[ordered]@{}
     foreach($relative in @(
         '.gitignore','Dockerfile','README.md',
-        'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf','docs/wsl2-alumnado.md',
-        'docs/vscode-perfis.md','docs/windows11-contedores.md','scripts/daw.sh','scripts/check.sh',
-        'scripts/keep-alive.sh','compose.yaml','docker/mariadb/healthcheck.sh',
+        'docs/guia-inicio-alumnado.md','docs/guia-inicio-alumnado.pdf',
+        'docs/guia-angular-alumnado.md','docs/guia-angular-alumnado.pdf',
+        'docs/wsl2-alumnado.md','docs/vscode-perfis.md','docs/windows11-contedores.md',
+        'scripts/daw.sh','scripts/daw_helpers.py','scripts/check.sh','scripts/keep-alive.sh','scripts/setup-angular.sh',
+        'compose.yaml','docker/mariadb/healthcheck.sh',
         'docker/angular/.dockerignore','docker/angular/Dockerfile','docker/angular/entrypoint.sh'
     )){$sharedPaths[$relative]=$relative}
     $sharedPaths['html/.vscode/settings.json']='.vscode/settings.json'
@@ -1370,7 +1372,7 @@ for ((i = 0; i < ${#args[@]}; i += 3)); do
             replacement="s/\"Debian\"/\"$distro\"/g"
             sha=$(sed "$replacement" "$src/$rel" | sha256sum | cut -d' ' -f1)
             ;;
-        scripts/daw.sh|scripts/check.sh) permissions=0755 ;;
+        scripts/daw.sh|scripts/daw_helpers.py|scripts/check.sh|scripts/keep-alive.sh|scripts/setup-angular.sh) permissions=0755 ;;
     esac
     action=creado
     if [[ -f $dest ]]; then

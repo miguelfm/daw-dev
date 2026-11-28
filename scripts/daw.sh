@@ -54,66 +54,7 @@ migrar_env() {
 # stopped, e motivo «-» ou por que o contedor xa non corresponde aos ficheiros do proxecto.
 # Sen contedor escribe «- none - -».
 web_state() {
-    python3 - "$PROJECT_DIR" "${COMPOSE_ARGS[@]}" <<'PY'
-import json, os, subprocess, sys
-
-project, compose = sys.argv[1], ("compose", "--project-directory", sys.argv[1], *sys.argv[2:])
-
-def docker(*args):
-    return subprocess.run(("docker", *args), check=True, stdout=subprocess.PIPE, encoding="utf-8").stdout
-
-def nanoseconds(stamp):
-    # Docker usa RFC 3339 en UTC con ata nove decimais, que datetime non le enteiro.
-    from datetime import datetime, timezone
-    stamp = stamp.rstrip("Z")
-    whole, _, fraction = stamp.partition(".")
-    seconds = datetime.fromisoformat(whole).replace(tzinfo=timezone.utc).timestamp()
-    return int(seconds) * 10**9 + int((fraction + "000000000")[:9])
-
-ids = [i for i in docker(*compose, "ps", "--all", "--quiet", "backend").split() if i]
-if not ids:
-    print("- none - -")
-    sys.exit()
-container = json.loads(docker("inspect", "--type", "container", ids[0]))[0]
-labels = container["Config"].get("Labels") or {}
-mode = "devcontainer" if labels.get("devcontainer.local_folder") else "compose"
-running = container["State"]["Running"]
-reason = None
-if mode == "devcontainer":
-    # Compose comproba os seus cambios ao arrancar; Dev Containers, non.
-    # Os ficheiros que o definiron, das etiquetas do propio contedor: valen igual co proxecto
-    # do repositorio e coa aula (devcontainer.json en ~/html). O de /tmp xérao Dev Containers.
-    created = nanoseconds(container["Created"])
-    paths = [f for f in labels.get("com.docker.compose.project.config_files", "").split(",")
-             if f and "/devcontainercli" not in f]
-    paths += [labels.get("devcontainer.config_file", ""), os.path.join(project, ".env")]
-    for path in dict.fromkeys(paths):
-        if path and os.path.isfile(path) and os.stat(path).st_mtime_ns > created:
-            name = os.path.relpath(path, project) if path.startswith(project + os.sep) else path
-            reason = f"cambiou {name}"
-            break
-    if not reason:
-        # Dev Containers constrúe a súa imaxe sobre a do proxecto: debe conter as súas capas.
-        image = json.loads(docker(*compose, "config", "--format", "json"))["services"]["backend"].get("image")
-        if image:
-            try:
-                base = json.loads(docker("image", "inspect", image))[0]["RootFS"]["Layers"]
-            except subprocess.CalledProcessError:
-                base = None
-            used = json.loads(docker("image", "inspect", container["Image"]))[0]["RootFS"]["Layers"]
-            if base and used[:len(base)] != base:
-                reason = f"hai unha imaxe nova {image}"
-if running and not reason:
-    # Docker monta un ficheiro polo seu inodo: se git ou a copia da aula o substitúen, o
-    # contedor en marcha segue co anterior ata que se volve arrancar.
-    started = nanoseconds(container["State"]["StartedAt"])
-    for mount in container.get("Mounts") or []:
-        source = mount.get("Source", "")
-        if mount.get("Type") == "bind" and os.path.isfile(source) and os.stat(source).st_mtime_ns > started:
-            reason = f"cambiou {os.path.relpath(source, project) if source.startswith(project + os.sep) else source}"
-            break
-print(container["Id"][:12], mode, "running" if running else "stopped", reason or "-")
-PY
+    python3 "$SCRIPT_DIR/daw_helpers.py" web-state "$PROJECT_DIR" "${COMPOSE_ARGS[@]}"
 }
 
 read_web_state() {
@@ -160,24 +101,36 @@ remove_old_services() {
 # anterior (docker image rm non borra unha imaxe que use un contedor).
 OLD_IMAGES='ghcr.io/miguelfm/dwcs-php:8.6-ad=ghcr.io/miguelfm/daw-php:8.6 ghcr.io/miguelfm/dwcc-angular:22=ghcr.io/miguelfm/daw-angular:22'
 # Nun modelo da aula anterior a fixar as versións de MariaDB e phpMyAdmin, as imaxes locais
-# están etiquetadas como mariadb:lts e phpmyadmin:latest: se coinciden coa versión fixada,
-# engádeselles a etiqueta fixada sen rede (conservando a anterior para outros proxectos).
+# están etiquetadas como mariadb:lts e phpmyadmin:latest: se coinciden coa versión configurada
+# en compose.yaml/.env, engádeselles a etiqueta fixada sen rede (conservando a anterior).
 ensure_pinned_image_aliases() {
-    local env
-    if ! docker image inspect mariadb:12.3 >/dev/null 2>&1 \
-        && docker image inspect mariadb:lts >/dev/null 2>&1; then
-        env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mariadb:lts 2>/dev/null) || env=
-        if grep -Eq '^MARIADB_VERSION=([0-9]+:)?12\.3\.' <<< "$env"; then
-            docker image tag mariadb:lts mariadb:12.3 >/dev/null 2>&1 || true
-        fi
-    fi
-    if ! docker image inspect phpmyadmin:5.2.3 >/dev/null 2>&1 \
-        && docker image inspect phpmyadmin:latest >/dev/null 2>&1; then
-        env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' phpmyadmin:latest 2>/dev/null) || env=
-        if grep -Eq '^VERSION=5\.2\.3$' <<< "$env"; then
-            docker image tag phpmyadmin:latest phpmyadmin:5.2.3 >/dev/null 2>&1 || true
-        fi
-    fi
+    local img tag env
+    while IFS= read -r img; do
+        case "$img" in
+            mariadb:*)
+                tag=${img#mariadb:}
+                [[ $tag != lts && $tag =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || continue
+                if ! docker image inspect "$img" >/dev/null 2>&1 \
+                    && docker image inspect mariadb:lts >/dev/null 2>&1; then
+                    env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mariadb:lts 2>/dev/null) || env=
+                    if grep -Eq "^MARIADB_VERSION=([0-9]+:)?${tag//./\\.}(\\.|\\+|$)" <<< "$env"; then
+                        docker image tag mariadb:lts "$img" >/dev/null 2>&1 || true
+                    fi
+                fi
+                ;;
+            phpmyadmin:*)
+                tag=${img#phpmyadmin:}
+                [[ $tag != latest && $tag =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || continue
+                if ! docker image inspect "$img" >/dev/null 2>&1 \
+                    && docker image inspect phpmyadmin:latest >/dev/null 2>&1; then
+                    env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' phpmyadmin:latest 2>/dev/null) || env=
+                    if grep -Eq "^VERSION=${tag//./\\.}(\\.|$)" <<< "$env"; then
+                        docker image tag phpmyadmin:latest "$img" >/dev/null 2>&1 || true
+                    fi
+                fi
+                ;;
+        esac
+    done < <(docker compose "${COMPOSE_ARGS[@]}" config --images db db-admin 2>/dev/null)
 }
 
 rename_old_images() {
@@ -248,87 +201,7 @@ ensure_doc_images() {
         return 1
     fi
 
-    python3 - "${need_release[@]}" <<'PY'
-import hashlib, json, os, re, subprocess, sys, tarfile, tempfile, urllib.error, urllib.request
-
-images = sys.argv[1:]
-archives = {}
-for img in images:
-    name = img.rsplit('/', 1)[-1].split(':', 1)[0]
-    if not re.fullmatch(r'daw-doc-[a-z0-9-]+', name):
-        sys.exit(f'Erro: non se puido descargar {img} desde o rexistro.')
-    archives[f'{name}.tar.gz'] = img
-
-repo = os.environ.get('DAW_DOC_REPO', 'miguelfm/daw-doc')
-tag = os.environ.get('DAW_DOC_RELEASE_TAG', 'latest')
-api = os.environ.get('DAW_DOC_RELEASE_API')
-if not api:
-    if tag == 'latest':
-        api = f'https://api.github.com/repos/{repo}/releases/latest'
-    else:
-        api = f'https://api.github.com/repos/{repo}/releases/tags/{tag}'
-
-headers = {'User-Agent': 'daw-dev', 'Accept': 'application/vnd.github+json'}
-try:
-    req = urllib.request.Request(api, headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        release = json.loads(resp.read().decode('utf-8'))
-except Exception as err:
-    sys.exit(f'Erro: non se puido consultar a release de documentación en {repo}: {err}')
-
-assets = {a['name']: a['browser_download_url'] for a in release.get('assets') or []}
-for required in ('SHA256SUMS', *archives.keys()):
-    if required not in assets:
-        sys.exit(f"Erro: a release {release.get('tag_name', '?')} de {repo} non contén {required}.")
-
-def download(url, dest):
-    req = urllib.request.Request(url, headers={'User-Agent': 'daw-dev'})
-    with urllib.request.urlopen(req, timeout=1800) as resp, open(dest, 'wb') as out:
-        while True:
-            chunk = resp.read(1024 * 1024)
-            if not chunk:
-                break
-            out.write(chunk)
-
-def sha256_file(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b''):
-            h.update(chunk)
-    return h.hexdigest().lower()
-
-print(f"Descargando imaxes de documentación da release {release.get('tag_name', '?')} de {repo}...")
-with tempfile.TemporaryDirectory(prefix='daw-doc-') as tmp:
-    sums_path = os.path.join(tmp, 'SHA256SUMS')
-    download(assets['SHA256SUMS'], sums_path)
-    sums = {}
-    with open(sums_path, encoding='utf-8') as f:
-        for line in f:
-            m = re.match(r'^([0-9a-fA-F]{64})\s+\*?(\S+)$', line.strip())
-            if m:
-                sums[m.group(2)] = m.group(1).lower()
-
-    for filename, img in archives.items():
-        if filename not in sums:
-            sys.exit(f'Erro: SHA256SUMS non inclúe {filename}.')
-        dest = os.path.join(tmp, filename)
-        print(f'  {filename}...')
-        download(assets[filename], dest)
-        actual = sha256_file(dest)
-        if actual != sums[filename]:
-            sys.exit(f'Erro: o SHA256 de {filename} non coincide con SHA256SUMS.')
-        try:
-            with tarfile.open(dest, 'r:*') as tar:
-                member = tar.getmember('manifest.json')
-                manifest = json.loads(tar.extractfile(member).read().decode('utf-8'))
-        except Exception as err:
-            sys.exit(f'Erro: {filename} non é un arquivo de imaxe Docker válido ({err}).')
-        tags = [t for entry in manifest for t in (entry.get('RepoTags') or [])]
-        if img not in tags:
-            sys.exit(f'Erro: {filename} non contén a imaxe esperada {img}.')
-        subprocess.run(['docker', 'image', 'load', '--input', dest], check=True)
-        subprocess.run(['docker', 'image', 'inspect', img], check=True, stdout=subprocess.DEVNULL)
-PY
+    python3 "$SCRIPT_DIR/daw_helpers.py" fetch-doc-images "${need_release[@]}"
 }
 
 wait_docker() {
@@ -540,52 +413,7 @@ case "$ACTION" in
             echo 'Erro: daw-web-root require Python 3.' >&2
             exit 1
         fi
-        python3 - "$PROJECT_DIR" "${COMPOSE_ARGS[@]}" <<'PY'
-import json
-import os
-import subprocess
-import sys
-
-web_roots = {"/var/www/html"}
-compose = ("compose", "--project-directory", *sys.argv[1:])
-
-
-def docker(*args):
-    return subprocess.run(("docker", *args), check=True, stdout=subprocess.PIPE, encoding="utf-8").stdout
-
-
-def native_path(source):
-    if sys.platform == "darwin" and not os.path.isdir(source):
-        for prefix in ("/host_mnt", "/run/desktop/mnt/host"):
-            if source.startswith(prefix + "/"):
-                return source[len(prefix):]
-    return source
-
-
-try:
-    containers = docker(*compose, "ps", "--all", "--quiet", "backend").split()
-    mounts = []
-    if containers:
-        # As instancias de docker compose run poden ter montaxes propias.
-        template = '{{if ne (index .Config.Labels "com.docker.compose.oneoff") "True"}}{{json .Mounts}}{{end}}'
-        inspected = docker("inspect", "--type", "container", "--format", template, *containers)
-        mounts = [json.loads(line) for line in inspected.splitlines() if line]
-
-    if mounts:
-        sources = (mount["Source"] for container in mounts for mount in container
-                   if mount["Type"] == "bind" and mount["Destination"] in web_roots)
-    else:
-        config = json.loads(docker(*compose, "config", "--format", "json", "backend"))
-        sources = (mount["source"] for mount in config["services"]["backend"].get("volumes", [])
-                   if mount["type"] == "bind" and mount["target"] in web_roots)
-except subprocess.CalledProcessError as error:
-    sys.exit(error.returncode)
-
-paths = dict.fromkeys(native_path(source) for source in sources)
-if not paths:
-    sys.exit("Erro: a raíz web non está montada desde un cartafol do anfitrión.")
-print(*paths, sep="\n")
-PY
+        python3 "$SCRIPT_DIR/daw_helpers.py" web-root "$PROJECT_DIR" "${COMPOSE_ARGS[@]}"
         ;;
     web-shell|shell|bash)
         docker compose "${COMPOSE_ARGS[@]}" exec -u ad backend bash "$@"

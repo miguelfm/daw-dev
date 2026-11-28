@@ -388,7 +388,7 @@ exit 0
         & $script:M {
             function script:Find-DawCode {'/fake/Code.exe'}
             function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}
-            $script:Installed=@('ms-vscode-remote.remote-wsl');$script:Calls=@()
+            $script:Installed=@('ms-vscode-remote.remote-wsl','ms-vscode-remote.remote-ssh');$script:Calls=@()
             function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds)
                 $script:Calls+=,@($Arguments)
                 if($Arguments -contains '--list-extensions'){return $script:Installed}
@@ -406,7 +406,7 @@ exit 0
             & $script:M {$script:Installed=@();$script:Calls=@()};$env:DAW_TEST_REJECT_VSIX='1'
             $null=Install-DawCodeExtensions $pkg
             $sources=@(& $script:M {$script:Calls}|Where-Object {$_ -contains '--install-extension'}|ForEach-Object {$_[-1]})
-            Assert ($sources.Count -eq 4 -and $sources[1] -eq 'ms-vscode-remote.remote-containers' -and $sources[3] -eq 'ms-vscode-remote.remote-wsl') ($sources -join ',')
+            Assert ($sources.Count -eq 6 -and $sources[1] -eq 'ms-vscode-remote.remote-containers' -and $sources[3] -eq 'ms-vscode-remote.remote-wsl' -and $sources[5] -eq 'ms-vscode-remote.remote-ssh') ($sources -join ',')
             # Nin paquete nin Marketplace: falla coa causa das dúas orixes.
             & $script:M {$script:Installed=@()};$env:DAW_TEST_NO_MARKETPLACE='1'
             Throws {Install-DawCodeExtensions $pkg} '(?s)non confirmada.*not compatible.*ETIMEDOUT'
@@ -448,7 +448,7 @@ exit 0
     Test 'an older Windows extension is updated from the package, never downgraded' {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $pkg=Join-Path $script:Temp 'pkg-windows-update';New-Item -ItemType Directory -Path $pkg|Out-Null
-        $versions=@{'ms-vscode-remote.remote-containers'='0.440.0';'ms-vscode-remote.remote-wsl'='0.90.0'}
+        $versions=@{'ms-vscode-remote.remote-containers'='0.440.0';'ms-vscode-remote.remote-wsl'='0.90.0';'ms-vscode-remote.remote-ssh'='0.120.0'}
         $entries=foreach($id in Get-DawWindowsCodeExtensionIds){
             $file=Get-DawCodeExtensionFile $id;$path=Join-Path $pkg $file
             $publisher,$name=$id.Split('.',2)
@@ -460,8 +460,8 @@ exit 0
         & $script:M {
             function script:Find-DawCode {'/fake/Code.exe'}
             function script:Find-DawCodeCli {param($Code) '/fake/cli.js'}
-            # remote-containers is older than the package; remote-wsl, newer.
-            $script:Installed=@('ms-vscode-remote.remote-containers@0.430.0','ms-vscode-remote.remote-wsl@0.99.0');$script:Calls=@()
+            # remote-containers is older than the package; remote-wsl, newer; remote-ssh, equal.
+            $script:Installed=@('ms-vscode-remote.remote-containers@0.430.0','ms-vscode-remote.remote-wsl@0.99.0','ms-vscode-remote.remote-ssh@0.120.0');$script:Calls=@()
             function script:Invoke-DawNative {param($File,$Arguments,$TimeoutSeconds)
                 $script:Calls+=,@($Arguments)
                 if($Arguments -contains '--list-extensions'){return $script:Installed}
@@ -964,7 +964,7 @@ foreach(`$n in `$Number){
     Test 'the stage takes Compose, Angular and keep-alive from the repository, without overlay copies' {
         $stage=Join-Path $script:Temp 'shared-stage'
         $null=New-DawProjectStage (Join-Path $script:Repo 'windows/classroom') $stage
-        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/entrypoint.sh','docker/angular/.dockerignore','scripts/keep-alive.sh','scripts/check.sh','docker/mariadb/healthcheck.sh'){
+        foreach($p in 'compose.yaml','docker/angular/Dockerfile','docker/angular/entrypoint.sh','docker/angular/.dockerignore','scripts/daw.sh','scripts/daw_helpers.py','scripts/keep-alive.sh','scripts/setup-angular.sh','scripts/check.sh','docker/mariadb/healthcheck.sh','docs/guia-angular-alumnado.md'){
             Assert (-not(Test-Path -LiteralPath (Join-Path $script:Repo ('windows/classroom/overlay/'+$p)))) "Duplicated in overlay: $p"
             $a=[IO.File]::ReadAllBytes((Join-Path $script:Repo $p))
             $b=[IO.File]::ReadAllBytes((Join-Path $stage ('files/'+$p)))

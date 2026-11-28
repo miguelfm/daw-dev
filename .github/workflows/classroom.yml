@@ -26,8 +26,10 @@ jobs:
       - name: PowerShell regression tests
         shell: pwsh
         run: ./tests/classroom.ps1
-      - name: Shell script lint (shellcheck)
-        run: shellcheck -S warning scripts/*.sh docker/angular/entrypoint.sh docker/mariadb/healthcheck.sh windows/classroom/setup-model.sh tests/classroom/db-persistence.sh
+      - name: Shell script lint (shellcheck) and Python syntax check
+        run: |
+          shellcheck -S warning scripts/*.sh docker/angular/entrypoint.sh docker/mariadb/healthcheck.sh windows/classroom/setup-model.sh tests/classroom/db-persistence.sh
+          python3 -m py_compile scripts/daw_helpers.py tests/*.py
       - name: Linux scripts, SSH sync, doc fallback and Compose tests
         run: python3 tests/linux.py
       - name: Actual project overlay in isolated fixtures

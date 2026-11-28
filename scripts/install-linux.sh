@@ -95,7 +95,7 @@ if [[ ! -e $ENV_FILE ]]; then
     umask "$umask_old"
     printf 'Creado: %s\n' "$ENV_FILE"
 else
-    current_www=$(sed -n 's/^WWW_DIR=//p' "$ENV_FILE" | tail -n 1 | tr -d "\"'")
+    current_www=$(python3 "$SCRIPT_DIR/daw_helpers.py" read-env "$ENV_FILE" WWW_DIR)
     if [[ -n $current_www && $current_www != "$HTML_DIR" ]]; then
         printf 'Aviso: %s xa define WWW_DIR=%s (distinto de %s); consérvase sen cambios.\n' \
             "$ENV_FILE" "$current_www" "$HTML_DIR" >&2

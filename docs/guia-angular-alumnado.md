@@ -12,8 +12,9 @@ teu cartafol `~/angular` e vense tamén desde o Explorador de Windows.
    distribución da aula `Debian`, copia antes os proxectos de Angular
    fóra dela. Consulta a [guía rápida da aula](https://github.com/miguelfm/daw-dev/blob/main/docs/guia-inicio-alumnado.md#activar-o-contorno).
 2. Comproba que VS Code ten a extensión **Remote - SSH**
-   (`ms-vscode-remote.remote-ssh`). Se non a tes, instálaa desde o panel de
-   extensións, que se abre con `Ctrl+Maiús+X`.
+   (`ms-vscode-remote.remote-ssh`). Nos postos da aula o paquete xa a
+   preinstala ao activar DAW Dev; nun equipo persoal, instálaa desde o
+   panel de extensións (`Ctrl+Maiús+X`).
 
 ## Arrancar o contedor
 
@@ -28,8 +29,9 @@ desde o paquete da aula se aínda falta. Esta primeira execución pode
 tardar máis ca as seguintes.
 
 - crea a chave `dwcc_angular` no directorio `.ssh` da túa conta de Windows;
-- engade a conexión `dwcc-angular` ao ficheiro `.ssh\config`, se non a
-  tiñas.
+- xestiona o bloque `dwcc-angular` de `.ssh\config` e sincroniza a chave
+  pública do contedor en `.ssh\known_hosts.d\dwcc-angular` (así non se
+  bloquea a conexión aínda que se reinstale a contorna).
 
 Ao rematar, a orde indica como conectar e o enderezo da aplicación.
 
@@ -37,8 +39,8 @@ Ao rematar, a orde indica como conectar e o enderezo da aplicación.
 
 1. Preme `F1`, escribe `Remote-SSH: Connect to Host...` e escolle
    `dwcc-angular`. Se VS Code pregunta pola plataforma, escolle **Linux**.
-2. Na primeira conexión, acepta a identidade do servidor. VS Code instala
-   os seus compoñentes no contedor; cando remata, a esquina inferior
+2. VS Code instala os seus compoñentes no contedor (a identidade do
+   servidor xa está sincronizada); cando remata, a esquina inferior
    esquerda indica `SSH: dwcc-angular`.
 3. Abre o cartafol `/home/node/proxectos` (**File → Open Folder...**) e
    acepta a confianza no cartafol se a pide.
