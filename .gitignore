@@ -1,6 +1,8 @@
 .env
 # Copias que fai daw.sh antes de migrar o .env
 .env.daw-backup-*
+# Sobrescritura local de Compose (non ignora windows/classroom/overlay/compose.override.yaml)
+/compose.override.yaml
 .daw-backup/
 www/*
 !www/index.php

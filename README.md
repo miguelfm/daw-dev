@@ -10,8 +10,8 @@ servidores nin bases de datos no equipo.
 | Servizo    | Que é                                                  | URL / acceso                     |
 |------------|--------------------------------------------------------|----------------------------------|
 | `backend`  | PHP 8.6 + Apache, Xdebug 3.6.0alpha1, Composer, cliente MariaDB, git | <http://localhost> |
-| `db`       | MariaDB (última LTS)                                   | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
-| `db-admin` | phpMyAdmin: xestión web da base de datos               | <http://localhost:8081>          |
+| `db`       | MariaDB 12.3 (LTS)                                     | `db:3306` (dende PHP) · `localhost:3306` (dende o equipo) |
+| `db-admin` | phpMyAdmin 5.2.3: xestión web da base de datos         | <http://localhost:8081>          |
 
 ## Requisitos
 
@@ -50,7 +50,14 @@ O teu código vai na carpeta **`www/`**. Os cambios vense ao recargar o navegado
 Para comprobar a contorna completa (servidor, base de datos, Composer, permisos, Xdebug...):
 
 ```bash
-./scripts/check.sh
+./scripts/check.sh          # backend, BD e phpMyAdmin
+./scripts/check.sh --all    # tamén documentación sen conexión e frontend (Angular por SSH)
+```
+
+Se en Linux queres reproducir a mesma disposición da aula (`~/html` como código web con Dev Container propio, `~/data` fóra da raíz web, `.env`, `compose.override.yaml` e os lanzadores `daw-*`) nun só paso reproducible:
+
+```bash
+./scripts/install-linux.sh
 ```
 
 > **Linux:** a imaxe publicada usa o UID 1000, o do primeiro usuario de case todas as distribucións. Se o teu é
@@ -193,12 +200,17 @@ En Linux e macOS podes instalar os lanzadores para Bash, Zsh e Fish desde a raí
 
 ```bash
 bash scripts/install-daw-commands.sh
+# Para retirar os lanzadores e o bloque engadido ás shells:
+bash scripts/install-daw-commands.sh --uninstall
 ```
 
 Abre unha terminal nova e executa `daw-help`. `daw-start` inicia só o backend;
 `daw-shell` abre a súa terminal e `daw-web-root` amosa a ruta nativa da raíz web.
-`daw-start-frontend` prepara a chave SSH persoal
-e a conexión `dwcc-angular`, e inicia só Angular. `daw-stop` para tamén Angular.
+`daw-start-frontend` prepara a chave SSH persoal, xestiona o bloque `dwcc-angular` de `~/.ssh/config`
+e sincroniza a chave do servidor en `~/.ssh/known_hosts.d/dwcc-angular` para evitar bloqueos tras reinstalar.
+`daw-start-doc` usa as imaxes locais se xa están cargadas; se faltan, intenta descargalas do rexistro e,
+como alternativa, descarga a última release de `daw-doc` verificando `SHA256SUMS`.
+`daw-stop` para tamén Angular e a documentación.
 `daw-code` abre o proxecto no perfil `DWCS - PHP` de VS Code ou, se a raíz web ten o seu
 propio `.devcontainer` (na aula, `~/html`; ou cun `WWW_DIR` fóra do proxecto), a raíz web; para traballar dentro
 do contedor, usa **Dev Containers: Reopen in Container**.
@@ -513,13 +525,10 @@ Primeiro executa `./scripts/check.sh`: indica que parte falla e, en moitos casos
 - **Imaxe:** `php:8.6-apache` en Debian 13. As extensións instálanse con
   [`install-php-extensions`](https://github.com/mlocati/docker-php-extension-installer), que limpa as dependencias de compilación.
   Hai `bcmath`, `mbstring`, `pdo_mysql`, `mysqli`, `intl`, `zip`, `gd` e Xdebug `3.6.0alpha1`, ademais de Composer 2. Xdebug compílase desde a etiqueta da versión preliminar en GitHub. `mbstring` instálase á parte porque a imaxe oficial de PHP 8.6 xa non a compila, como facía a 8.5.
-- **Base de datos:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
+- **Base de datos e phpMyAdmin:** MariaDB en vez de MySQL. Ocupa menos (imaxe de ~340 MB fronte a ~810 MB, ~125 MB de RAM fronte a ~435 MB),
   e para o que se ve no módulo o comportamento é o mesmo: o DSN segue sendo `mysql:`, e `mysqli`, PDO e phpMyAdmin funcionan igual.
-  A etiqueta `lts` colle a última versión de soporte longo. Cando saia unha LTS nova, `docker compose pull` actualiza a imaxe e MariaDB
-  actualiza os datos existentes ao arrancar. Antes de cambiar de serie con datos que
-  queiras conservar, fai unha copia da base de datos e proba a actualización nun
-  volume separado. Para quedar na serie 12.3 e recibir os seus parches, usa
-  `MARIADB_VERSION=12.3` no `.env`.
+  As versións de MariaDB (`MARIADB_VERSION=12.3`), phpMyAdmin (`PMA_VERSION=5.2.3`) e `mlocati/php-extension-installer` están fixadas para construcións reproducibles e actualízanse vía Dependabot (`.github/dependabot.yml`).
+  Nun modelo da aula que aínda teña as etiquetas locais `mariadb:lts` (12.3.x) ou `phpmyadmin:latest` (5.2.3), `daw.sh` engade automaticamente o alias fixado sen precisar rede.
 - **Outra versión de PHP:** `PHP_VERSION=8.4` no `.env` e `docker compose up -d`. Como esa versión non está publicada,
   Compose constrúea co `Dockerfile`. Cada versión ten a súa etiqueta, así que se poden ter varias á vez.
 - **En Compose base, Apache executa PHP como `ad`**, co UID indicado ao construír a imaxe. Na aula, o override executa Apache como `www-data`, igual ca na MV.
@@ -545,4 +554,4 @@ paquete e o modelo, conservan o modo baixo demanda, verifican o IDE e esperan o 
 alumno. Desde o 26/11/2026 a instalación DAW Dev (distribución `linux`; desde o 27/11/2026, a contorna en
 `~/.daw` e o código web en `~/html`) substitúe sen migración a anterior: os paquetes antigos non se reutilizan. Véxase o [README dos scripts de aula](windows/classroom/README.md).
 
-Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/migration.py` e `tests/overlay.py`.
+Ver [solucións, actualización de paquetes e recuperación](docs/aula-correccions-20261113.md), [despregamento na aula 34 do 18/11/2026](docs/aula-despregamento-20261118.md), [despregamento na aula 31 do 19/11/2026](docs/aula-despregamento-20261119-aula31.md), [guía da aula](docs/aula-windows11.md), [guía do alumnado](docs/guia-inicio-alumnado.md), [Angular para DWCC](docs/guia-angular-alumnado.md) e as probas `tests/classroom.ps1`, `tests/overlay.py`, `tests/webroot.py`, `tests/codeserver.py`, `tests/projectmove.py`, `tests/devcontainer.py` e `tests/linux.py`.

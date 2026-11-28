@@ -19,7 +19,7 @@ RUN a2enconf daw-dev && a2enmod rewrite headers \
 
 # Instalador de extensións: compila, activa e limpa as dependencias de
 # compilación nun só paso (imaxe máis pequena e build máis rápido que pecl).
-COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
+COPY --from=mlocati/php-extension-installer:2.13.4 /usr/bin/install-php-extensions /usr/local/bin/
 
 # Ferramentas de shell e cliente de MariaDB (tamén responde ao comando `mysql`).
 # Editores: nano, vi (vim-tiny) e vis (estilo vim, ~1,5 MB; lua-lpeg é

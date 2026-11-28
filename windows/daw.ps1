@@ -34,8 +34,33 @@ $docImages = [ordered]@{
 }
 $docArchiveDirectory = if ($env:DAW_DOC_ARCHIVES) { $env:DAW_DOC_ARCHIVES } else { $classroomPackage }
 
-function Initialize-AngularKey {
-    # Chave da conta de Windows e entrada dwcc-angular de ~/.ssh/config, só a primeira vez.
+function Get-AngularSshPort {
+    $envLines = @()
+    if ($ProjectPath.StartsWith('/')) {
+        try {
+            $envLines = @(& wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'test -f .env && cat .env 2>/dev/null || true')
+            if ($LASTEXITCODE -ne 0) { $envLines = @() }
+        } catch { $envLines = @() }
+    } else {
+        $envFile = Join-Path $ProjectPath '.env'
+        if (Test-Path -LiteralPath $envFile -PathType Leaf) {
+            $envLines = @(Get-Content -LiteralPath $envFile -Encoding UTF8)
+        }
+    }
+    $port = '2222'
+    foreach ($line in $envLines) {
+        $trimmed = ([string]$line).Trim()
+        if ($trimmed -match '^ANGULAR_SSH_PORT=(.+)$') {
+            $raw = $Matches[1].Trim().Trim('"', "'")
+            $candidate = ($raw -split ':')[-1]
+            if ($candidate -match '^\d+$') { $port = $candidate }
+        }
+    }
+    return $port
+}
+
+function Initialize-AngularKey([string]$Port = '2222') {
+    # Chave da conta de Windows e bloque dwcc-angular de ~/.ssh/config con known_hosts propio.
     $sshDir = if ($env:DAW_SSH_DIR) { $env:DAW_SSH_DIR } else { Join-Path $HOME '.ssh' }
     New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
     $key = Join-Path $sshDir 'dwcc_angular'
@@ -50,14 +75,72 @@ function Initialize-AngularKey {
     }
     $config = Join-Path $sshDir 'config'
     $text = if (Test-Path -LiteralPath $config) { [IO.File]::ReadAllText($config) } else { '' }
-    if ($text -notmatch '(?im)^\s*Host\s+dwcc-angular\s*$') {
-        $identity = if ($env:DAW_SSH_DIR) { '"' + $key + '"' } else { '~/.ssh/dwcc_angular' }
-        $nl = "`r`n"
-        $block = "Host dwcc-angular$nl    HostName 127.0.0.1$nl    Port 2222$nl    User node$nl    IdentityFile $identity$nl    IdentitiesOnly yes$nl"
-        if ($text -and -not $text.EndsWith("`n")) { $block = $nl + $block }
-        [IO.File]::AppendAllText($config, $block, (New-Object Text.UTF8Encoding($false)))
+    $identity = if ($env:DAW_SSH_DIR) { '"' + $key + '"' } else { '~/.ssh/dwcc_angular' }
+    $knownHostsPath = Join-Path (Join-Path $sshDir 'known_hosts.d') 'dwcc-angular'
+    $knownHosts = if ($env:DAW_SSH_DIR) { '"' + $knownHostsPath + '"' } else { '~/.ssh/known_hosts.d/dwcc-angular' }
+    $nl = "`r`n"
+    $begin = '# >>> DAW DEV ANGULAR >>>'
+    $end = '# <<< DAW DEV ANGULAR <<<'
+    $block = "$begin$nl" +
+        "Host dwcc-angular$nl" +
+        "    HostName 127.0.0.1$nl" +
+        "    Port $Port$nl" +
+        "    User node$nl" +
+        "    IdentityFile $identity$nl" +
+        "    IdentitiesOnly yes$nl" +
+        "    HostKeyAlias dwcc-angular$nl" +
+        "    UserKnownHostsFile $knownHosts$nl" +
+        "$end$nl"
+    $markerPattern = '(?s)' + [regex]::Escape($begin) + '\r?\n.*?' + [regex]::Escape($end) + '\r?\n?'
+    $updated = $text
+    if ([regex]::IsMatch($text, $markerPattern)) {
+        $updated = [regex]::Replace($text, $markerPattern, { param($m) $block }, 1)
+    } elseif ($text -match '(?im)^\s*Host\s+dwcc-angular\s*$') {
+        # Actualiza un bloque anterior xerado por daw.ps1 (sen marcadores), respectando configuracións propias.
+        $lines = @($text -split '\r?\n')
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '(?i)^\s*Host\s+dwcc-angular\s*$') {
+                $j = $i + 1
+                while ($j -lt $lines.Count) {
+                    $s = $lines[$j].Trim()
+                    if ($s -and -not $s.StartsWith('#') -and $s -match '(?i)^(Host|Match)\s+') { break }
+                    $j++
+                }
+                $endIdx = $j
+                while ($endIdx -gt ($i + 1) -and (-not $lines[$endIdx - 1].Trim() -or $lines[$endIdx - 1].TrimStart().StartsWith('#'))) {
+                    $endIdx--
+                }
+                $section = ($lines[$i..($endIdx - 1)] -join "`n")
+                if ($section -match '(?im)^\s*HostName\s+127\.0\.0\.1\s*$' -and
+                    $section -match '(?im)^\s*User\s+node\s*$' -and
+                    $section -match '(?im)^\s*IdentityFile\s+.*dwcc_angular"?\s*$') {
+                    $before = if ($i -gt 0) { ($lines[0..($i - 1)] -join $nl) + $nl } else { '' }
+                    $after = if ($endIdx -lt $lines.Count) { ($lines[$endIdx..($lines.Count - 1)] -join $nl) } else { '' }
+                    $updated = $before + $block + $after
+                }
+                break
+            }
+        }
+    } else {
+        if ($text -and -not $text.EndsWith("`n")) { $updated = $text + $nl + $block }
+        else { $updated = $text + $block }
+    }
+    if ($updated -cne $text -or -not (Test-Path -LiteralPath $config)) {
+        [IO.File]::WriteAllText($config, $updated, (New-Object Text.UTF8Encoding($false)))
     }
     ([IO.File]::ReadAllText("$key.pub")).Trim()
+}
+
+function Sync-AngularHostKey([string]$HostKey) {
+    if ($HostKey.Trim() -notmatch '^(ssh-ed25519)\s+([A-Za-z0-9+/=]+)(\s.*)?$') {
+        throw 'Unexpected format of the frontend SSH host key.'
+    }
+    $sshDir = if ($env:DAW_SSH_DIR) { $env:DAW_SSH_DIR } else { Join-Path $HOME '.ssh' }
+    $knownDir = Join-Path $sshDir 'known_hosts.d'
+    New-Item -ItemType Directory -Force -Path $knownDir | Out-Null
+    $knownFile = Join-Path $knownDir 'dwcc-angular'
+    $entry = "dwcc-angular $($Matches[1]) $($Matches[2])`n"
+    [IO.File]::WriteAllText($knownFile, $entry, (New-Object Text.UTF8Encoding($false)))
 }
 
 function Get-DawWslDevContainerUri([string]$HostPath, [string]$LinuxWorkspacePath, [string]$ContainerWorkspaceFolder) {
@@ -296,7 +379,8 @@ if ($Action -in 'web-root', 'www') {
 }
 if ($dawAction -eq 'start-frontend') {
     # A chave pública vai ao proxecto (docker/angular/ssh-key.pub); os proxectos, a angular/.
-    $pub = Initialize-AngularKey
+    $angularSshPort = Get-AngularSshPort
+    $pub = Initialize-AngularKey -Port $angularSshPort
     if ($pub -notmatch '^(ssh-ed25519) ([A-Za-z0-9+/=]+)(\s.*)?$') { throw 'Unexpected format of dwcc_angular.pub.' }
     $keyType = $Matches[1]
     $keyBody = $Matches[2]
@@ -341,6 +425,17 @@ if ($composeExitCode -eq 2 -and $dawAction -eq 'start-frontend') {
     # Un proxecto anterior ao 27-11-2026, sen UpdateProject: o servizo chamábase angular.
     & wsl.exe @wslArgs --cd $ProjectPath --exec docker compose --profile angular up -d --wait --wait-timeout 300 angular
     $composeExitCode = $LASTEXITCODE
+}
+if ($composeExitCode -eq 0 -and $dawAction -eq 'start-frontend') {
+    try {
+        # A redirección vai en sh: en PowerShell 5.1, 2>$null con Stop converte stderr en erro.
+        $hostKey = (& wsl.exe @wslArgs --cd $ProjectPath --exec sh -c 'bash scripts/daw.sh frontend-host-key 2>/dev/null' | Out-String).Trim()
+        if ($LASTEXITCODE -eq 0 -and $hostKey) {
+            Sync-AngularHostKey $hostKey
+        }
+    } catch {
+        Write-Warning "Could not synchronize the frontend SSH host key: $($_.Exception.Message)"
+    }
 }
 if ($composeExitCode -eq 0 -and $dawAction -in @('start', 'start-db', 'start-all', 'start-frontend', 'start-doc')) {
     # Un proceso WSL activo evita que Debian se peche cos contedores en marcha.

@@ -35,6 +35,14 @@ services:
     extra_hosts:
       # Necesario en Linux para que Xdebug chegue ao IDE do anfitrión
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      # Sen -f: un .htaccess do alumnado con Basic Auth (401) ou redireccións segue indicando que Apache atende.
+      test: ["CMD", "curl", "-sS", "-I", "-o", "/dev/null", "--max-time", "3", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+      start_interval: 1s
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +50,7 @@ services:
   db:
     container_name: db-c
     hostname: db
-    image: mariadb:${MARIADB_VERSION:-lts}
+    image: mariadb:${MARIADB_VERSION:-12.3}
     ports:
       # Para conectar desde o anfitrión (DBeaver, HeidiSQL, extensión de VS Code...)
       - "${DB_PORT:-3306}:3306"
@@ -51,7 +59,7 @@ services:
       MARIADB_DATABASE: ${DB_NAME:-dwcs}
       MARIADB_USER: ${DB_USER:-dwcs}
       MARIADB_PASSWORD: ${DB_PASSWORD:-abc123..}
-      # Coa etiqueta lts a versión pode cambiar: actualiza os datos existentes ao arrancar
+      # Se se actualiza a serie no .env, MariaDB actualiza os datos existentes ao arrancar
       MARIADB_AUTO_UPGRADE: "1"
       TZ: Europe/Madrid
     volumes:
@@ -71,12 +79,19 @@ services:
   db-admin:
     container_name: db-admin-c
     hostname: db-admin
-    image: phpmyadmin:latest
+    image: phpmyadmin:${PMA_VERSION:-5.2.3}
     ports:
       - "${PMA_PORT:-8081}:80"
     environment:
       PMA_HOST: db
       UPLOAD_LIMIT: 64M
+    healthcheck:
+      test: ["CMD", "curl", "-sS", "-I", "-o", "/dev/null", "--max-time", "3", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+      start_interval: 1s
     depends_on:
       db:
         condition: service_healthy
@@ -107,6 +122,14 @@ services:
         read_only: true
         bind:
           create_host_path: false
+    healthcheck:
+      # Comproba a chave do host e que sshd escoita no porto 22 (0x0016, estado 0A) sen xerar ruído nos logs.
+      test: ["CMD", "sh", "-c", "test -s /claves-host/ed25519.pub && cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | grep -qiE '^ *[0-9]+: [0-9A-F]+:0016 [0-9A-F]+:0000 0A '"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 1s
 
   # Documentación sen conexión do proxecto daw-doc: o manual de PHP, a referencia
   # de HTML, HTTP e CSS de MDN e Laravel. O perfil fai que só arranquen con daw-start-doc.

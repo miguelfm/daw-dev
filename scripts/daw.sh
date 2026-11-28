@@ -159,6 +159,27 @@ remove_old_services() {
 # a anterior que xa estea no equipo pasa a levar o nome actual; despois retírase o nome
 # anterior (docker image rm non borra unha imaxe que use un contedor).
 OLD_IMAGES='ghcr.io/miguelfm/dwcs-php:8.6-ad=ghcr.io/miguelfm/daw-php:8.6 ghcr.io/miguelfm/dwcc-angular:22=ghcr.io/miguelfm/daw-angular:22'
+# Nun modelo da aula anterior a fixar as versións de MariaDB e phpMyAdmin, as imaxes locais
+# están etiquetadas como mariadb:lts e phpmyadmin:latest: se coinciden coa versión fixada,
+# engádeselles a etiqueta fixada sen rede (conservando a anterior para outros proxectos).
+ensure_pinned_image_aliases() {
+    local env
+    if ! docker image inspect mariadb:12.3 >/dev/null 2>&1 \
+        && docker image inspect mariadb:lts >/dev/null 2>&1; then
+        env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mariadb:lts 2>/dev/null) || env=
+        if grep -Eq '^MARIADB_VERSION=([0-9]+:)?12\.3\.' <<< "$env"; then
+            docker image tag mariadb:lts mariadb:12.3 >/dev/null 2>&1 || true
+        fi
+    fi
+    if ! docker image inspect phpmyadmin:5.2.3 >/dev/null 2>&1 \
+        && docker image inspect phpmyadmin:latest >/dev/null 2>&1; then
+        env=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' phpmyadmin:latest 2>/dev/null) || env=
+        if grep -Eq '^VERSION=5\.2\.3$' <<< "$env"; then
+            docker image tag phpmyadmin:latest phpmyadmin:5.2.3 >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
 rename_old_images() {
     local pair old new
     for pair in $OLD_IMAGES; do
@@ -170,6 +191,144 @@ rename_old_images() {
         fi
         docker image rm "$old" >/dev/null 2>&1 || true
     done
+    ensure_pinned_image_aliases
+}
+
+# Fonte única da lista de ordes daw-* (sen táboas asociativas, compatible con Bash 3.2 de macOS).
+LINUX_COMMANDS='daw daw-start daw-star daw-start-all daw-start-db daw-start-frontend daw-start-angular daw-start-doc daw-code daw-web-root daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-web-shell daw-shell daw-publicar daw-help'
+MODEL_COMMANDS='daw daw-start daw-star daw-start-all daw-start-db daw-start-doc daw-stop daw-stop-all daw-stop-doc daw-status daw-logs daw-web-root daw-web-shell daw-shell daw-help'
+
+list_commands() {
+    local mode=${1:-linux} list cmds
+    case "$mode" in
+        --model|model) list=$MODEL_COMMANDS ;;
+        --linux|linux|'') list=$LINUX_COMMANDS ;;
+        *)
+            echo "Opción descoñecida para --list-commands: $mode (usa --model ou sen opción)" >&2
+            return 2
+            ;;
+    esac
+    read -r -a cmds <<< "$list"
+    printf '%s\n' "${cmds[@]}"
+}
+
+compose_port() {
+    local service=$1 container_port=$2 fallback=$3 mapped
+    mapped=$(docker compose "${COMPOSE_ARGS[@]}" --profile frontend --profile doc port "$service" "$container_port" 2>/dev/null | head -n 1) || mapped=
+    if [[ -n $mapped ]]; then
+        printf '%s\n' "${mapped##*:}"
+    else
+        printf '%s\n' "$fallback"
+    fi
+}
+
+# As imaxes da documentación publícanse como release de daw-doc (arquivos .tar.gz + SHA256SUMS)
+# e, opcionalmente, en GHCR. Se xa están en local (por exemplo cargadas do paquete da aula),
+# non se toca a rede. Se faltan, inténtase primeiro docker pull e, se falla, descárganse da
+# release de GitHub comprobando SHA256SUMS e o manifest.json de cada arquivo.
+ensure_doc_images() {
+    local img missing=() need_release=()
+    while IFS= read -r img; do
+        [[ -n $img ]] || continue
+        if ! docker image inspect "$img" >/dev/null 2>&1; then
+            missing+=("$img")
+        fi
+    done < <(docker compose "${COMPOSE_ARGS[@]}" --profile doc config --images doc-php doc-web doc-laravel)
+    [[ ${#missing[@]} -gt 0 ]] || return 0
+
+    for img in "${missing[@]}"; do
+        if ! docker image pull "$img" >/dev/null 2>&1; then
+            need_release+=("$img")
+        fi
+    done
+    [[ ${#need_release[@]} -gt 0 ]] || return 0
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "Erro: faltan imaxes de documentación (${need_release[*]}) e non se atopou python3 para descargalas da release de daw-doc." >&2
+        return 1
+    fi
+
+    python3 - "${need_release[@]}" <<'PY'
+import hashlib, json, os, re, subprocess, sys, tarfile, tempfile, urllib.error, urllib.request
+
+images = sys.argv[1:]
+archives = {}
+for img in images:
+    name = img.rsplit('/', 1)[-1].split(':', 1)[0]
+    if not re.fullmatch(r'daw-doc-[a-z0-9-]+', name):
+        sys.exit(f'Erro: non se puido descargar {img} desde o rexistro.')
+    archives[f'{name}.tar.gz'] = img
+
+repo = os.environ.get('DAW_DOC_REPO', 'miguelfm/daw-doc')
+tag = os.environ.get('DAW_DOC_RELEASE_TAG', 'latest')
+api = os.environ.get('DAW_DOC_RELEASE_API')
+if not api:
+    if tag == 'latest':
+        api = f'https://api.github.com/repos/{repo}/releases/latest'
+    else:
+        api = f'https://api.github.com/repos/{repo}/releases/tags/{tag}'
+
+headers = {'User-Agent': 'daw-dev', 'Accept': 'application/vnd.github+json'}
+try:
+    req = urllib.request.Request(api, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        release = json.loads(resp.read().decode('utf-8'))
+except Exception as err:
+    sys.exit(f'Erro: non se puido consultar a release de documentación en {repo}: {err}')
+
+assets = {a['name']: a['browser_download_url'] for a in release.get('assets') or []}
+for required in ('SHA256SUMS', *archives.keys()):
+    if required not in assets:
+        sys.exit(f"Erro: a release {release.get('tag_name', '?')} de {repo} non contén {required}.")
+
+def download(url, dest):
+    req = urllib.request.Request(url, headers={'User-Agent': 'daw-dev'})
+    with urllib.request.urlopen(req, timeout=1800) as resp, open(dest, 'wb') as out:
+        while True:
+            chunk = resp.read(1024 * 1024)
+            if not chunk:
+                break
+            out.write(chunk)
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest().lower()
+
+print(f"Descargando imaxes de documentación da release {release.get('tag_name', '?')} de {repo}...")
+with tempfile.TemporaryDirectory(prefix='daw-doc-') as tmp:
+    sums_path = os.path.join(tmp, 'SHA256SUMS')
+    download(assets['SHA256SUMS'], sums_path)
+    sums = {}
+    with open(sums_path, encoding='utf-8') as f:
+        for line in f:
+            m = re.match(r'^([0-9a-fA-F]{64})\s+\*?(\S+)$', line.strip())
+            if m:
+                sums[m.group(2)] = m.group(1).lower()
+
+    for filename, img in archives.items():
+        if filename not in sums:
+            sys.exit(f'Erro: SHA256SUMS non inclúe {filename}.')
+        dest = os.path.join(tmp, filename)
+        print(f'  {filename}...')
+        download(assets[filename], dest)
+        actual = sha256_file(dest)
+        if actual != sums[filename]:
+            sys.exit(f'Erro: o SHA256 de {filename} non coincide con SHA256SUMS.')
+        try:
+            with tarfile.open(dest, 'r:*') as tar:
+                member = tar.getmember('manifest.json')
+                manifest = json.loads(tar.extractfile(member).read().decode('utf-8'))
+        except Exception as err:
+            sys.exit(f'Erro: {filename} non é un arquivo de imaxe Docker válido ({err}).')
+        tags = [t for entry in manifest for t in (entry.get('RepoTags') or [])]
+        if img not in tags:
+            sys.exit(f'Erro: {filename} non contén a imaxe esperada {img}.')
+        subprocess.run(['docker', 'image', 'load', '--input', dest], check=True)
+        subprocess.run(['docker', 'image', 'inspect', img], check=True, stdout=subprocess.DEVNULL)
+PY
 }
 
 wait_docker() {
@@ -184,7 +343,8 @@ wait_docker() {
 show_help() {
     cat << 'EOF'
 Uso: daw-start | daw-start-all | daw-start-db | daw-start-frontend | daw-start-doc
-     daw-stop | daw-stop-all | daw-stop-doc | daw-status | daw-logs | daw-shell | daw-web-root | daw-help
+     daw-code | daw-web-root | daw-stop | daw-stop-all | daw-stop-doc
+     daw-status | daw-logs | daw-shell | daw-publicar | daw-help
 
 Comandos dispoñibles:
   daw-start      Arranca só o backend: PHP 8.6, Apache, Xdebug e acceso con daw-shell.
@@ -333,16 +493,37 @@ case "$ACTION" in
         docker compose "${COMPOSE_ARGS[@]}" --profile frontend --profile doc logs --tail 100 -f "$@"
         ;;
     start-doc)
+        ensure_doc_images
         docker compose "${COMPOSE_ARGS[@]}" --profile doc up -d --wait --wait-timeout 300 \
             doc-php doc-web doc-laravel "$@"
-        printf '%s\n' 'PHP:     http://localhost:8080/' 'Web:     http://localhost:5042/ (HTML, HTTP e CSS)' \
-            'Laravel: http://localhost:8088/'
+        printf 'PHP:     http://localhost:%s/\n' "$(compose_port doc-php 80 8080)"
+        printf 'Web:     http://localhost:%s/ (HTML, HTTP e CSS)\n' "$(compose_port doc-web 9292 5042)"
+        printf 'Laravel: http://localhost:%s/\n' "$(compose_port doc-laravel 80 8088)"
         ;;
     start-frontend)
         # daw.ps1 prepara a chave da conta de Windows e pasa DAW_SKIP_SSH_SETUP=1.
         [[ ${DAW_SKIP_SSH_SETUP:-} == 1 ]] || "$SCRIPT_DIR/setup-angular.sh"
         docker compose "${COMPOSE_ARGS[@]}" --profile frontend up -d --wait --wait-timeout 300 frontend "$@"
-        printf '%s\n' 'Frontend (Angular) dispoñible: ssh dwcc-angular' 'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' 'Aplicación: ng serve --host 0.0.0.0 → http://localhost:4200'
+        [[ ${DAW_SKIP_SSH_SETUP:-} == 1 ]] || "$SCRIPT_DIR/setup-angular.sh" --sync-host-key
+        printf '%s\n' 'Frontend (Angular) dispoñible: ssh dwcc-angular' \
+            'VS Code: Remote-SSH → dwcc-angular → /home/node/proxectos' \
+            "Aplicación: ng serve --host 0.0.0.0 → http://localhost:$(compose_port frontend 4200 4200)"
+        ;;
+    frontend-host-key)
+        # Devolve a chave pública ed25519 do servidor SSH do contedor frontend (para Linux e daw.ps1).
+        key=$(docker compose "${COMPOSE_ARGS[@]}" --profile frontend exec -T frontend cat /claves-host/ed25519.pub 2>/dev/null) || {
+            echo 'Erro: non se puido ler a chave pública do servidor SSH de frontend.' >&2
+            exit 1
+        }
+        if [[ $key =~ ^(ssh-ed25519)[[:space:]]+([A-Za-z0-9+/=]+)([[:space:]].*)?$ ]]; then
+            printf '%s %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+        else
+            echo 'Erro: formato inesperado en /claves-host/ed25519.pub.' >&2
+            exit 1
+        fi
+        ;;
+    --list-commands|list-commands)
+        list_commands "${1:-}"
         ;;
     code)
         # Se a raíz web ten o seu propio .devcontainer, é o espazo de traballo: na aula, ~/html (a

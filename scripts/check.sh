@@ -1,22 +1,41 @@
 #!/usr/bin/env bash
 # Comproba que a contorna DAW Dev funciona e mostra un informe.
 #
-# Uso:  ./scripts/check.sh [--build]
+# Uso:  ./scripts/check.sh [--build] [--all | --doc | --frontend]
 #   --build        reconstrúe a imaxe antes de comprobar
+#   --doc          comproba tamén a documentación sen conexión (daw-start-doc)
+#   --frontend     comproba tamén o frontend Angular e o acceso SSH dwcc-angular
+#   --all          equivalente a --doc --frontend
 #
 # Arranca a contorna se non está en marcha. Non borra datos nin cambia a configuración:
 # os ficheiros de proba que crea en www/ elimínanse ao rematar.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 BUILD=()
+CHECK_DOC=0
+CHECK_FRONTEND=0
 for opcion in "$@"; do
     case $opcion in
         --build) BUILD=(--build) ;;
-        -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --doc) CHECK_DOC=1 ;;
+        --frontend) CHECK_FRONTEND=1 ;;
+        --all) CHECK_DOC=1; CHECK_FRONTEND=1 ;;
+        -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Opción descoñecida: $opcion (usa --help)" >&2; exit 2 ;;
     esac
 done
+
+LOG=$(mktemp -t daw-dev-check.XXXXXX.log)
+ESCOITA=""
+WWW=""
+PROBA=".comprobar-$$"
+cleanup() {
+    rm -f -- "$LOG"
+    [[ -n $ESCOITA ]] && rm -f -- "$ESCOITA"
+    [[ -n $WWW ]] && rm -f -- "$WWW/$PROBA.php" "$WWW/$PROBA.txt"
+}
+trap cleanup EXIT
 
 FALLOS=0
 ok()     { printf '\033[32mOK\033[0m     %s\n' "$*"; }
@@ -47,23 +66,21 @@ if [[ -n $id && -n $(docker inspect -f '{{index .Config.Labels "devcontainer.loc
     BUILD=()
 fi
 inicio=$SECONDS
-if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 "${SERVIZOS[@]}" > /tmp/daw-dev-comprobar.log 2>&1; then
+if docker compose up -d "${BUILD[@]}" --wait --wait-timeout 300 "${SERVIZOS[@]}" > "$LOG" 2>&1; then
     ok "docker compose up${BUILD[*]:+ ${BUILD[*]}} en $((SECONDS - inicio)) s"
 else
-    fallo "docker compose up: últimas liñas do log:"; tail -20 /tmp/daw-dev-comprobar.log
+    fallo "docker compose up: últimas liñas do log:"; tail -20 "$LOG"
     exit 1
 fi
 docker compose ps --format '{{.Service}}: {{.Status}}'
 
 # Portos e cartafol reais (respectan o .env)
-porto() { docker compose port "$1" "$2" 2>/dev/null | sed 's/.*://'; }
+porto() { docker compose --profile frontend --profile doc port "$1" "$2" 2>/dev/null | head -n 1 | sed 's/.*://'; }
 WEB="http://localhost:$(porto backend 80)"
 PMA="http://localhost:$(porto db-admin 80)"
 CONTEDOR=$(docker compose ps -q backend)
 WWW=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/www/html"}}{{.Source}}{{end}}{{end}}' "$CONTEDOR")
 IMAXE=$(docker inspect -f '{{.Config.Image}}' "$CONTEDOR")
-PROBA=".comprobar-$$"
-trap 'rm -f "$WWW/$PROBA.php" "$WWW/$PROBA.txt"' EXIT
 
 seccion "Páxina de estado ($WEB)"
 for _ in $(seq 1 15); do curl -s -o /dev/null "$WEB/" && break; sleep 1; done
@@ -112,34 +129,92 @@ if [ "$(curl -s "$WEB/$PROBA.php")" = v2 ]; then ok "os cambios vense ao momento
 seccion "Xdebug"
 # Simula VS Code escoitando no porto 9003 deste equipo (en WSL2: dentro de Debian) ou, nun
 # Dev Container, dentro do contedor, onde Xdebug conecta (client_host=localhost)
-escoita=$(mktemp)
-ESCOITA='
+ESCOITA=$(mktemp -t daw-dev-xdebug.XXXXXX)
+ESCOITA_PHP='
     $s = @stream_socket_server("tcp://0.0.0.0:9003");
     if (!$s) { echo "OCUPADO"; exit; }
     $c = @stream_socket_accept($s, 15);
     echo $c ? fread($c, 4096) : "SEN_CONEXION";'
 if [[ -n $DEVCONTAINER ]]; then
-    docker compose exec -T backend php -n -r "$ESCOITA" > "$escoita" 2>&1 &
+    docker compose exec -T backend php -n -r "$ESCOITA_PHP" > "$ESCOITA" 2>&1 &
 else
-    docker run --rm --network host --entrypoint php "$IMAXE" -n -r "$ESCOITA" > "$escoita" 2>&1 &
+    docker run --rm --network host --entrypoint php "$IMAXE" -n -r "$ESCOITA_PHP" > "$ESCOITA" 2>&1 &
 fi
 sleep 3
 curl -s -m 10 -o /dev/null "$WEB/info.php"
 wait
-if grep -q 'fileuri=' "$escoita"; then
+if grep -q 'fileuri=' "$ESCOITA"; then
     ok "Xdebug conecta co depurador do porto 9003"
-elif grep -q OCUPADO "$escoita"; then
+elif grep -q OCUPADO "$ESCOITA"; then
     aviso "o porto 9003 está ocupado (VS Code xa escoitando?): non se comproba"
 else
     fallo "Xdebug non conectou co porto 9003 (cortalumes?)"
 fi
-rm -f "$escoita"
 t=$(curl -s -o /dev/null -w '%{time_total}' "$WEB/info.php")
 echo "       tempo de resposta sen depurador: ${t}s"
 
 seccion "phpMyAdmin ($PMA)"
 codigo=$(curl -s -o /dev/null -w '%{http_code}' "$PMA/")
 if [ "$codigo" = 200 ]; then ok "phpMyAdmin responde"; else fallo "phpMyAdmin responde $codigo"; fi
+
+if [[ $CHECK_DOC -eq 1 ]]; then
+    seccion "Documentación sen conexión"
+    if bash scripts/daw.sh start-doc > "$LOG" 2>&1; then
+        ok "daw-start-doc"
+        for spec in "doc-php:80:PHP:/pagefind/pagefind-ui.js" "doc-web:9292:Web:/pagefind/pagefind-ui.js" "doc-laravel:80:Laravel:"; do
+            IFS=: read -r svc cport label extra <<< "$spec"
+            hport=$(porto "$svc" "$cport")
+            if [[ -z $hport ]]; then
+                fallo "$label ($svc): sen porto publicado"
+                continue
+            fi
+            url="http://localhost:$hport"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/")
+            if [[ $code == 200 ]]; then
+                if [[ -n $extra ]]; then
+                    extra_code=$(curl -s -o /dev/null -w '%{http_code}' "$url$extra")
+                    if [[ $extra_code == 200 ]]; then
+                        ok "$label responde ($url/) con buscador"
+                    else
+                        fallo "$label ($url$extra) responde $extra_code"
+                    fi
+                else
+                    ok "$label responde ($url/)"
+                fi
+            else
+                fallo "$label ($url/) responde $code"
+            fi
+        done
+    else
+        fallo "daw-start-doc: últimas liñas do log:"; tail -20 "$LOG"
+    fi
+fi
+
+if [[ $CHECK_FRONTEND -eq 1 ]]; then
+    seccion "Frontend (Angular)"
+    if bash scripts/daw.sh start-frontend > "$LOG" 2>&1; then
+        ok "daw-start-frontend"
+        fe_id=$(docker compose --profile frontend ps -q frontend 2>/dev/null)
+        fe_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$fe_id" 2>/dev/null)
+        if [[ $fe_health == healthy ]]; then
+            ok "frontend-c healthy"
+        else
+            fallo "frontend-c estado de saúde: ${fe_health:-descoñecido}"
+        fi
+        if command -v ssh >/dev/null 2>&1; then
+            if ssh_out=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 dwcc-angular \
+                'printf "Node %s · Angular CLI %s\n" "$(node -v)" "$(ng version 2>/dev/null | sed -n "s/.*Angular CLI[[:space:]]*:[[:space:]]*//p" | head -n 1)"' 2>"$LOG"); then
+                ok "SSH dwcc-angular (${ssh_out})"
+            else
+                fallo "SSH dwcc-angular fallou:"; tail -10 "$LOG"
+            fi
+        else
+            aviso "non se atopou ssh; non se comproba a conexión dwcc-angular"
+        fi
+    else
+        fallo "daw-start-frontend: últimas liñas do log:"; tail -20 "$LOG"
+    fi
+fi
 
 seccion "Resultado"
 echo "Servidor: ${SERVIDOR:-?} · imaxe: $IMAXE"

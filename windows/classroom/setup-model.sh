@@ -46,9 +46,10 @@ EOF
     chown -R ad:ad /home/ad
     # Comandos dispoñibles tamén dentro da distribución: os mesmos de scripts/daw.sh, que
     # escolle a orde polo nome da ligazón e resolve o proxecto desde a súa ruta real.
-    for command in daw-start daw-star daw-start-all daw-start-db daw-stop daw-status daw-web-root daw-web-shell daw-shell; do
+    while IFS= read -r command; do
+        [[ -n $command ]] || continue
         ln -s "$project/scripts/daw.sh" "/usr/local/bin/$command"
-    done
+    done < <(bash "$project/scripts/daw.sh" --list-commands --model)
     printf '%s\n' "$marker" > "$marker_file"
     ;;
 images)

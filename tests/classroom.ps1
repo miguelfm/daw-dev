@@ -1051,10 +1051,61 @@ foreach(`$n in `$Number){
         $setup=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/classroom/setup-model.sh'))
         Assert (-not $setup.Contains('daw-aula-command')) 'The model still writes daw-aula-command'
         Assert ($setup.Contains('ln -s "$project/scripts/daw.sh" "/usr/local/bin/$command"'))
-        $names=([regex]::Match($setup,'for command in ([a-z -]+); do')).Groups[1].Value -split ' '
+        Assert ($setup.Contains('bash "$project/scripts/daw.sh" --list-commands --model')) 'setup-model.sh must read commands from daw.sh --list-commands --model'
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'scripts/daw.sh'))
-        Assert ($names.Count -ge 9) 'Missing model command list'
-        foreach($n in $names){Assert ($daw -match ('(?m)^\s+(\S+\|)*'+[regex]::Escape($n)+'(\|\S+)*\)')) "daw.sh does not handle $n"}
+        $modelNames=([regex]::Match($daw,"MODEL_COMMANDS='([^']+)'")).Groups[1].Value -split '\s+' | Where-Object { $_ }
+        $linuxNames=([regex]::Match($daw,"LINUX_COMMANDS='([^']+)'")).Groups[1].Value -split '\s+' | Where-Object { $_ }
+        Assert ($modelNames.Count -ge 9 -and $linuxNames.Count -ge 15) 'Missing command lists in daw.sh'
+        foreach($n in @($modelNames)+@($linuxNames)|Sort-Object -Unique){
+            Assert ($daw -match ('(?m)^\s+(\S+\|)*'+[regex]::Escape($n)+'(\|\S+)*\)')) "daw.sh does not handle $n"
+        }
+        $winInstall=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/install-daw-commands.ps1'))
+        foreach($n in $linuxNames|Where-Object { $_ -like 'daw-*' -and $_ -ne 'daw-publicar' }){
+            Assert ($winInstall.Contains("'$n' = ")) "Windows install-daw-commands.ps1 is missing $n"
+        }
+    }
+    Test 'Windows Angular SSH config uses isolated known_hosts, updates ports and syncs host key' {
+        $dawPath=Join-Path $script:Repo 'windows/daw.ps1'
+        $ast=[Management.Automation.Language.Parser]::ParseFile($dawPath,[ref]$null,[ref]$null)
+        foreach($fnName in 'Initialize-AngularKey','Sync-AngularHostKey'){
+            $fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fnName},$false)
+            Assert ($null -ne $fn) "Missing $fnName"
+            . ([scriptblock]::Create($fn.Extent.Text))
+        }
+        $saved=$env:DAW_SSH_DIR
+        try{
+            $sshDir=Join-Path $script:Temp 'win-angular-ssh'
+            New-Item -ItemType Directory -Path $sshDir -Force|Out-Null
+            $env:DAW_SSH_DIR=$sshDir
+            # Pre-create dummy public key so the test does not depend on ssh-keygen.exe on Linux.
+            $fakeKey='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA dwcc-angular'
+            [IO.File]::WriteAllText((Join-Path $sshDir 'dwcc_angular.pub'),$fakeKey,(New-Object Text.UTF8Encoding($false)))
+            $pub=Initialize-AngularKey -Port '2222'
+            Assert ($pub -eq $fakeKey)
+            $cfg=[IO.File]::ReadAllText((Join-Path $sshDir 'config'))
+            Assert ($cfg.Contains('# >>> DAW DEV ANGULAR >>>') -and $cfg.Contains('Port 2222') -and $cfg.Contains('HostKeyAlias dwcc-angular') -and $cfg.Contains('UserKnownHostsFile')) $cfg
+            # Port change updates the managed block without duplicating it.
+            $null=Initialize-AngularKey -Port '2299'
+            $cfg2=[IO.File]::ReadAllText((Join-Path $sshDir 'config'))
+            Assert (([regex]::Matches($cfg2,'Host dwcc-angular')).Count -eq 1 -and $cfg2.Contains('Port 2299') -and -not $cfg2.Contains('Port 2222')) $cfg2
+            # Legacy unmarked block is upgraded while preserving other hosts.
+            $legacy="Host dwcc-angular`r`n    HostName 127.0.0.1`r`n    Port 2222`r`n    User node`r`n    IdentityFile ~/.ssh/dwcc_angular`r`n    IdentitiesOnly yes`r`n`r`nHost deb`r`n    HostName 192.168.56.200`r`n"
+            [IO.File]::WriteAllText((Join-Path $sshDir 'config'),$legacy,(New-Object Text.UTF8Encoding($false)))
+            $null=Initialize-AngularKey -Port '2244'
+            $cfg3=[IO.File]::ReadAllText((Join-Path $sshDir 'config'))
+            Assert (([regex]::Matches($cfg3,'Host dwcc-angular')).Count -eq 1 -and $cfg3.Contains('Port 2244') -and $cfg3.Contains('HostKeyAlias dwcc-angular') -and $cfg3.Contains('Host deb')) $cfg3
+            # Custom Host dwcc-angular is preserved untouched.
+            $custom="Host dwcc-angular`r`n    HostName 10.1.2.3`r`n    User someone`r`n"
+            [IO.File]::WriteAllText((Join-Path $sshDir 'config'),$custom,(New-Object Text.UTF8Encoding($false)))
+            $null=Initialize-AngularKey -Port '2255'
+            Assert ([IO.File]::ReadAllText((Join-Path $sshDir 'config')) -ceq $custom)
+            # Sync-AngularHostKey writes known_hosts.d/dwcc-angular and rejects malformed keys.
+            $hk='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+            Sync-AngularHostKey $hk
+            $khPath=Join-Path (Join-Path $sshDir 'known_hosts.d') 'dwcc-angular'
+            Assert ([IO.File]::ReadAllText($khPath) -ceq "dwcc-angular $hk`n")
+            Throws { Sync-AngularHostKey 'invalid-key' } 'Unexpected format'
+        }finally{$env:DAW_SSH_DIR=$saved}
     }
     Test 'launchers use the DAW-Dev package and the classroom VS Code cache on any distribution' {
         $daw=[IO.File]::ReadAllText((Join-Path $script:Repo 'windows/daw.ps1'))
